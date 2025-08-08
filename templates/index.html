@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brikk Enterprise Backend - API Testing Interface</title>
+    <style>
+        /* Brikk Enterprise Backend - Official Dark Theme */
+        :root {
+            --brikk-dark-bg: #0F0F11;
+            --brikk-purple: #735FFF;
+            --brikk-teal: #00F0B5;
+            --brikk-slate-text: #D1D5DB;
+            --brikk-white: #FFFFFF;
+            --brikk-gradient: linear-gradient(135deg, #735FFF 0%, #00F0B5 100%);
+            --brikk-card-bg: rgba(115, 95, 255, 0.05);
+            --brikk-border: rgba(115, 95, 255, 0.2);
+            --brikk-shadow: 0 8px 32px rgba(115, 95, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--brikk-dark-bg);
+            color: var(--brikk-slate-text);
+            line-height: 1.6;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(115, 95, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 240, 181, 0.1) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--brikk-border);
+        }
+
+        .logo {
+            width: 64px;
+            height: 64px;
+            background: var(--brikk-gradient);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            box-shadow: var(--brikk-shadow);
+        }
+
+        .logo-text {
+            color: var(--brikk-white);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--brikk-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--brikk-slate-text);
+            font-size: 1.125rem;
+            opacity: 0.8;
+        }
+
+        .api-section {
+            background: var(--brikk-card-bg);
+            border: 1px solid var(--brikk-border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(20px);
+            box-shadow: var(--brikk-shadow);
+        }
+
+        .api-section h2 {
+            color: var(--brikk-white);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .method-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .method-get {
+            background: rgba(0, 240, 181, 0.2);
+            color: var(--brikk-teal);
+            border: 1px solid rgba(0, 240, 181, 0.3);
+        }
+
+        .method-post {
+            background: rgba(115, 95, 255, 0.2);
+            color: var(--brikk-purple);
+            border: 1px solid rgba(115, 95, 255, 0.3);
+        }
+
+        .method-put {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            color: var(--brikk-white);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="text"], input[type="email"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 15, 17, 0.8);
+            border: 1px solid var(--brikk-border);
+            border-radius: 8px;
+            color: var(--brikk-white);
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus, input[type="email"]:focus {
+            outline: none;
+            border-color: var(--brikk-purple);
+            box-shadow: 0 0 0 3px rgba(115, 95, 255, 0.1);
+        }
+
+        button {
+            background: var(--brikk-gradient);
+            color: var(--brikk-white);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--brikk-shadow);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 48px rgba(115, 95, 255, 0.2);
+        }
+
+        .response-area {
+            background: rgba(15, 15, 17, 0.8);
+            border: 1px solid var(--brikk-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: var(--brikk-teal);
+            white-space: pre-wrap;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 240, 181, 0.1);
+            border: 1px solid rgba(0, 240, 181, 0.3);
+            border-radius: 8px;
+            color: var(--brikk-teal);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--brikk-teal);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-text">B</span>
+            </div>
+            <h1>Brikk Enterprise Backend</h1>
+            <p class="subtitle">API Testing Interface - Enterprise Grade Infrastructure</p>
+        </div>
+
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Backend Services Operational</span>
+        </div>
+
+        <div class="grid">
+            <!-- Get All Users -->
+            <div class="api-section">
+                <h2>
+                    <span class="method-badge method-get">GET</span>
+                    Get All Users
+                </h2>
+                <p style="margin-bottom: 1rem; opacity: 0.8;">Retrieve all users from the database</p>
+                <button onclick="getUsers()">Get Users</button>
+                <div class="response-area" id="getUsersResponse">Response will appear here...</div>
+            </div>
+
+            <!-- Create User -->
+            <div class="api-section">
+                <h2>
+                    <span class="method-badge method-post">POST</span>
+                    Create User
+                </h2>
+                <p style="margin-bottom: 1rem; opacity: 0.8;">Create a new user in the system</p>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" placeholder="Enter username">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" placeholder="Enter email address">
+                </div>
+                <button onclick="createUser()">Create User</button>
+                <div class="response-area" id="createUserResponse">Response will appear here...</div>
+            </div>
+
+            <!-- Get Single User -->
+            <div class="api-section">
+                <h2>
+                    <span class="method-badge method-get">GET</span>
+                    Get Single User
+                </h2>
+                <p style="margin-bottom: 1rem; opacity: 0.8;">Retrieve a specific user by ID</p>
+                <div class="form-group">
+                    <label for="getUserId">User ID:</label>
+                    <input type="text" id="getUserId" placeholder="Enter user ID">
+                </div>
+                <button onclick="getUser()">Get User</button>
+                <div class="response-area" id="getUserResponse">Response will appear here...</div>
+            </div>
+
+            <!-- Update User -->
+            <div class="api-section">
+                <h2>
+                    <span class="method-badge method-put">PUT</span>
+                    Update User
+                </h2>
+                <p style="margin-bottom: 1rem; opacity: 0.8;">Update an existing user's information</p>
+                <div class="form-group">
+                    <label for="updateUserId">User ID:</label>
+                    <input type="text" id="updateUserId" placeholder="Enter user ID">
+                </div>
+                <div class="form-group">
+                    <label for="newUsername">New Username:</label>
+                    <input type="text" id="newUsername" placeholder="Enter new username">
+                </div>
+                <div class="form-group">
+                    <label for="newEmail">New Email:</label>
+                    <input type="email" id="newEmail" placeholder="Enter new email">
+                </div>
+                <button onclick="updateUser()">Update User</button>
+                <div class="response-area" id="updateUserResponse">Response will appear here...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function getUsers() {
+            const responseDiv = document.getElementById('getUsersResponse');
+            responseDiv.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/users');
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function createUser() {
+            const responseDiv = document.getElementById('createUserResponse');
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            
+            if (!username || !email) {
+                responseDiv.textContent = 'Error: Please fill in all fields';
+                return;
+            }
+            
+            responseDiv.textContent = 'Creating user...';
+            
+            try {
+                const response = await fetch('/users', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, email })
+                });
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                
+                // Clear form
+                document.getElementById('username').value = '';
+                document.getElementById('email').value = '';
+            } catch (error) {
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function getUser() {
+            const responseDiv = document.getElementById('getUserResponse');
+            const userId = document.getElementById('getUserId').value;
+            
+            if (!userId) {
+                responseDiv.textContent = 'Error: Please enter a user ID';
+                return;
+            }
+            
+            responseDiv.textContent = 'Loading user...';
+            
+            try {
+                const response = await fetch(`/users/${userId}`);
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function updateUser() {
+            const responseDiv = document.getElementById('updateUserResponse');
+            const userId = document.getElementById('updateUserId').value;
+            const username = document.getElementById('newUsername').value;
+            const email = document.getElementById('newEmail').value;
+            
+            if (!userId) {
+                responseDiv.textContent = 'Error: Please enter a user ID';
+                return;
+            }
+            
+            responseDiv.textContent = 'Updating user...';
+            
+            try {
+                const updateData = {};
+                if (username) updateData.username = username;
+                if (email) updateData.email = email;
+                
+                const response = await fetch(`/users/${userId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                const data = await response.json();
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                
+                // Clear form
+                document.getElementById('updateUserId').value = '';
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newEmail').value = '';
+            } catch (error) {
+                responseDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
+
