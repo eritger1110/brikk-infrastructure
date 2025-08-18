@@ -9,6 +9,8 @@ from src.models.agent import db
 from src.routes.agents import agents_bp
 from src.routes.coordination import coordination_bp
 from src.routes.transactions import transactions_bp
+from src.routes.auth import auth_bp
+from src.routes.billing import billing_bp
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 app.config['SECRET_KEY'] = 'brikk-ai-agent-coordination-secret-key-2025'
@@ -17,6 +19,8 @@ app.config['SECRET_KEY'] = 'brikk-ai-agent-coordination-secret-key-2025'
 CORS(app)
 
 # Register Brikk API blueprints
+app.register_blueprint(auth_bp, url_prefix='/api/auth')
+app.register_blueprint(billing_bp, url_prefix='/api/billing')
 app.register_blueprint(agents_bp, url_prefix='/api')
 app.register_blueprint(coordination_bp, url_prefix='/api')
 app.register_blueprint(transactions_bp, url_prefix='/api')

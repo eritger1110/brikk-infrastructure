@@ -1,15 +1,38 @@
 from flask import Blueprint, request, jsonify
 from src.models.agent import db, Agent, Message, CoordinationSession
+from src.models.user import User, UserApiKey, UsageLog
+from src.routes.auth import authenticate_api_key, log_api_usage
 from datetime import datetime
 import json
+import time
 
 coordination_bp = Blueprint('coordination', __name__)
 
 def authenticate_agent(api_key):
-    """Authenticate agent by API key"""
+    """Authenticate agent by API key (legacy support)"""
     if not api_key:
         return None
     return Agent.query.filter_by(api_key=api_key).first()
+
+def authenticate_request(api_key):
+    """Authenticate request by user API key or agent API key"""
+    if not api_key:
+        return None, None, 'missing_key'
+    
+    # Try user API key first
+    user, user_api_key = authenticate_api_key(api_key)
+    if user:
+        # Check if user can make API calls
+        if not user.can_make_api_call():
+            return None, None, 'rate_limit_exceeded'
+        return user, user_api_key, 'user'
+    
+    # Fall back to agent API key (legacy support)
+    agent = authenticate_agent(api_key)
+    if agent:
+        return agent, None, 'agent'
+    
+    return None, None, 'invalid_key'
 
 @coordination_bp.route('/messages/send', methods=['POST'])
 def send_message():
