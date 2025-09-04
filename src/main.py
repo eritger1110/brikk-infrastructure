@@ -10,6 +10,8 @@ from src.models.agent import db
 from src.routes.user import user_bp
 from src.routes.coordination import coordination_bp
 from src.routes.security import security_bp
+from src.routes.provision import provision_bp
+from src.models.customer_profile import db as _db_customer_profile  # load model
 
 app = Flask(__name__, 
             static_folder=os.path.join(os.path.dirname(__file__), 'static'),
@@ -29,12 +31,14 @@ db.init_app(app)
 
 # Create database tables
 with app.app_context():
+    from src.models.customer_profile import db
     db.create_all()
 
 # Register blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(coordination_bp, url_prefix='/api')
 app.register_blueprint(security_bp, url_prefix='/api')
+app.register_blueprint(provision_bp)
 
 # Health check endpoint
 @app.route('/health')
