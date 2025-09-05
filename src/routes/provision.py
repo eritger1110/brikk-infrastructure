@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from src.models.customer_profile import db, CustomerProfile
+from src.models.customer_profile import CustomerProfile
+from src.models.agent import db  # shared db
 import os, json
 
 provision_bp = Blueprint('provision', __name__)
