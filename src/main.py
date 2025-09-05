@@ -12,6 +12,8 @@ from src.routes.coordination import coordination_bp
 from src.routes.security import security_bp
 from src.routes.provision import provision_bp
 from src.models.customer_profile import CustomerProfile
+from src.routes.welcome import welcome_bp
+app.register_blueprint(welcome_bp)
 
 app = Flask(__name__, 
             static_folder=os.path.join(os.path.dirname(__file__), 'static'),
