@@ -1,5 +1,5 @@
-from flask_sqlalchemy import SQLAlchemy
-db = SQLAlchemy()
+# src/models/customer_profile.py
+from src.models.agent import db  # REUSE the shared db instance
 
 class CustomerProfile(db.Model):
     __tablename__ = 'customer_profiles'
