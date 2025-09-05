@@ -31,7 +31,6 @@ db.init_app(app)
 
 # Create database tables
 with app.app_context():
-    from src.models.customer_profile import db
     db.create_all()
 
 # Register blueprints
