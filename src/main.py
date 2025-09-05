@@ -61,6 +61,8 @@ CORS(
     resources={r"/api/*": {"origins": [
         "https://www.getbrikk.com",
         "https://getbrikk.com",
+        "https://app.getbrikk.com",  
+        "https://brikk-infrastructure.onrender.com",
     ]}},
     supports_credentials=True,  # allow browser to send cookies
 )
