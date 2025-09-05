@@ -11,7 +11,7 @@ from src.routes.user import user_bp
 from src.routes.coordination import coordination_bp
 from src.routes.security import security_bp
 from src.routes.provision import provision_bp
-from src.models.customer_profile import db as _db_customer_profile  # load model
+from src.models.customer_profile import CustomerProfile
 
 app = Flask(__name__, 
             static_folder=os.path.join(os.path.dirname(__file__), 'static'),
