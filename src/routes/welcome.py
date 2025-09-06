@@ -1,51 +1,41 @@
 # src/routes/welcome.py
 import os
-import jwt
-from flask import Blueprint, request, redirect, make_response, current_app, abort
+from flask import Blueprint, request, redirect, make_response
+from flask_jwt_extended import create_access_token, set_access_cookies
+import jwt as pyjwt  # PyJWT
 
-welcome_bp = Blueprint("welcome", __name__)
-
-# Where to send users after the cookie is set
-APP_FRONTEND_URL   = os.getenv("APP_FRONTEND_URL", "https://app.getbrikk.com")
-APP_DASHBOARD_PATH = os.getenv("APP_DASHBOARD_PATH", "/")   # e.g. "/app" or "/" – change if needed
-
-# Cookie settings
-COOKIE_NAME   = os.getenv("SESSION_COOKIE_NAME", "access_token_cookie")  # default flask-jwt-extended cookie name
-COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", ".getbrikk.com")              # works for app/api subdomains
-
-# Token verification
-JWT_SECRET    = os.environ["JWT_SECRET_KEY"]   # must match the key used by Netlify to sign the token
-JWT_AUDIENCE  = os.getenv("JWT_AUD", "brikk")  # keep in sync with the token payload
+welcome_bp = Blueprint("welcome_bp", __name__)
 
 @welcome_bp.route("/welcome")
 def welcome():
     token = request.args.get("token", "")
     if not token:
-        # no token -> just send to the app home
-        return redirect(APP_FRONTEND_URL + APP_DASHBOARD_PATH)
+        return "Missing token", 400
+
+    secret = os.environ.get("JWT_SECRET_KEY", "change-me")
 
     try:
-        # Verify the short-lived token we created in Netlify
-        jwt.decode(
-            token,
-            JWT_SECRET,
-            algorithms=["HS256"],
-            audience=JWT_AUDIENCE,
-            options={"require": ["exp", "iat"]}
+        payload = pyjwt.decode(token, secret, algorithms=["HS256"])
+    except pyjwt.ExpiredSignatureError:
+        # Token expired (most common when service cold-starts and token lifetime is short)
+        return (
+            "Link expired. Please return to the previous page and try again.", 401
         )
-    except Exception as e:
-        current_app.logger.warning(f"/welcome invalid token: {e}")
-        abort(401)
+    except Exception:
+        return "Unauthorized", 401
 
-    # Set the session cookie for the app domain and redirect
-    resp = make_response(redirect(APP_FRONTEND_URL + APP_DASHBOARD_PATH))
-    resp.set_cookie(
-        COOKIE_NAME,
-        token,
-        max_age=7 * 24 * 3600,        # 7 days
-        domain=COOKIE_DOMAIN,
-        secure=True,
-        httponly=True,
-        samesite="None",
-    )
+    email = payload.get("email")
+    if not email:
+        return "Unauthorized", 401
+
+    # Mint your app session cookie
+    app_claims = {"email": email, "role": "user"}
+    access_token = create_access_token(identity=email, additional_claims=app_claims)
+
+    # Where to send the user after we set the cookie
+    # Example: https://www.getbrikk.com/app/  (or just https://www.getbrikk.com/)
+    dashboard_url = os.environ.get("APP_WELCOME_URL", "https://www.getbrikk.com/")
+
+    resp = make_response(redirect(dashboard_url))
+    set_access_cookies(resp, access_token)
     return resp
