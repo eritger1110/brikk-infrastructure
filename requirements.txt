@@ -7,6 +7,6 @@ cryptography>=42.0.5,<47
 gunicorn==21.2.0
 python-dotenv==1.0.0
 requests==2.31.0
-PyJWT==2.8.0
+PyJWT==2.9.0
 
 
