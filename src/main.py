@@ -18,6 +18,7 @@ from src.routes.provision import provision_bp
 # Welcome blueprint is optional; import defensively
 try:
     from src.routes.welcome import welcome_bp
+    app.register_blueprint(welcome_bp)
 except Exception:
     welcome_bp = None
 
