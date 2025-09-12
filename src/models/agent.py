@@ -1,7 +1,6 @@
 # src/models/agent.py
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone
 from src.database.db import db
+from datetime import datetime, timezone
 import uuid
 import json
 
