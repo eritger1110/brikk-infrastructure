@@ -5,8 +5,6 @@ from src.database.db import db
 import uuid
 import json
 
-db = SQLAlchemy()
-
 # ---------------------------
 # Purchase (orders / receipts)
 # ---------------------------
