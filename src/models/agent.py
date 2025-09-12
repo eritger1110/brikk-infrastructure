@@ -5,40 +5,6 @@ import uuid
 import json
 
 # ---------------------------
-# Purchase (orders / receipts)
-# ---------------------------
-class Purchase(db.Model):
-    """
-    Minimal purchase record used to associate a user/subscription with a
-    human-friendly order reference that we can surface in emails and the UI.
-    """
-    __tablename__ = "purchases"
-
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    # Professional-looking order reference (e.g., BRK-ABC1234...)
-    order_ref = db.Column(db.String(32), unique=True, nullable=False, index=True)
-
-    # Who bought it (we store email; you can add user_id if you want)
-    email = db.Column(db.String(255), index=True, nullable=False)
-
-    # Stripe pointers (optional but useful)
-    stripe_customer_id = db.Column(db.String(64), index=True)
-    stripe_subscription_id = db.Column(db.String(64), index=True)
-
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "order_ref": self.order_ref,
-            "email": self.email,
-            "stripe_customer_id": self.stripe_customer_id,
-            "stripe_subscription_id": self.stripe_subscription_id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-        }
-
-
-# ---------------------------
 # Existing models (unchanged)
 # ---------------------------
 class Agent(db.Model):
