@@ -8,5 +8,5 @@ gunicorn==21.2.0
 python-dotenv==1.0.0
 requests==2.31.0
 PyJWT==2.9.0
-stripe==10.5.0
-sendgrid==6.10.0
+stripe==8.10.0
+sendgrid==6.11.0
