@@ -2,6 +2,7 @@
 import datetime as dt
 from flask_sqlalchemy import SQLAlchemy
 from src.models.agent import db  # reuse the shared SQLAlchemy instance
+from src.database.db import db
 
 class Purchase(db.Model):
     """
