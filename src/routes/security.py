@@ -229,4 +229,91 @@ def verify_email():
         resp = redirect(APP_URL.rstrip("/") + APP_DASHBOARD_PATH)
         access = create_access_token(
             identity=str(getattr(user, "id", getattr(user, "email", ""))),
-            add
+            additional_claims={"email": getattr(user, "email", None)}
+        )
+        set_access_cookies(resp, access)
+        return resp
+
+    except Exception as e:
+        current_app.logger.exception("verify failed")
+        return _simple_page("Verification", f"<p>Something went wrong: {e}</p>"), 500
+
+def _simple_page(title: str, body_html: str):
+    html = f"""<!doctype html><meta charset="utf-8">
+    <title>{title} – Brikk</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <body style="background:#0b0f1a;color:#e7ecff;font:16px/1.5 system-ui;margin:40px">
+      <h1 style="margin:0 0 10px">{title}</h1>
+      {body_html}
+      <p style="margin-top:10px"><a href="{APP_URL}">Go to site</a></p>
+    </body>"""
+    r = make_response(html)
+    r.headers["content-type"] = "text/html"
+    return r
+
+# -------------------------------
+# POST /api/auth/resend-verification
+# -------------------------------
+@security_bp.route("/auth/resend-verification", methods=["POST"])
+def resend_verification():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "missing email"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "no account for that email"}), 404
+    if hasattr(user, "email_verified") and user.email_verified:
+        return jsonify({"error": "email already verified"}), 400
+
+    vtoken = secrets.token_urlsafe(32)
+    expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
+    if hasattr(user, "verification_token"):
+        user.verification_token = vtoken
+    if hasattr(user, "verification_expires_at"):
+        user.verification_expires_at = expires
+    db.session.commit()
+
+    first = ""
+    if hasattr(user, "username") and user.username:
+        first = user.username.split(" ")[0]
+    _send_verification(email, vtoken, first_name=first,
+                       order_ref=_latest_order_ref_for_email(email))
+    return jsonify({"ok": True})
+
+# -------------------------------
+# GET /api/auth/me  (for dashboard)
+# -------------------------------
+@security_bp.route("/auth/me", methods=["GET"])
+@jwt_required()
+def me():
+    ident = get_jwt_identity()
+    user = None
+    if ident:
+        # ident might be id or email – fetch by email first
+        user = User.query.filter_by(email=ident).first() or User.query.get(ident)
+    if not user:
+        return jsonify({"error": "not found"}), 404
+
+    claims = get_jwt() or {}
+    order_ref = claims.get("order_ref") or _latest_order_ref_for_email(user.email)
+
+    return jsonify({
+        "user": {
+            "id": getattr(user, "id", None),
+            "username": getattr(user, "username", None),
+            "email": getattr(user, "email", None),
+            "verified": bool(getattr(user, "email_verified", False))
+        },
+        "order_ref": order_ref
+    })
+
+# -------------------------------
+# POST /api/auth/logout
+# -------------------------------
+@security_bp.route("/auth/logout", methods=["POST"])
+def logout():
+    resp = jsonify({"ok": True})
+    unset_jwt_cookies(resp)
+    return resp
