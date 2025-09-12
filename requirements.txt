@@ -2,11 +2,11 @@ Flask==3.0.0
 Flask-CORS==4.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-JWT-Extended==4.6.0
-Werkzeug>=3.0.0
-requests==2.31.0
-python-dotenv==1.0.0
-gunicorn==21.2.0
-# Optional (you had these; safe to keep)
 bcrypt==4.1.2
 cryptography>=42.0.5,<47
+gunicorn==21.2.0
+python-dotenv==1.0.0
+requests==2.31.0
 PyJWT==2.9.0
+stripe==10.5.0
+sendgrid==6.10.0
