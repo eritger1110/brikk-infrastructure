@@ -1,5 +1,4 @@
 # src/models/customer_profile.py
-from src.models.agent import db  # REUSE the shared db instance
 from src.database.db import db
 
 class CustomerProfile(db.Model):
