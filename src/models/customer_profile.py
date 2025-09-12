@@ -1,5 +1,4 @@
 # src/models/customer_profile.py
-from src.models.purchase import Purchase
 
 class CustomerProfile(db.Model):
     __tablename__ = 'customer_profiles'
