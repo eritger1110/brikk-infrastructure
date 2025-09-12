@@ -15,6 +15,7 @@ from src.routes.user import user_bp
 from src.routes.coordination import coordination_bp
 from src.routes.security import security_bp
 from src.routes.provision import provision_bp
+from src.database.db import db
 
 # Optional "welcome" tester page
 try:
