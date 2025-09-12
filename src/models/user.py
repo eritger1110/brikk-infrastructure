@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from src.database.db import db
 
 db = SQLAlchemy()
 
