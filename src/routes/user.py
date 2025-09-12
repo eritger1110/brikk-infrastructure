@@ -1,114 +1,52 @@
-# src/routes/user.py
-from flask import Blueprint, jsonify, request, abort
-from flask_jwt_extended import jwt_required, get_jwt, unset_jwt_cookies
-from src.models.user import User, db
-from src.models.customer_profile import CustomerProfile
+# src/models/user.py
+from datetime import datetime, timedelta, timezone
+import secrets
+from werkzeug.security import generate_password_hash, check_password_hash
+from src.database.db import db                       # ← single shared db
 
-user_bp = Blueprint("user_bp", __name__)
+class User(db.Model):
+    __tablename__ = 'users'
+    __table_args__ = {'extend_existing': True}
 
-# ----------------------------
-# User-facing endpoints
-# ----------------------------
+    id = db.Column(db.Integer, primary_key=True)
 
-@user_bp.get("/api/me")
-@jwt_required()
-def me():
-    """Return identity for the dashboard (name/email/plan)."""
-    claims = get_jwt()
-    email = claims.get("email")
-    name  = claims.get("name") or ""
+    username = db.Column(db.String(80),  unique=True, nullable=False, index=True)
+    email    = db.Column(db.String(120), unique=True, nullable=False, index=True)
 
-    plan = "free"
-    prof = CustomerProfile.query.filter_by(email=email).first()
-    if prof:
-        plan = prof.plan or plan
-        if prof.name:
-            name = prof.name
+    password_hash = db.Column(db.String(255), nullable=False)
 
-    return jsonify({"email": email, "name": name, "plan": plan})
+    email_verified       = db.Column(db.Boolean, default=False, nullable=False)
+    verification_token   = db.Column(db.String(128), index=True, nullable=True)
+    verification_expires = db.Column(db.DateTime, nullable=True)
 
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
-@user_bp.post("/api/profile")
-@jwt_required()
-def update_profile():
-    """Upsert the current user's profile (name, etc)."""
-    claims = get_jwt()
-    email = claims.get("email")
-    data = request.get_json() or {}
+    # Helpers
+    def set_password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
 
-    prof = CustomerProfile.query.filter_by(email=email).first()
-    if not prof:
-        prof = CustomerProfile(email=email, name=data.get("name", ""))
-        db.session.add(prof)
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
 
-    if "name" in data:
-        prof.name = data["name"]
-    if "plan" in data:
-        prof.plan = data["plan"]
+    # Email verification helpers
+    def start_email_verification(self, minutes: int = 60) -> str:
+        token = secrets.token_urlsafe(32)
+        self.verification_token = token
+        self.verification_expires = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+        return token
 
-    db.session.commit()
-    return jsonify({"ok": True})
-
-
-@user_bp.post("/api/logout")
-@jwt_required(optional=True)
-def logout():
-    """Clear JWT cookies."""
-    resp = jsonify({"ok": True})
-    unset_jwt_cookies(resp)
-    return resp
-
-
-# ----------------------------
-# Admin helpers & endpoints
-# ----------------------------
-
-def _require_admin():
-    claims = get_jwt()
-    roles = claims.get("roles") or []
-    if "admin" not in roles:
-        abort(403, description="admin only")
-
-@user_bp.get("/api/admin/users")
-@jwt_required()
-def admin_get_users():
-    _require_admin()
-    users = User.query.all()
-    return jsonify([u.to_dict() for u in users])
-
-@user_bp.post("/api/admin/users")
-@jwt_required()
-def admin_create_user():
-    _require_admin()
-    data = request.get_json() or {}
-    user = User(username=data["username"], email=data["email"])
-    db.session.add(user)
-    db.session.commit()
-    return jsonify(user.to_dict()), 201
-
-@user_bp.get("/api/admin/users/<int:user_id>")
-@jwt_required()
-def admin_get_user(user_id: int):
-    _require_admin()
-    user = User.query.get_or_404(user_id)
-    return jsonify(user.to_dict())
-
-@user_bp.put("/api/admin/users/<int:user_id>")
-@jwt_required()
-def admin_update_user(user_id: int):
-    _require_admin()
-    user = User.query.get_or_404(user_id)
-    data = request.get_json() or {}
-    user.username = data.get("username", user.username)
-    user.email    = data.get("email", user.email)
-    db.session.commit()
-    return jsonify(user.to_dict())
-
-@user_bp.delete("/api/admin/users/<int:user_id>")
-@jwt_required()
-def admin_delete_user(user_id: int):
-    _require_admin()
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    return "", 204
+    def verify_email_with(self, token: str) -> bool:
+        if (
+            self.verification_token
+            and self.verification_token == token
+            and self.verification_expires
+            and datetime.now(timezone.utc) <= self.verification_expires
+        ):
+            self.email_verified = True
+            self.verification_token = None
+            self.verification_expires = None
+            return True
+        return False
