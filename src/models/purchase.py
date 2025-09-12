@@ -1,5 +1,4 @@
-# src/models/purchase.py
-import datetime as dt
+from datetime import datetime as dt
 from src.database.db import db
 
 class Purchase(db.Model):
