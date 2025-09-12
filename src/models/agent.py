@@ -1,6 +1,6 @@
 # src/models/agent.py
-from src.database.db import db
 from datetime import datetime, timezone
+from src.database.db import db
 import uuid
 import json
 
