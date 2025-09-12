@@ -1,17 +1,14 @@
-import os
-import sys
-
-# Make "from src.…" imports work when run by Render
+# top of src/main.py
+import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from flask import Flask, send_from_directory, render_template
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-# ONE shared db for the whole app
+# ✅ the one and only SQLAlchemy instance
 from src.database.db import db
 
-# Blueprints
 from src.routes.auth import auth_bp
 from src.routes.user import user_bp
 from src.routes.coordination import coordination_bp
