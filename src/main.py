@@ -8,14 +8,15 @@ from flask import Flask, send_from_directory, render_template
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-# DB and blueprints
-from src.models.agent import db
-from src.routes.auth import auth_bp                 # ← NEW (email verify + login)
+# ONE shared db for the whole app
+from src.database.db import db
+
+# Blueprints
+from src.routes.auth import auth_bp
 from src.routes.user import user_bp
 from src.routes.coordination import coordination_bp
 from src.routes.security import security_bp
 from src.routes.provision import provision_bp
-from src.database.db import db
 
 # Optional "welcome" tester page
 try:
@@ -44,11 +45,10 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # --------------------------------------------------------------------
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "change-me")
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-app.config["JWT_COOKIE_SECURE"] = True            # HTTPS only
-app.config["JWT_COOKIE_SAMESITE"] = "None"        # allow cross-site cookies (Netlify <-> Render)
-app.config["JWT_COOKIE_CSRF_PROTECT"] = False     # enable later if you want double-submit CSRF
+app.config["JWT_COOKIE_SECURE"] = True
+app.config["JWT_COOKIE_SAMESITE"] = "None"
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 
-# Optional: allow cookies across subdomains (www/app/api)
 cookie_domain = os.environ.get("COOKIE_DOMAIN")
 if cookie_domain:
     app.config["JWT_COOKIE_DOMAIN"] = cookie_domain  # e.g., ".getbrikk.com"
@@ -58,13 +58,15 @@ if cookie_domain:
 # --------------------------------------------------------------------
 CORS(
     app,
-    resources={r"/api/*": {"origins": [
-        "https://www.getbrikk.com",
-        "https://getbrikk.com",
-        "https://app.getbrikk.com",
-        "https://brikk-infrastructure.onrender.com",  # useful for local/alt testing
-    ]}},
-    supports_credentials=True,  # allow browser to send cookies
+    resources={
+        r"/api/*": {"origins": [
+            "https://www.getbrikk.com",
+            "https://getbrikk.com",
+            "https://app.getbrikk.com",
+            "https://brikk-infrastructure.onrender.com",
+        ]}
+    },
+    supports_credentials=True,
 )
 
 jwt = JWTManager(app)
@@ -75,9 +77,9 @@ with app.app_context():
     db.create_all()
 
 # --------------------------------------------------------------------
-# Register blueprints (order doesn't matter)
+# Register blueprints
 # --------------------------------------------------------------------
-app.register_blueprint(auth_bp)                                  # ← NEW
+app.register_blueprint(auth_bp)
 app.register_blueprint(user_bp, url_prefix="/api")
 app.register_blueprint(coordination_bp, url_prefix="/api")
 app.register_blueprint(security_bp, url_prefix="/api")
@@ -109,11 +111,9 @@ def health_check():
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve(path: str):
-    # Serve SPA shell for root and index.html
     if path == "" or path == "index.html":
         return render_template("index.html")
 
-    # Serve static files if present
     static_folder_path = app.static_folder
     if not static_folder_path:
         return "Static folder not configured", 404
@@ -122,10 +122,8 @@ def serve(path: str):
     if path and os.path.exists(full):
         return send_from_directory(static_folder_path, path)
 
-    # Default: SPA shell
     return render_template("index.html")
 
 
 if __name__ == "__main__":
-    # For local dev; Render sets its own web server/port
     app.run(host="0.0.0.0", port=5000, debug=True)
