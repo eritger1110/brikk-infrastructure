@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect
+from flask_cors import cross_origin
 from flask_jwt_extended import (
     create_access_token,
     set_access_cookies,
@@ -11,21 +12,25 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 
-# Use the shared SQLAlchemy instance
 from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+# This blueprint mounts at /api/auth/* (we add "/api" in app, "/auth" here)
+auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
-APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
-API_BASE = os.environ.get("API_BASE_URL", "https://api.getbrikk.com")  # may be unused
+ALLOWED_ORIGINS = ["https://www.getbrikk.com", "https://getbrikk.com"]
+
+# Where to send users after actions (can override via env)
+APP_BASE = os.environ.get("APP_BASE_URL", "https://www.getbrikk.com")
+
 
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
 @auth_bp.post("/register")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def register():
     data = request.get_json() or {}
     username = (data.get("username") or "").strip()
@@ -59,6 +64,7 @@ def register():
 
 
 @auth_bp.get("/verify")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def verify():
     token = request.args.get("token", "")
     if not token:
@@ -82,6 +88,7 @@ def verify():
 
 
 @auth_bp.post("/login")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def login():
     data = request.get_json() or {}
     user_or_email = (data.get("user_or_email") or "").strip()
@@ -107,6 +114,7 @@ def login():
 
 
 @auth_bp.post("/logout")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def logout():
     resp = jsonify({"success": True})
     unset_jwt_cookies(resp)
@@ -114,6 +122,7 @@ def logout():
 
 
 @auth_bp.get("/me")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 @jwt_required()
 def me():
     uid = get_jwt_identity()
@@ -124,6 +133,7 @@ def me():
 
 
 @auth_bp.post("/resend")
+@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def resend():
     data = request.get_json() or {}
     email = (data.get("email") or "").lower().strip()
