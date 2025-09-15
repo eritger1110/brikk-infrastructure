@@ -3,7 +3,6 @@ import os
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect
-from flask_cors import cross_origin
 from flask_jwt_extended import (
     create_access_token,
     set_access_cookies,
@@ -16,21 +15,66 @@ from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-# This blueprint mounts at /api/auth/* (we add "/api" in app, "/auth" here)
+# NOTE: only "/auth" here; main.py mounts blueprint at "/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
-ALLOWED_ORIGINS = ["https://www.getbrikk.com", "https://getbrikk.com"]
-
-# Where to send users after actions (can override via env)
-APP_BASE = os.environ.get("APP_BASE_URL", "https://www.getbrikk.com")
+APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")
 
 
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
+@auth_bp.post("/complete-signup")
+def complete_signup():
+    """
+    Body: { token, first_name, last_name, email, password }
+    Token must match PROVISION_SECRET. (Keep your Netlify function in sync.)
+    """
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    first = (data.get("first_name") or "").strip()
+    last = (data.get("last_name") or "").strip()
+
+    if not token or not email or not password:
+        return _json_err(400, "token, email, password are required")
+
+    if PROVISION_SECRET and token != PROVISION_SECRET:
+        return _json_err(403, "Invalid or expired token")
+
+    # Create or update the user
+    u = User.query.filter_by(email=email).first()
+    if not u:
+        # derive a username if model requires it
+        username = (first or email.split("@", 1)[0] or "user").lower()
+        u = User(username=username, email=email)
+
+    # Optional fields if your model has them
+    if hasattr(u, "first_name"):
+        u.first_name = first
+    if hasattr(u, "last_name"):
+        u.last_name = last
+
+    u.set_password(password)
+    if hasattr(u, "email_verified"):
+        u.email_verified = True
+    if hasattr(u, "clear_verification"):
+        u.clear_verification()
+
+    db.session.add(u)
+    db.session.commit()
+
+    # Log the user in via cookie
+    access = create_access_token(identity=str(u.id))
+    resp = jsonify({"success": True, "user": u.to_dict()})
+    set_access_cookies(resp, access)
+    return resp
+
+
 @auth_bp.post("/register")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def register():
     data = request.get_json() or {}
     username = (data.get("username") or "").strip()
@@ -45,26 +89,28 @@ def register():
 
     u = User(username=username, email=email)
     u.set_password(password)
-    u.email_verified = False
-    u.issue_verification(minutes=120)
+    if hasattr(u, "email_verified"):
+        u.email_verified = False
+    if hasattr(u, "issue_verification"):
+        u.issue_verification(minutes=120)
 
     db.session.add(u)
     db.session.commit()
 
-    verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
-    html = f"""
-      <p>Welcome to Brikk!</p>
-      <p>Please verify your email by clicking the link below:</p>
-      <p><a href="{verify_link}">Verify my email</a></p>
-      <p>This link expires in 2 hours.</p>
-    """
-    send_email(u.email, "Verify your Brikk email", html)
+    if hasattr(u, "verification_token"):
+        verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
+        html = f"""
+          <p>Welcome to Brikk!</p>
+          <p>Please verify your email by clicking the link below:</p>
+          <p><a href="{verify_link}">Verify my email</a></p>
+          <p>This link expires in 2 hours.</p>
+        """
+        send_email(u.email, "Verify your Brikk email", html)
 
     return jsonify({"success": True, "message": "Check your email for a verification link"})
 
 
 @auth_bp.get("/verify")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def verify():
     token = request.args.get("token", "")
     if not token:
@@ -74,11 +120,13 @@ def verify():
     if not u:
         return _json_err(400, "Invalid or used token")
 
-    if not u.verification_expires or datetime.now(timezone.utc) > u.verification_expires:
+    if not getattr(u, "verification_expires", None) or datetime.now(timezone.utc) > u.verification_expires:
         return _json_err(400, "Token expired")
 
-    u.email_verified = True
-    u.clear_verification()
+    if hasattr(u, "email_verified"):
+        u.email_verified = True
+    if hasattr(u, "clear_verification"):
+        u.clear_verification()
     db.session.commit()
 
     access = create_access_token(identity=str(u.id))
@@ -88,7 +136,6 @@ def verify():
 
 
 @auth_bp.post("/login")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def login():
     data = request.get_json() or {}
     user_or_email = (data.get("user_or_email") or "").strip()
@@ -104,7 +151,7 @@ def login():
     if not u or not u.check_password(password):
         return _json_err(401, "Invalid credentials")
 
-    if not u.email_verified:
+    if getattr(u, "email_verified", True) is False:
         return _json_err(403, "Email not verified")
 
     access = create_access_token(identity=str(u.id))
@@ -114,7 +161,6 @@ def login():
 
 
 @auth_bp.post("/logout")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def logout():
     resp = jsonify({"success": True})
     unset_jwt_cookies(resp)
@@ -122,7 +168,6 @@ def logout():
 
 
 @auth_bp.get("/me")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 @jwt_required()
 def me():
     uid = get_jwt_identity()
@@ -133,7 +178,6 @@ def me():
 
 
 @auth_bp.post("/resend")
-@cross_origin(origins=ALLOWED_ORIGINS, supports_credentials=True)
 def resend():
     data = request.get_json() or {}
     email = (data.get("email") or "").lower().strip()
@@ -143,13 +187,15 @@ def resend():
     u = User.query.filter_by(email=email).first()
     if not u:
         return _json_err(404, "No user with that email")
-    if u.email_verified:
+    if getattr(u, "email_verified", False):
         return _json_err(400, "Email already verified")
 
-    u.issue_verification(120)
+    if hasattr(u, "issue_verification"):
+        u.issue_verification(120)
     db.session.commit()
 
-    verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
-    send_email(u.email, "Verify your Brikk email", f'<p>Verify: <a href="{verify_link}">{verify_link}</a></p>')
+    if hasattr(u, "verification_token"):
+        verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
+        send_email(u.email, "Verify your Brikk email", f'<p>Verify: <a href="{verify_link}">{verify_link}</a></p>')
 
     return jsonify({"success": True, "message": "Verification email sent"})
