@@ -15,68 +15,117 @@ from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-# NOTE: only "/auth" here; main.py mounts blueprint at "/api"
+# NOTE: only "/auth" here; main.py mounts this blueprint at "/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
 PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")
 
 
+# -------- helpers -------------------------------------------------------------
+
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
+def _body_json_or_form() -> dict:
+    """
+    Parse JSON if available; otherwise fall back to form-encoded.
+    This avoids 'missing email' when clients send form data or
+    when proxies tweak headers.
+    """
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    # Merge in form values (without clobbering keys already present in JSON)
+    if request.form:
+        for k in request.form.keys():
+            data.setdefault(k, request.form.get(k))
+    return data
+
+
+def _user_dict(u: User) -> dict:
+    """Safe user dict even if the model lacks to_dict()."""
+    if hasattr(u, "to_dict"):
+        try:
+            return u.to_dict()
+        except Exception:
+            pass
+    # Minimal fallback
+    return {
+        "id": getattr(u, "id", None),
+        "email": getattr(u, "email", None),
+        "username": getattr(u, "username", None),
+        "first_name": getattr(u, "first_name", None),
+        "last_name": getattr(u, "last_name", None),
+        "email_verified": getattr(u, "email_verified", None),
+    }
+
+
+# -------- routes --------------------------------------------------------------
+
 @auth_bp.post("/complete-signup")
 def complete_signup():
     """
-    Body: { token, first_name, last_name, email, password }
-    Token must match PROVISION_SECRET. (Keep your Netlify function in sync.)
+    Endpoint called by the Stripe success page to finalize account creation.
+    Accepts JSON or form-encoded bodies.
+
+    Body fields:
+      token        (optional unless PROVISION_SECRET is set)
+      email        **required**
+      password     **required**
+      first_name   optional
+      last_name    optional
     """
-    data = request.get_json(silent=True) or {}
+    data = _body_json_or_form()
+
     token = (data.get("token") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
-    first = (data.get("first_name") or "").strip()
-    last = (data.get("last_name") or "").strip()
+    first = (data.get("first_name") or data.get("first") or "").strip()
+    last = (data.get("last_name") or data.get("last") or "").strip()
 
-    if not token or not email or not password:
-        return _json_err(400, "token, email, password are required")
+    if not email:
+        return _json_err(400, "missing email")
+    if len(password) < 10:
+        return _json_err(400, "weak password")
 
+    # Enforce the provisioning secret only if it's configured
     if PROVISION_SECRET and token != PROVISION_SECRET:
-        return _json_err(403, "Invalid or expired token")
+        return _json_err(403, "invalid provisioning token")
 
     # Create or update the user
     u = User.query.filter_by(email=email).first()
     if not u:
-        # derive a username if model requires it
         username = (first or email.split("@", 1)[0] or "user").lower()
         u = User(username=username, email=email)
+        db.session.add(u)
 
-    # Optional fields if your model has them
+    # Optional model fields
     if hasattr(u, "first_name"):
         u.first_name = first
     if hasattr(u, "last_name"):
         u.last_name = last
 
     u.set_password(password)
+
     if hasattr(u, "email_verified"):
         u.email_verified = True
     if hasattr(u, "clear_verification"):
         u.clear_verification()
 
-    db.session.add(u)
     db.session.commit()
 
-    # Log the user in via cookie
+    # Issue session cookie
     access = create_access_token(identity=str(u.id))
-    resp = jsonify({"success": True, "user": u.to_dict()})
+    resp = jsonify({"success": True, "user": _user_dict(u)})
     set_access_cookies(resp, access)
-    return resp
+    return resp, 200
 
 
 @auth_bp.post("/register")
 def register():
-    data = request.get_json() or {}
+    data = _body_json_or_form()
     username = (data.get("username") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -137,7 +186,7 @@ def verify():
 
 @auth_bp.post("/login")
 def login():
-    data = request.get_json() or {}
+    data = _body_json_or_form()
     user_or_email = (data.get("user_or_email") or "").strip()
     password = data.get("password") or ""
 
@@ -155,7 +204,7 @@ def login():
         return _json_err(403, "Email not verified")
 
     access = create_access_token(identity=str(u.id))
-    resp = jsonify({"success": True, "user": u.to_dict()})
+    resp = jsonify({"success": True, "user": _user_dict(u)})
     set_access_cookies(resp, access)
     return resp
 
@@ -174,12 +223,12 @@ def me():
     u = User.query.get(int(uid))
     if not u:
         return _json_err(404, "User not found")
-    return jsonify({"success": True, "user": u.to_dict()})
+    return jsonify({"success": True, "user": _user_dict(u)})
 
 
 @auth_bp.post("/resend")
 def resend():
-    data = request.get_json() or {}
+    data = _body_json_or_form()
     email = (data.get("email") or "").lower().strip()
     if not email:
         return _json_err(400, "email required")
