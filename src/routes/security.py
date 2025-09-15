@@ -12,7 +12,8 @@ from sendgrid.helpers.mail import Mail
 import jwt as pyjwt
 import bcrypt
 
-from src.models.agent import db
+# ✅ Use the single shared SQLAlchemy instance
+from src.database.db import db
 from src.models.user import User
 from src.models.purchase import Purchase
 
@@ -76,7 +77,8 @@ def _send_verification(email: str, vtoken: str, first_name: str = "", order_ref:
       <p><a href="{link}">Verify my email</a></p>
       <p>This link is valid for 24 hours.</p>
     """
-    message = Mail(from_email=FROM_EMAIL, to_emails=email, subject=subject, plain_text_content=plain, html_content=html)
+    message = Mail(from_email=FROM_EMAIL, to_emails=email, subject=subject,
+                   plain_text_content=plain, html_content=html)
     SendGridAPIClient(SENDGRID_KEY).send(message)
 
 def _login_response(user: User, payload: dict | None = None):
@@ -117,7 +119,7 @@ def complete_signup():
         if not PROVISION_SECRET: return jsonify({"error":"server missing PROVISION_SECRET"}), 500
 
         payload = pyjwt.decode(token, PROVISION_SECRET, algorithms=["HS256"], issuer="brikk-netlify")
-        # we prefer Stripe email from the token, but allow the form email as fallback
+        # prefer Stripe email from the token, but allow the form email as fallback
         token_email       = (payload.get("email") or "").strip().lower()
         customer_id       = payload.get("customer")
         subscription_id   = payload.get("subscription")
@@ -134,13 +136,13 @@ def complete_signup():
 
         _set_password(user, pw)
 
-        # Ensure verification fields exist and set
+        # Ensure verification fields exist and set  ✅ uses verification_expires
         vtoken  = secrets.token_urlsafe(32)
         expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
         if hasattr(user, "verification_token"):
             user.verification_token = vtoken
-        if hasattr(user, "verification_expires_at"):
-            user.verification_expires_at = expires
+        if hasattr(user, "verification_expires"):
+            user.verification_expires = expires
         if hasattr(user, "email_verified"):
             user.email_verified = False
 
@@ -160,7 +162,8 @@ def complete_signup():
         db.session.commit()
 
         # Send verification
-        _send_verification(effective_email, vtoken, first_name=first, order_ref=purchase.order_ref if purchase else None)
+        _send_verification(effective_email, vtoken, first_name=first,
+                           order_ref=purchase.order_ref if purchase else None)
 
         # Login immediately; you can still gate features on email_verified
         return _login_response(user, payload={"order_ref": getattr(purchase, "order_ref", None)})
@@ -184,23 +187,25 @@ def verify_email():
         if not user:
             return _simple_page("Verification", "<p>Invalid verification link.</p>"), 400
 
-        if hasattr(user, "verification_expires_at") and user.verification_expires_at:
-            if dt.datetime.utcnow() > user.verification_expires_at:
+        # ✅ use verification_expires consistently
+        if getattr(user, "verification_expires", None):
+            if dt.datetime.utcnow() > user.verification_expires:
                 return _simple_page("Verification", "<p>This verification link has expired.</p>"), 400
 
         if hasattr(user, "email_verified"):
             user.email_verified = True
         if hasattr(user, "verification_token"):
             user.verification_token = None
-        if hasattr(user, "verification_expires_at"):
-            user.verification_expires_at = None
+        if hasattr(user, "verification_expires"):
+            user.verification_expires = None
 
         db.session.commit()
 
         # Log them in and redirect to app
         resp = redirect(APP_URL.rstrip("/") + APP_DASHBOARD_PATH)
         identity = str(getattr(user, "id", getattr(user, "email", "")))
-        access = create_access_token(identity=identity, additional_claims={"email": getattr(user, "email", None)})
+        access = create_access_token(identity=identity,
+                                     additional_claims={"email": getattr(user, "email", None)})
         set_access_cookies(resp, access)
         return resp
 
@@ -234,25 +239,25 @@ def resend_verification():
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({"error":"no account for that email"}), 404
-    if hasattr(user, "email_verified") and user.email_verified:
+    if getattr(user, "email_verified", False):
         return jsonify({"error":"email already verified"}), 400
 
     vtoken = secrets.token_urlsafe(32)
     expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
     if hasattr(user, "verification_token"):
         user.verification_token = vtoken
-    if hasattr(user, "verification_expires_at"):
-        user.verification_expires_at = expires
+    if hasattr(user, "verification_expires"):
+        user.verification_expires = expires
     db.session.commit()
 
     first = ""
-    if hasattr(user, "username") and user.username:
+    if getattr(user, "username", ""):
         first = user.username.split(" ")[0]
     _send_verification(email, vtoken, first_name=first)
     return jsonify({"ok": True})
 
 # -------------------------------
-# GET /api/auth/me  (nice-to-have)
+# GET /api/auth/me
 # -------------------------------
 @security_bp.route("/auth/me", methods=["GET"])
 @jwt_required(optional=True)
@@ -261,20 +266,26 @@ def me():
     if not ident:
         return jsonify({"user": None}), 200
 
-    user = User.query.filter((User.id == ident) | (User.email == ident)).first()
+    user = None
+    # Try ID first if it's numeric, else email
+    try:
+        user = User.query.get(int(ident))  # type: ignore[arg-type]
+    except Exception:
+        pass
     if not user:
-        return jsonify({"user": None}), 200
+        user = User.query.filter_by(email=str(ident)).first()
 
     # fetch latest order ref if present
-    purchase = Purchase.query.filter_by(email=user.email).order_by(Purchase.id.desc()).first()
+    purchase = Purchase.query.filter_by(email=getattr(user, "email", None)) \
+                             .order_by(Purchase.id.desc()).first() if user else None
     return jsonify({
         "user": {
-            "id": str(getattr(user, "id", "")),
-            "email": getattr(user, "email", None),
-            "username": getattr(user, "username", None),
-            "email_verified": getattr(user, "email_verified", False)
+            "id": str(getattr(user, "id", "")) if user else None,
+            "email": getattr(user, "email", None) if user else None,
+            "username": getattr(user, "username", None) if user else None,
+            "email_verified": getattr(user, "email_verified", False) if user else False,
         },
-        "order_ref": getattr(purchase, "order_ref", None)
+        "order_ref": getattr(purchase, "order_ref", None) if purchase else None
     })
 
 # -------------------------------
