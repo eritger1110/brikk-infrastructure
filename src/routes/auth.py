@@ -1,5 +1,7 @@
 # src/routes/auth.py
 import os
+import logging
+import traceback
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect
@@ -11,33 +13,39 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 
+from sqlalchemy.exc import IntegrityError
+
 from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
+
+log = logging.getLogger(__name__)
 
 # NOTE: only "/auth" here; main.py mounts this blueprint at "/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
 PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")
+DEBUG_MODE = os.environ.get("BACKEND_DEBUG", "").strip() == "1"
 
 
-# -------- helpers -------------------------------------------------------------
+# ---------------- helpers ----------------
 
-def _json_err(code: int, msg: str):
-    return jsonify({"success": False, "error": msg}), code
+def _json_err(code: int, msg: str, details: dict | None = None):
+    payload = {"success": False, "error": msg}
+    if DEBUG_MODE and details:
+        payload["details"] = details
+    return jsonify(payload), code
 
 
 def _body_json_or_form() -> dict:
     """
-    Parse JSON if available; otherwise fall back to form-encoded.
-    This avoids 'missing email' when clients send form data or
-    when proxies tweak headers.
+    Prefer JSON; if absent, merge in form fields.
+    Prevents 'missing email' when content-type isn't application/json.
     """
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         data = {}
-    # Merge in form values (without clobbering keys already present in JSON)
     if request.form:
         for k in request.form.keys():
             data.setdefault(k, request.form.get(k))
@@ -45,13 +53,12 @@ def _body_json_or_form() -> dict:
 
 
 def _user_dict(u: User) -> dict:
-    """Safe user dict even if the model lacks to_dict()."""
+    """Safe user dict even if model lacks to_dict()."""
     if hasattr(u, "to_dict"):
         try:
             return u.to_dict()
         except Exception:
             pass
-    # Minimal fallback
     return {
         "id": getattr(u, "id", None),
         "email": getattr(u, "email", None),
@@ -62,65 +69,116 @@ def _user_dict(u: User) -> dict:
     }
 
 
-# -------- routes --------------------------------------------------------------
+def _unique_username(base: str) -> str:
+    """Generate a unique username given a base."""
+    base = (base or "user").lower()
+    candidate = base
+    n = 1
+    while User.query.filter_by(username=candidate).first():
+        n += 1
+        candidate = f"{base}{n}"
+    return candidate
+
+
+# ---------------- routes ----------------
+
+@auth_bp.post("/_debug-echo")
+def _debug_echo():
+    """DEBUG ONLY: echoes what the server sees (enable with BACKEND_DEBUG=1)."""
+    if not DEBUG_MODE:
+        return _json_err(404, "not found")
+    return jsonify({
+        "content_type": request.content_type,
+        "headers_sample": {k: v for k, v in list(request.headers.items())[:20]},
+        "json": request.get_json(silent=True),
+        "form": request.form.to_dict(),
+        "raw_first_1k": request.get_data(as_text=True)[:1000],
+    })
+
 
 @auth_bp.post("/complete-signup")
 def complete_signup():
     """
-    Endpoint called by the Stripe success page to finalize account creation.
-    Accepts JSON or form-encoded bodies.
+    Finalize account creation from the Stripe success page.
+    Accepts JSON or x-www-form-urlencoded.
 
     Body fields:
       token        (optional unless PROVISION_SECRET is set)
-      email        **required**
-      password     **required**
+      email        required
+      password     required (we check length >= 10 here)
       first_name   optional
       last_name    optional
     """
-    data = _body_json_or_form()
+    try:
+        data = _body_json_or_form()
 
-    token = (data.get("token") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    first = (data.get("first_name") or data.get("first") or "").strip()
-    last = (data.get("last_name") or data.get("last") or "").strip()
+        token = (data.get("token") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
+        first = (data.get("first_name") or data.get("first") or "").strip()
+        last = (data.get("last_name") or data.get("last") or "").strip()
 
-    if not email:
-        return _json_err(400, "missing email")
-    if len(password) < 10:
-        return _json_err(400, "weak password")
+        if not email:
+            return _json_err(400, "missing email", {"parsed_body": data})
+        if len(password) < 10:
+            return _json_err(400, "weak password (min 10 chars)")
 
-    # Enforce the provisioning secret only if it's configured
-    if PROVISION_SECRET and token != PROVISION_SECRET:
-        return _json_err(403, "invalid provisioning token")
+        # Enforce provisioning secret only if configured
+        if PROVISION_SECRET and token != PROVISION_SECRET:
+            return _json_err(403, "invalid provisioning token")
 
-    # Create or update the user
-    u = User.query.filter_by(email=email).first()
-    if not u:
-        username = (first or email.split("@", 1)[0] or "user").lower()
-        u = User(username=username, email=email)
-        db.session.add(u)
+        # Upsert by email
+        u = User.query.filter_by(email=email).first()
+        if not u:
+            # Respect unique username constraint by generating a unique one
+            base_username = first or email.split("@", 1)[0] or "user"
+            username = _unique_username(base_username)
+            u = User(username=username, email=email)
+            db.session.add(u)
 
-    # Optional model fields
-    if hasattr(u, "first_name"):
-        u.first_name = first
-    if hasattr(u, "last_name"):
-        u.last_name = last
+        # Optional fields if present in your model
+        if hasattr(u, "first_name"):
+            u.first_name = first
+        if hasattr(u, "last_name"):
+            u.last_name = last
 
-    u.set_password(password)
+        u.set_password(password)
 
-    if hasattr(u, "email_verified"):
-        u.email_verified = True
-    if hasattr(u, "clear_verification"):
-        u.clear_verification()
+        if hasattr(u, "email_verified"):
+            u.email_verified = True
+        if hasattr(u, "clear_verification"):
+            u.clear_verification()
 
-    db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError as ie:
+            # Handle rare race/constraint issues and retry once with a new username
+            db.session.rollback()
+            if not getattr(u, "id", None):
+                # Only if we were inserting and lost to a race on username
+                u.username = _unique_username(u.username or (first or "user"))
+                db.session.add(u)
+                db.session.commit()
+            else:
+                raise ie
 
-    # Issue session cookie
-    access = create_access_token(identity=str(u.id))
-    resp = jsonify({"success": True, "user": _user_dict(u)})
-    set_access_cookies(resp, access)
-    return resp, 200
+        # Issue session cookie
+        access = create_access_token(identity=str(u.id))
+        resp = jsonify({"success": True, "user": _user_dict(u)})
+        set_access_cookies(resp, access)
+        return resp, 200
+
+    except Exception as e:
+        log.exception("complete-signup failed")
+        return _json_err(
+            500,
+            "internal error",
+            {
+                "exception": type(e).__name__,
+                "message": str(e),
+                "trace": traceback.format_exc(limit=4),
+            },
+        )
 
 
 @auth_bp.post("/register")
