@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
+from src.database.db import db
 
 class User(db.Model):
     __tablename__ = 'users'
