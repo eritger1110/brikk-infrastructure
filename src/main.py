@@ -68,6 +68,18 @@ def create_app() -> Flask:
     # --- Init extensions ---
     db.init_app(app)
     JWTManager(app)
+    
+    # --- health & root probes (Render) ---
+    from flask import jsonify  # make sure this import is at the top of the file
+
+    @app.route("/health", methods=["GET", "HEAD"])
+    def health():
+        # keep it super small and always 200 if the process is alive
+        return jsonify({"ok": True}), 200
+
+    @app.route("/", methods=["GET", "HEAD"])
+    def root():
+        return jsonify({"ok": True, "service": "brikk-api"}), 200
 
     # --- Blueprints ---
     if auth_bp:     app.register_blueprint(auth_bp)
