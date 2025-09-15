@@ -43,31 +43,28 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    # --- JWT cookies only ---
-    app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", app.config["SECRET_KEY"])
-    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-    app.config["JWT_COOKIE_SECURE"] = True           # required for SameSite=None
-    app.config["JWT_COOKIE_SAMESITE"] = "None"
+ # --- CORS & JWT cookies ---
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 
-    # Only set JWT_COOKIE_DOMAIN when API itself is on *.getbrikk.com
-    cookie_domain = os.environ.get("JWT_COOKIE_DOMAIN", "").strip()
-    if cookie_domain and cookie_domain.endswith(".getbrikk.com"):
-        # You can keep this env var defined, but it won’t break if left empty.
-        app.config["JWT_COOKIE_DOMAIN"] = cookie_domain
-    # otherwise: leave unset so cookies are scoped to the onrender.com host
+app.config.update(
+    JWT_TOKEN_LOCATION=["cookies"],
+    JWT_COOKIE_SECURE=True,          # secure cookie over HTTPS only
+    JWT_COOKIE_SAMESITE="None",      # allow cross-site redirect from Netlify
+    JWT_COOKIE_DOMAIN=os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com"),
+    JWT_COOKIE_CSRF_PROTECT=False,   # keep simple for now
+)
 
-    # --- CORS ---
-    app_url = os.environ.get("APP_URL", "https://www.getbrikk.com").rstrip("/")
-    allowed_origins = {
+# Allow ONLY your web origins (not *.onrender.com)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
         "https://www.getbrikk.com",
         "https://getbrikk.com",
-        app_url,  # in case you deploy the app somewhere else for staging
-    }
-    CORS(app, resources={r"/api/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
-
-    # --- Init extensions ---
-    db.init_app(app)
-    JWTManager(app)
+    ],
+)
+jwt = JWTManager(app)
     
     # --- health & root probes (Render) ---
     from flask import jsonify  # make sure this import is at the top of the file
