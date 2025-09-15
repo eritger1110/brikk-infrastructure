@@ -9,7 +9,11 @@ from flask_jwt_extended import (
     jwt_required, get_jwt_identity
 )
 
-from src.models.user import db, User
+# ✅ Use the shared SQLAlchemy instance from src.database.db
+from src.database.db import db
+# ✅ Import only the model from src.models.user (not db)
+from src.models.user import User
+
 from src.services.emailer import send_email
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
