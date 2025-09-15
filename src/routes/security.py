@@ -12,12 +12,12 @@ from sendgrid.helpers.mail import Mail
 import jwt as pyjwt
 import bcrypt
 
-# ✅ Use the single shared SQLAlchemy instance
+# ✅ Always import the shared db from database module
 from src.database.db import db
 from src.models.user import User
 from src.models.purchase import Purchase
 
-security_bp = Blueprint("security", __name__)
+security_bp = Blueprint("security", __name__, url_prefix="/api")
 
 # -------------------------------
 # Environment
@@ -26,7 +26,7 @@ PROVISION_SECRET   = os.environ.get("PROVISION_SECRET")
 JWT_COOKIE_DOMAIN  = os.environ.get("COOKIE_DOMAIN")                # e.g. ".getbrikk.com"
 FROM_EMAIL         = os.environ.get("FROM_EMAIL")                   # e.g. "support@getbrikk.com"
 SENDGRID_KEY       = os.environ.get("SENDGRID_API_KEY")
-APP_URL            = os.environ.get("APP_URL", "https://www.getbrikk.com")
+APP_URL            = os.environ.get("APP_URL", "https://www.getbrikk.com").rstrip("/")
 APP_DASHBOARD_PATH = os.environ.get("APP_DASHBOARD_PATH", "/app")
 
 # -------------------------------
@@ -61,7 +61,7 @@ def _send_verification(email: str, vtoken: str, first_name: str = "", order_ref:
     if not FROM_EMAIL or not SENDGRID_KEY:
         current_app.logger.warning("SendGrid not configured; skipping verification email")
         return
-    link = f"{APP_URL.rstrip('/')}/verify?token={vtoken}"
+    link = f"{APP_URL}/verify?token={vtoken}"
     subject = "Verify your email for Brikk"
     plain = (
         f"Hi {first_name or ''}\n\n"
@@ -77,8 +77,7 @@ def _send_verification(email: str, vtoken: str, first_name: str = "", order_ref:
       <p><a href="{link}">Verify my email</a></p>
       <p>This link is valid for 24 hours.</p>
     """
-    message = Mail(from_email=FROM_EMAIL, to_emails=email, subject=subject,
-                   plain_text_content=plain, html_content=html)
+    message = Mail(from_email=FROM_EMAIL, to_emails=email, subject=subject, plain_text_content=plain, html_content=html)
     SendGridAPIClient(SENDGRID_KEY).send(message)
 
 def _login_response(user: User, payload: dict | None = None):
@@ -91,10 +90,32 @@ def _login_response(user: User, payload: dict | None = None):
     set_access_cookies(resp, access)
     return resp
 
+# --- verification field helpers (works with either verification_expires or _at) ---
+def _set_verification_fields(user: User, token: str, expires: dt.datetime):
+    if hasattr(user, "verification_token"):
+        user.verification_token = token
+    if hasattr(user, "verification_expires"):
+        user.verification_expires = expires
+    if hasattr(user, "verification_expires_at"):
+        user.verification_expires_at = expires
+    if hasattr(user, "email_verified"):
+        user.email_verified = False
+
+def _get_verification_expiry(user: User) -> dt.datetime | None:
+    return getattr(user, "verification_expires", None) or getattr(user, "verification_expires_at", None)
+
+def _clear_verification_fields(user: User):
+    if hasattr(user, "verification_token"):
+        user.verification_token = None
+    if hasattr(user, "verification_expires"):
+        user.verification_expires = None
+    if hasattr(user, "verification_expires_at"):
+        user.verification_expires_at = None
+
 # -------------------------------
 # POST /api/auth/complete-signup
 # -------------------------------
-@security_bp.route("/auth/complete-signup", methods=["POST"])
+@security_bp.post("/auth/complete-signup")
 def complete_signup():
     """
     Body: { token, first_name, last_name, email, password }
@@ -119,7 +140,6 @@ def complete_signup():
         if not PROVISION_SECRET: return jsonify({"error":"server missing PROVISION_SECRET"}), 500
 
         payload = pyjwt.decode(token, PROVISION_SECRET, algorithms=["HS256"], issuer="brikk-netlify")
-        # prefer Stripe email from the token, but allow the form email as fallback
         token_email       = (payload.get("email") or "").strip().lower()
         customer_id       = payload.get("customer")
         subscription_id   = payload.get("subscription")
@@ -136,15 +156,10 @@ def complete_signup():
 
         _set_password(user, pw)
 
-        # Ensure verification fields exist and set  ✅ uses verification_expires
+        # Set verification fields
         vtoken  = secrets.token_urlsafe(32)
         expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
-        if hasattr(user, "verification_token"):
-            user.verification_token = vtoken
-        if hasattr(user, "verification_expires"):
-            user.verification_expires = expires
-        if hasattr(user, "email_verified"):
-            user.email_verified = False
+        _set_verification_fields(user, vtoken, expires)
 
         # Create/find purchase record for order_ref
         purchase = None
@@ -162,10 +177,9 @@ def complete_signup():
         db.session.commit()
 
         # Send verification
-        _send_verification(effective_email, vtoken, first_name=first,
-                           order_ref=purchase.order_ref if purchase else None)
+        _send_verification(effective_email, vtoken, first_name=first, order_ref=purchase.order_ref if purchase else None)
 
-        # Login immediately; you can still gate features on email_verified
+        # Login immediately
         return _login_response(user, payload={"order_ref": getattr(purchase, "order_ref", None)})
 
     except pyjwt.ExpiredSignatureError:
@@ -177,7 +191,7 @@ def complete_signup():
 # -------------------------------
 # GET /api/auth/verify
 # -------------------------------
-@security_bp.route("/auth/verify", methods=["GET"])
+@security_bp.get("/auth/verify")
 def verify_email():
     token = request.args.get("token", "").strip()
     if not token:
@@ -187,25 +201,20 @@ def verify_email():
         if not user:
             return _simple_page("Verification", "<p>Invalid verification link.</p>"), 400
 
-        # ✅ use verification_expires consistently
-        if getattr(user, "verification_expires", None):
-            if dt.datetime.utcnow() > user.verification_expires:
-                return _simple_page("Verification", "<p>This verification link has expired.</p>"), 400
+        exp = _get_verification_expiry(user)
+        if exp and dt.datetime.utcnow() > exp:
+            return _simple_page("Verification", "<p>This verification link has expired.</p>"), 400
 
         if hasattr(user, "email_verified"):
             user.email_verified = True
-        if hasattr(user, "verification_token"):
-            user.verification_token = None
-        if hasattr(user, "verification_expires"):
-            user.verification_expires = None
+        _clear_verification_fields(user)
 
         db.session.commit()
 
         # Log them in and redirect to app
-        resp = redirect(APP_URL.rstrip("/") + APP_DASHBOARD_PATH)
+        resp = redirect(APP_URL + APP_DASHBOARD_PATH)
         identity = str(getattr(user, "id", getattr(user, "email", "")))
-        access = create_access_token(identity=identity,
-                                     additional_claims={"email": getattr(user, "email", None)})
+        access = create_access_token(identity=identity, additional_claims={"email": getattr(user, "email", None)})
         set_access_cookies(resp, access)
         return resp
 
@@ -229,7 +238,7 @@ def _simple_page(title: str, body_html: str):
 # -------------------------------
 # POST /api/auth/resend-verification
 # -------------------------------
-@security_bp.route("/auth/resend-verification", methods=["POST"])
+@security_bp.post("/auth/resend-verification")
 def resend_verification():
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
@@ -239,19 +248,16 @@ def resend_verification():
     user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({"error":"no account for that email"}), 404
-    if getattr(user, "email_verified", False):
+    if hasattr(user, "email_verified") and user.email_verified:
         return jsonify({"error":"email already verified"}), 400
 
     vtoken = secrets.token_urlsafe(32)
     expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
-    if hasattr(user, "verification_token"):
-        user.verification_token = vtoken
-    if hasattr(user, "verification_expires"):
-        user.verification_expires = expires
+    _set_verification_fields(user, vtoken, expires)
     db.session.commit()
 
     first = ""
-    if getattr(user, "username", ""):
+    if hasattr(user, "username") and user.username:
         first = user.username.split(" ")[0]
     _send_verification(email, vtoken, first_name=first)
     return jsonify({"ok": True})
@@ -259,39 +265,33 @@ def resend_verification():
 # -------------------------------
 # GET /api/auth/me
 # -------------------------------
-@security_bp.route("/auth/me", methods=["GET"])
+@security_bp.get("/auth/me")
 @jwt_required(optional=True)
 def me():
     ident = get_jwt_identity()
     if not ident:
         return jsonify({"user": None}), 200
 
-    user = None
-    # Try ID first if it's numeric, else email
-    try:
-        user = User.query.get(int(ident))  # type: ignore[arg-type]
-    except Exception:
-        pass
+    user = User.query.filter((User.id == ident) | (User.email == ident)).first()
     if not user:
-        user = User.query.filter_by(email=str(ident)).first()
+        return jsonify({"user": None}), 200
 
     # fetch latest order ref if present
-    purchase = Purchase.query.filter_by(email=getattr(user, "email", None)) \
-                             .order_by(Purchase.id.desc()).first() if user else None
+    purchase = Purchase.query.filter_by(email=user.email).order_by(Purchase.id.desc()).first()
     return jsonify({
         "user": {
-            "id": str(getattr(user, "id", "")) if user else None,
-            "email": getattr(user, "email", None) if user else None,
-            "username": getattr(user, "username", None) if user else None,
-            "email_verified": getattr(user, "email_verified", False) if user else False,
+            "id": str(getattr(user, "id", "")),
+            "email": getattr(user, "email", None),
+            "username": getattr(user, "username", None),
+            "email_verified": getattr(user, "email_verified", False)
         },
-        "order_ref": getattr(purchase, "order_ref", None) if purchase else None
+        "order_ref": getattr(purchase, "order_ref", None)
     })
 
 # -------------------------------
 # POST /api/auth/logout
 # -------------------------------
-@security_bp.route("/auth/logout", methods=["POST"])
+@security_bp.post("/auth/logout")
 def logout():
     resp = jsonify({"ok": True})
     unset_jwt_cookies(resp)
