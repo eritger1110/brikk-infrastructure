@@ -1,106 +1,90 @@
-# top of src/main.py
+# src/main.py
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from flask import Flask, send_from_directory, render_template
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-# ✅ the one and only SQLAlchemy instance
+# make relative imports work when launched by gunicorn
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from src.database.db import db
 
-from src.routes.auth import auth_bp
-from src.routes.user import user_bp
-from src.routes.coordination import coordination_bp
-from src.routes.security import security_bp
-from src.routes.provision import provision_bp
+# optional blueprints (won't crash if a module is absent)
+def _opt_import(path, name):
+    try:
+        mod = __import__(path, fromlist=[name])
+        return getattr(mod, name)
+    except Exception:
+        return None
 
-# Optional "welcome" tester page
-try:
-    from src.routes.welcome import welcome_bp
-except Exception:
-    welcome_bp = None
+auth_bp     = _opt_import("src.routes.auth", "auth_bp")
+security_bp = _opt_import("src.routes.security", "security_bp")
+# add more optional BPs if you have them:
+# user_bp     = _opt_import("src.routes.user", "user_bp")
+# provision_bp = _opt_import("src.routes.provision", "provision_bp")
+# coordination_bp = _opt_import("src.routes.coordination", "coordination_bp")
 
-app = Flask(
-    __name__,
-    static_folder=os.path.join(os.path.dirname(__file__), "static"),
-    template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"),
-)
+def create_app() -> Flask:
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(os.path.dirname(__file__), "static"),
+        template_folder=os.path.join(os.path.dirname(__file__), "templates"),
+    )
 
-# Core + DB config
-app.config["SECRET_KEY"] = "brikk_enterprise_secret_key_2024_production"
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # --- Core config ---
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
-# JWT cookie settings
-app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "change-me")
-app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-app.config["JWT_COOKIE_SECURE"] = True
-app.config["JWT_COOKIE_SAMESITE"] = "None"
-app.config["JWT_COOKIE_CSRF_PROTECT"] = False
+    # DB: prefer DATABASE_URL, else sqlite file
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        db_path = os.path.join(os.path.dirname(__file__), "database", "app.db")
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        db_url = f"sqlite:///{db_path}"
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-cookie_domain = os.environ.get("COOKIE_DOMAIN")
-if cookie_domain:
-    app.config["JWT_COOKIE_DOMAIN"] = cookie_domain  # e.g., ".getbrikk.com"
+    # --- JWT cookies only ---
+    app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", app.config["SECRET_KEY"])
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_COOKIE_SECURE"] = True           # required for SameSite=None
+    app.config["JWT_COOKIE_SAMESITE"] = "None"
 
-# CORS + JWT + DB init
-CORS(
-    app,
-    resources={r"/api/*": {"origins": [
+    # Only set JWT_COOKIE_DOMAIN when API itself is on *.getbrikk.com
+    cookie_domain = os.environ.get("JWT_COOKIE_DOMAIN", "").strip()
+    if cookie_domain and cookie_domain.endswith(".getbrikk.com"):
+        # You can keep this env var defined, but it won’t break if left empty.
+        app.config["JWT_COOKIE_DOMAIN"] = cookie_domain
+    # otherwise: leave unset so cookies are scoped to the onrender.com host
+
+    # --- CORS ---
+    app_url = os.environ.get("APP_URL", "https://www.getbrikk.com").rstrip("/")
+    allowed_origins = {
         "https://www.getbrikk.com",
         "https://getbrikk.com",
-        "https://app.getbrikk.com",
-        "https://brikk-infrastructure.onrender.com",
-    ]}},
-    supports_credentials=True,
-)
-jwt = JWTManager(app)
-db.init_app(app)
-
-# Create tables
-with app.app_context():
-    db.create_all()
-
-# Register blueprints
-app.register_blueprint(auth_bp)
-app.register_blueprint(user_bp, url_prefix="/api")
-app.register_blueprint(coordination_bp, url_prefix="/api")
-app.register_blueprint(security_bp, url_prefix="/api")
-app.register_blueprint(provision_bp, url_prefix="/api")
-if welcome_bp:
-    app.register_blueprint(welcome_bp)
-
-@app.route("/health")
-def health_check():
-    return {
-        "service": "Brikk Enterprise AI Agent Coordination Platform",
-        "status": "healthy",
-        "version": "2.0.0",
-        "environment": "production",
-        "features": [
-            "Multi-language agent coordination",
-            "Enterprise security & HIPAA compliance",
-            "Real-time performance monitoring",
-            "Comprehensive audit logging",
-        ],
+        app_url,  # in case you deploy the app somewhere else for staging
     }
+    CORS(app, resources={r"/api/*": {"origins": list(allowed_origins)}}, supports_credentials=True)
 
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve(path: str):
-    if path == "" or path == "index.html":
-        return render_template("index.html")
+    # --- Init extensions ---
+    db.init_app(app)
+    JWTManager(app)
 
-    static_folder_path = app.static_folder
-    if not static_folder_path:
-        return "Static folder not configured", 404
+    # --- Blueprints ---
+    if auth_bp:     app.register_blueprint(auth_bp)
+    if security_bp: app.register_blueprint(security_bp)
+    # if user_bp:     app.register_blueprint(user_bp)
+    # if provision_bp: app.register_blueprint(provision_bp)
+    # if coordination_bp: app.register_blueprint(coordination_bp)
 
-    full = os.path.join(static_folder_path, path)
-    if path and os.path.exists(full):
-        return send_from_directory(static_folder_path, path)
+    # --- Health ---
+    @app.get("/healthz")
+    def healthz():
+        return jsonify({"ok": True})
 
-    return render_template("index.html")
+    # create tables if using sqlite
+    with app.app_context():
+        db.create_all()
 
+    return app
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+app = create_app()
