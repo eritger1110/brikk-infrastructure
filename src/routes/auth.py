@@ -1,28 +1,29 @@
 # src/routes/auth.py
 import os
 from datetime import datetime, timezone
-from urllib.parse import urlencode
 
 from flask import Blueprint, request, jsonify, redirect
 from flask_jwt_extended import (
-    create_access_token, set_access_cookies, unset_jwt_cookies,
-    jwt_required, get_jwt_identity
+    create_access_token,
+    set_access_cookies,
+    unset_jwt_cookies,
+    jwt_required,
+    get_jwt_identity,
 )
 
-# ✅ Use the shared SQLAlchemy instance from src.database.db
+# Use the shared SQLAlchemy instance
 from src.database.db import db
-# ✅ Import only the model from src.models.user (not db)
 from src.models.user import User
-
 from src.services.emailer import send_email
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
-API_BASE = os.environ.get("API_BASE_URL", "https://api.getbrikk.com")
+API_BASE = os.environ.get("API_BASE_URL", "https://api.getbrikk.com")  # may be unused
 
-def _json_err(code, msg):
+def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
+
 
 @auth_bp.post("/register")
 def register():
@@ -45,7 +46,6 @@ def register():
     db.session.add(u)
     db.session.commit()
 
-    # send verification link
     verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
     html = f"""
       <p>Welcome to Brikk!</p>
@@ -56,6 +56,7 @@ def register():
     send_email(u.email, "Verify your Brikk email", html)
 
     return jsonify({"success": True, "message": "Check your email for a verification link"})
+
 
 @auth_bp.get("/verify")
 def verify():
@@ -74,11 +75,11 @@ def verify():
     u.clear_verification()
     db.session.commit()
 
-    # Auto-issue session cookie and bounce to /app
     access = create_access_token(identity=str(u.id))
     response = redirect(f"{APP_BASE}/app/")
     set_access_cookies(response, access)
     return response
+
 
 @auth_bp.post("/login")
 def login():
@@ -104,11 +105,13 @@ def login():
     set_access_cookies(resp, access)
     return resp
 
+
 @auth_bp.post("/logout")
 def logout():
     resp = jsonify({"success": True})
     unset_jwt_cookies(resp)
     return resp
+
 
 @auth_bp.get("/me")
 @jwt_required()
@@ -119,19 +122,24 @@ def me():
         return _json_err(404, "User not found")
     return jsonify({"success": True, "user": u.to_dict()})
 
+
 @auth_bp.post("/resend")
 def resend():
     data = request.get_json() or {}
     email = (data.get("email") or "").lower().strip()
     if not email:
         return _json_err(400, "email required")
+
     u = User.query.filter_by(email=email).first()
     if not u:
         return _json_err(404, "No user with that email")
     if u.email_verified:
         return _json_err(400, "Email already verified")
+
     u.issue_verification(120)
     db.session.commit()
+
     verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
     send_email(u.email, "Verify your Brikk email", f'<p>Verify: <a href="{verify_link}">{verify_link}</a></p>')
+
     return jsonify({"success": True, "message": "Verification email sent"})
