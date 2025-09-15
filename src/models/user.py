@@ -17,8 +17,17 @@ class User(db.Model):
     verification_token = db.Column(db.String(128), index=True, nullable=True)
     verification_expires = db.Column(db.DateTime, nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     # --- password helpers ---
     def set_password(self, raw_password: str):
