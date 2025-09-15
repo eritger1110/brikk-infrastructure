@@ -8,11 +8,11 @@ from flask_jwt_extended import JWTManager
 # make relative imports work when launched by gunicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.database.db import db  # noqa: E402
+from src.database.db import db  # SQLAlchemy() instance
 
 
-# --- optional blueprints (won't crash if the module is absent) ---
 def _opt_import(path, name):
+    """Optional blueprint import that won’t crash if a module is missing."""
     try:
         mod = __import__(path, fromlist=[name])
         return getattr(mod, name)
@@ -22,7 +22,6 @@ def _opt_import(path, name):
 
 auth_bp     = _opt_import("src.routes.auth", "auth_bp")
 security_bp = _opt_import("src.routes.security", "security_bp")
-# add more if you have them:
 # user_bp      = _opt_import("src.routes.user", "user_bp")
 # provision_bp = _opt_import("src.routes.provision", "provision_bp")
 
@@ -33,14 +32,13 @@ def create_app() -> Flask:
         static_folder=os.path.join(os.path.dirname(__file__), "static"),
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
     )
-
-    # Be flexible about trailing slashes to avoid 308 redirects on CORS preflight
+    # Avoid 308 redirects on preflight
     app.url_map.strict_slashes = False
 
     # --- core config ---
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
-    # DB: DATABASE_URL or local sqlite file
+    # DB config
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         db_path = os.path.join(os.path.dirname(__file__), "database", "app.db")
@@ -49,13 +47,16 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # Bind SQLAlchemy to app  <-- FIX
+    db.init_app(app)
+
     # --- JWT cookies ---
     app.config.update(
         JWT_TOKEN_LOCATION=["cookies"],
         JWT_COOKIE_SECURE=True,         # HTTPS only
         JWT_COOKIE_SAMESITE="None",     # allow cross-site redirect from Netlify
         JWT_COOKIE_DOMAIN=os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com"),
-        JWT_COOKIE_CSRF_PROTECT=False,  # keep simple for now
+        JWT_COOKIE_CSRF_PROTECT=False,
     )
 
     # --- CORS ---
@@ -81,13 +82,12 @@ def create_app() -> Flask:
     def root():
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
-    # --- generic preflight handler for anything under /api/* ---
-    # (lets browsers complete CORS handshake without route-level code)
+    # --- generic preflight for any /api/* route ---
     @app.route("/api/<path:_sub>", methods=["OPTIONS"])
     def api_cors_preflight(_sub):
         return ("", 204)
 
-    # --- Blueprints (mounted under /api) ---
+    # --- Blueprints mounted under /api ---
     if auth_bp:
         app.register_blueprint(auth_bp, url_prefix="/api")
     if security_bp:
@@ -97,7 +97,7 @@ def create_app() -> Flask:
     # if provision_bp:
     #     app.register_blueprint(provision_bp, url_prefix="/api")
 
-    # Ensure tables exist for sqlite dev
+    # Ensure tables exist (sqlite dev)
     with app.app_context():
         db.create_all()
 
