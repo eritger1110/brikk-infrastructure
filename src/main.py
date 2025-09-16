@@ -56,12 +56,12 @@ def create_app() -> Flask:
         JWT_COOKIE_CSRF_PROTECT=False,
     )
 
-    # --- CORS (let Flask-CORS handle ALL /api/* preflights automatically) ---
+    # --- CORS (apply to ALL routes so your /health test works too) ---
     allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
     CORS(
         app,
         supports_credentials=True,
-        resources={r"/api/*": {
+        resources={r"/*": {
             "origins": allowed,
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
