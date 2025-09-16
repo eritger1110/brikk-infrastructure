@@ -1,5 +1,5 @@
 # src/routes/auth.py
-import os
+import os, json
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect
@@ -19,21 +19,42 @@ from src.services.emailer import send_email
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
-PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # set in Render env or leave blank to disable token check
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # set in Render env or leave blank to bypass token check
 
 
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
+def _loose_json():
+    """
+    Parse request body very defensively:
+    - try JSON (even if content-type is wrong)
+    - fall back to form fields
+    - fall back to raw body json.loads
+    """
+    data = request.get_json(silent=True)
+    if isinstance(data, dict) and data:
+        return data
+
+    if request.form:
+        return dict(request.form)
+
+    raw = (request.data or b"").decode("utf-8", "ignore").strip()
+    if raw:
+        try:
+            obj = json.loads(raw)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            pass
+
+    return {}
+
+
 @auth_bp.route("/_debug-echo", methods=["POST", "OPTIONS"])
 def debug_echo():
-    """
-    Handy endpoint to verify CORS and request body parsing from the browser.
-    Returns the JSON we received plus a few request details.
-    """
-    # Try hard to parse input even if Content-Type is off
-    data = request.get_json(silent=True, force=True) or {}
+    data = _loose_json()
     return jsonify({
         "ok": True,
         "method": request.method,
@@ -49,8 +70,7 @@ def complete_signup():
     Body: { token, first_name, last_name, email, password }
     If PROVISION_SECRET is set, 'token' must match it.
     """
-    # Be generous when parsing JSON to avoid empty-body edge cases
-    data = request.get_json(silent=True, force=True) or {}
+    data = _loose_json()
 
     token = (data.get("token") or "").strip()
     email = (data.get("email") or "").strip().lower()
@@ -58,12 +78,11 @@ def complete_signup():
     first = (data.get("first_name") or "").strip()
     last = (data.get("last_name") or "").strip()
 
-    if not email or not password or (PROVISION_SECRET and not token):
-        # call out exactly which are missing for easier debugging
-        missing = []
-        if not email: missing.append("email")
-        if not password: missing.append("password")
-        if PROVISION_SECRET and not token: missing.append("token")
+    missing = []
+    if not email: missing.append("email")
+    if not password: missing.append("password")
+    if PROVISION_SECRET and not token: missing.append("token")
+    if missing:
         return _json_err(400, f"missing required field(s): {', '.join(missing)}")
 
     if PROVISION_SECRET and token != PROVISION_SECRET:
@@ -98,7 +117,7 @@ def complete_signup():
 
 @auth_bp.post("/register")
 def register():
-    data = request.get_json(silent=True, force=True) or {}
+    data = _loose_json()
     username = (data.get("username") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -159,7 +178,7 @@ def verify():
 
 @auth_bp.post("/login")
 def login():
-    data = request.get_json(silent=True, force=True) or {}
+    data = _loose_json()
     user_or_email = (data.get("user_or_email") or "").strip()
     password = data.get("password") or ""
 
@@ -201,7 +220,7 @@ def me():
 
 @auth_bp.post("/resend")
 def resend():
-    data = request.get_json(silent=True, force=True) or {}
+    data = _loose_json()
     email = (data.get("email") or "").lower().strip()
     if not email:
         return _json_err(400, "email required")
