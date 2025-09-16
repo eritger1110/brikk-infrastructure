@@ -85,6 +85,12 @@ def create_app() -> Flask:
     if security_bp: app.register_blueprint(security_bp, url_prefix="/api")
     # if user_bp:     app.register_blueprint(user_bp, url_prefix="/api")
     # if provision_bp: app.register_blueprint(provision_bp, url_prefix="/api")
+    
+    # --- Preflight for ANY /api/* route ---
+    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
+    def api_preflight(_sub):
+        # Flask-CORS will attach the Access-Control-* headers
+        return ("", 204)
 
     # Ensure tables exist (sqlite dev)
     with app.app_context():
