@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.database.db import db  # SQLAlchemy() instance
 
+
 def _opt_import(path, name):
     """Optional blueprint import that won’t crash if a module is missing."""
     try:
@@ -18,8 +19,11 @@ def _opt_import(path, name):
     except Exception:
         return None
 
+
 auth_bp     = _opt_import("src.routes.auth", "auth_bp")
 security_bp = _opt_import("src.routes.security", "security_bp")
+# user_bp      = _opt_import("src.routes.user", "user_bp")
+# provision_bp = _opt_import("src.routes.provision", "provision_bp")
 
 
 def create_app() -> Flask:
@@ -41,31 +45,31 @@ def create_app() -> Flask:
         db_url = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-    # Bind SQLAlchemy to app
     db.init_app(app)
 
     # --- JWT cookies ---
     app.config.update(
         JWT_TOKEN_LOCATION=["cookies"],
-        JWT_COOKIE_SECURE=True,         # HTTPS only
-        JWT_COOKIE_SAMESITE="None",     # allow cross-site redirect from Netlify
+        JWT_COOKIE_SECURE=True,        # HTTPS only
+        JWT_COOKIE_SAMESITE="None",    # allow cross-site redirect from Netlify
         JWT_COOKIE_DOMAIN=os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com"),
         JWT_COOKIE_CSRF_PROTECT=False,
     )
 
-    # --- CORS ---
+    # --- CORS (let Flask-CORS handle ALL /api/* preflights automatically) ---
+    allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
     CORS(
         app,
         supports_credentials=True,
-        origins=[
-            "https://www.getbrikk.com",
-            "https://getbrikk.com",
-        ],
-        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+        resources={r"/api/*": {
+            "origins": allowed,
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "expose_headers": [],
+            "max_age": 600,
+        }},
     )
-    JWTManager(app)
+    jwt = JWTManager(app)
 
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
@@ -76,16 +80,13 @@ def create_app() -> Flask:
     def root():
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
-    # --- Blueprints mounted under /api ---
-    if auth_bp:
-        # auth_bp itself is prefixed with /auth (see file below),
-        # so mounting at /api gives final routes /api/auth/...
-        app.register_blueprint(auth_bp, url_prefix="/api")
+    # --- Mount blueprints under /api ---
+    if auth_bp:     app.register_blueprint(auth_bp, url_prefix="/api")
+    if security_bp: app.register_blueprint(security_bp, url_prefix="/api")
+    # if user_bp:     app.register_blueprint(user_bp, url_prefix="/api")
+    # if provision_bp: app.register_blueprint(provision_bp, url_prefix="/api")
 
-    if security_bp:
-        app.register_blueprint(security_bp, url_prefix="/api")
-
-    # Create tables in dev/sqlite
+    # Ensure tables exist (sqlite dev)
     with app.app_context():
         db.create_all()
 
