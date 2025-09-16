@@ -1,14 +1,12 @@
 # src/main.py
-import os
-import sys
+import os, sys
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-# make relative imports work when launched by gunicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.database.db import db  # SQLAlchemy() instance
+from src.database.db import db
 
 def _opt_import(path, name):
     try:
@@ -17,8 +15,10 @@ def _opt_import(path, name):
     except Exception:
         return None
 
-auth_bp     = _opt_import("src.routes.auth", "auth_bp")
-security_bp = _opt_import("src.routes.security", "security_bp")  # ok if None
+# ✅ keep ONLY auth_bp
+auth_bp = _opt_import("src.routes.auth", "auth_bp")
+# ❌ remove/disable the legacy one
+security_bp = None  # _opt_import("src.routes.security", "security_bp")
 
 def create_app() -> Flask:
     app = Flask(
@@ -28,10 +28,10 @@ def create_app() -> Flask:
     )
     app.url_map.strict_slashes = False
 
-    # --- Core config ---
+    # Core config
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
-    # DB config
+    # DB
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
         db_path = os.path.join(os.path.dirname(__file__), "database", "app.db")
@@ -41,31 +41,29 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.init_app(app)
 
-    # --- JWT cookies ---
+    # JWT cookies
     app.config.update(
         JWT_TOKEN_LOCATION=["cookies"],
-        JWT_COOKIE_SECURE=True,        # HTTPS only
-        JWT_COOKIE_SAMESITE="None",    # allow cross-site redirect from Netlify
+        JWT_COOKIE_SECURE=True,
+        JWT_COOKIE_SAMESITE="None",
         JWT_COOKIE_DOMAIN=os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com"),
         JWT_COOKIE_CSRF_PROTECT=False,
     )
+    JWTManager(app)
 
-    # --- CORS ---
-    allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
+    # CORS
     CORS(
         app,
         supports_credentials=True,
         resources={r"/*": {
-            "origins": allowed,
+            "origins": ["https://www.getbrikk.com", "https://getbrikk.com"],
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-            "expose_headers": [],
             "max_age": 600,
         }},
     )
-    jwt = JWTManager(app)
 
-    # --- Health & root ---
+    # Health
     @app.route("/health", methods=["GET", "HEAD"])
     def health():
         return jsonify({"ok": True}), 200
@@ -74,29 +72,16 @@ def create_app() -> Flask:
     def root():
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
-    # --- Generic preflight for any /api/* route ---
+    # ✅ Register only the new blueprint (which already has url_prefix="/auth")
+    if auth_bp:
+        print("Registered auth_bp at /api")  # shows in Render logs
+        app.register_blueprint(auth_bp, url_prefix="/api")
+
+    # Preflight helper (lets Flask-CORS attach headers)
     @app.route("/api/<path:_sub>", methods=["OPTIONS"])
     def api_preflight(_sub):
         return ("", 204)
 
-    # --- Blueprints ---
-    if auth_bp:
-        app.register_blueprint(auth_bp, url_prefix="/api")
-        print("Registered auth_bp at /api")
-    if security_bp:
-        app.register_blueprint(security_bp, url_prefix="/api")
-        print("Registered security_bp at /api")
-
-    # Dump the methods for every /api/auth/* rule (helps catch 405s)
-    try:
-        for r in sorted(app.url_map.iter_rules(), key=lambda x: x.rule):
-            if r.rule.startswith("/api/auth/"):
-                allowed = sorted(list(r.methods - {"HEAD", "OPTIONS"}))
-                print(f"   {r.rule} -> {allowed}")
-    except Exception:
-        pass
-
-    # Ensure tables exist (sqlite dev)
     with app.app_context():
         db.create_all()
 
