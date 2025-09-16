@@ -21,9 +21,7 @@ def _opt_import(path, name):
 
 
 auth_bp     = _opt_import("src.routes.auth", "auth_bp")
-security_bp = _opt_import("src.routes.security", "security_bp")
-# user_bp      = _opt_import("src.routes.user", "user_bp")
-# provision_bp = _opt_import("src.routes.provision", "provision_bp")
+security_bp = _opt_import("src.routes.security", "security_bp")  # we will NOT register this yet
 
 
 def create_app() -> Flask:
@@ -56,7 +54,7 @@ def create_app() -> Flask:
         JWT_COOKIE_CSRF_PROTECT=False,
     )
 
-    # --- CORS (apply to ALL routes so your /health test works too) ---
+    # --- CORS (apply to ALL routes so /health and /api work) ---
     allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
     CORS(
         app,
@@ -81,11 +79,14 @@ def create_app() -> Flask:
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
     # --- Mount blueprints under /api ---
-    if auth_bp:     app.register_blueprint(auth_bp, url_prefix="/api")
-    if security_bp: app.register_blueprint(security_bp, url_prefix="/api")
-    # if user_bp:     app.register_blueprint(user_bp, url_prefix="/api")
-    # if provision_bp: app.register_blueprint(provision_bp, url_prefix="/api")
-    
+    if auth_bp:
+        app.register_blueprint(auth_bp, url_prefix="/api")
+        print("Registered auth_bp at /api")
+    # IMPORTANT: disable the legacy security blueprint to avoid route collisions
+    # if security_bp:
+    #     app.register_blueprint(security_bp, url_prefix="/api")
+    #     print("Registered security_bp at /api")
+
     # --- Preflight for ANY /api/* route ---
     @app.route("/api/<path:_sub>", methods=["OPTIONS"])
     def api_preflight(_sub):
