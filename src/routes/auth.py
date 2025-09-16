@@ -15,73 +15,102 @@ from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-# NOTE: only "/auth" here; main.py mounts blueprint at "/api"
+# NOTE: Blueprint is mounted by main.py at url_prefix="/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
-PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "").strip()
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # e.g. "debug"
 
 
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
-# --- Simple health-ish pings for debugging from the browser console ---
-@auth_bp.get("/_ping")
-def _ping():
+# --------------------------
+# Canary endpoints for wiring
+# --------------------------
+
+@auth_bp.route("/_ping", methods=["GET"])
+def ping():
+    """Simple GET that never preflights. Use in browser."""
     return jsonify({
         "success": True,
         "message": "pong",
-        "provision_secret_set": bool(PROVISION_SECRET)
-    })
+        "provision_secret_set": bool(PROVISION_SECRET),
+        "method": request.method
+    }), 200
 
 
 @auth_bp.route("/_debug-echo", methods=["GET", "POST", "OPTIONS"])
-def _debug_echo():
+def debug_echo():
+    """
+    GET:  /api/auth/_debug-echo?hello=world
+          -> { method:"GET", args:{...} }
+    POST: JSON body -> echoes body and flags json_ok:true/false
+    OPTIONS: return 204 (for CORS preflight)
+    """
     if request.method == "OPTIONS":
         return ("", 204)
 
     if request.method == "GET":
-        return jsonify({"method": "GET", "args": request.args.to_dict()})
+        return jsonify({
+            "method": "GET",
+            "args": request.args.to_dict(flat=True)
+        }), 200
 
-    data = request.get_json(silent=True) or {}
-    return jsonify({"method": "POST", "json_ok": True, "json": data})
+    data = request.get_json(silent=True)
+    return jsonify({
+        "method": "POST",
+        "json_ok": isinstance(data, dict),
+        "json": (data if isinstance(data, dict) else None)
+    }), 200
 
 
-@auth_bp.post("/complete-signup")
+# --------------------------
+# Production endpoints
+# --------------------------
+
+@auth_bp.route("/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
     """
-    Body: { token, first_name, last_name, email, password }
-
-    This version accepts a plain shared secret in `token` (for Netlify function dev)
-    — if PROVISION_SECRET is set and `token == PROVISION_SECRET`, we proceed.
+    Called by your checkout success page.
+    Body (JSON): { token, first_name, last_name, email, password }
+    If PROVISION_SECRET is set, token must match.
     """
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     data = request.get_json(silent=True) or {}
+
     token = (data.get("token") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     first = (data.get("first_name") or "").strip()
     last = (data.get("last_name") or "").strip()
 
-    if not token or not email or not password:
-        return _json_err(400, "token, email, password are required")
+    if not email or not password:
+        return _json_err(400, "email and password are required")
 
-    # Dev-mode / shared-secret check (no JWT required)
     if PROVISION_SECRET and token != PROVISION_SECRET:
         return _json_err(403, "Invalid or expired token")
 
     # Create or update user
     u = User.query.filter_by(email=email).first()
     if not u:
-        username = (first or email.split("@", 1)[0] or "user").lower()
+        # If your User model requires username, derive one
+        base = first or (email.split("@", 1)[0]) or "user"
+        username = base.lower()
         u = User(username=username, email=email)
 
+    # Optional profile fields if present on your model
     if hasattr(u, "first_name"):
         u.first_name = first
     if hasattr(u, "last_name"):
         u.last_name = last
 
     u.set_password(password)
+
+    # Mark verified since we’re provisioning post-payment
     if hasattr(u, "email_verified"):
         u.email_verified = True
     if hasattr(u, "clear_verification"):
@@ -90,14 +119,14 @@ def complete_signup():
     db.session.add(u)
     db.session.commit()
 
-    # Log the user in via cookie
+    # Set login cookie and return user
     access = create_access_token(identity=str(u.id))
     resp = jsonify({"success": True, "user": u.to_dict()})
     set_access_cookies(resp, access)
-    return resp
+    return resp, 200
 
 
-@auth_bp.post("/register")
+@auth_bp.route("/register", methods=["POST"])
 def register():
     data = request.get_json() or {}
     username = (data.get("username") or "").strip()
@@ -133,7 +162,7 @@ def register():
     return jsonify({"success": True, "message": "Check your email for a verification link"})
 
 
-@auth_bp.get("/verify")
+@auth_bp.route("/verify", methods=["GET"])
 def verify():
     token = request.args.get("token", "")
     if not token:
@@ -158,7 +187,7 @@ def verify():
     return response
 
 
-@auth_bp.post("/login")
+@auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
     user_or_email = (data.get("user_or_email") or "").strip()
@@ -183,14 +212,14 @@ def login():
     return resp
 
 
-@auth_bp.post("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 def logout():
     resp = jsonify({"success": True})
     unset_jwt_cookies(resp)
     return resp
 
 
-@auth_bp.get("/me")
+@auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def me():
     uid = get_jwt_identity()
@@ -198,27 +227,3 @@ def me():
     if not u:
         return _json_err(404, "User not found")
     return jsonify({"success": True, "user": u.to_dict()})
-
-
-@auth_bp.post("/resend")
-def resend():
-    data = request.get_json() or {}
-    email = (data.get("email") or "").lower().strip()
-    if not email:
-        return _json_err(400, "email required")
-
-    u = User.query.filter_by(email=email).first()
-    if not u:
-        return _json_err(404, "No user with that email")
-    if getattr(u, "email_verified", False):
-        return _json_err(400, "Email already verified")
-
-    if hasattr(u, "issue_verification"):
-        u.issue_verification(120)
-    db.session.commit()
-
-    if hasattr(u, "verification_token"):
-        verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
-        send_email(u.email, "Verify your Brikk email", f'<p>Verify: <a href="{verify_link}">{verify_link}</a></p>')
-
-    return jsonify({"success": True, "message": "Verification email sent"})
