@@ -1,7 +1,7 @@
 # src/routes/auth.py
 import os
 from datetime import datetime, timezone
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify, redirect, current_app
 from flask_jwt_extended import (
     create_access_token,
     set_access_cookies,
@@ -13,7 +13,6 @@ from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-# NOTE: only "/auth" here; main.py mounts at "/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
@@ -22,9 +21,9 @@ PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # e.g. "debug"
 def _err(code, msg):
     return jsonify({"success": False, "error": msg}), code
 
-# ---- debug helpers -------------------------------------------------
+# -------- debug helpers --------
 
-@auth_bp.get("/_ping")
+@auth_bp.route("/_ping", methods=["GET", "HEAD"])
 def ping():
     return jsonify({
         "success": True,
@@ -42,7 +41,16 @@ def debug_echo():
         "json": body,
     })
 
-# ---- primary flows -------------------------------------------------
+@auth_bp.get("/_routes")
+def list_routes():
+    rows = []
+    for r in current_app.url_map.iter_rules():
+        rule = str(r)
+        if "/auth/" in rule:
+            rows.append({"rule": rule, "methods": sorted(m for m in r.methods if m not in {"HEAD", "OPTIONS"})})
+    return jsonify({"success": True, "routes": rows})
+
+# -------- primary flows --------
 
 @auth_bp.post("/complete-signup")
 def complete_signup():
@@ -62,7 +70,6 @@ def complete_signup():
         return _err(400, "missing email")
     if not password:
         return _err(400, "missing password")
-
     if PROVISION_SECRET and token != PROVISION_SECRET:
         return _err(403, "invalid token")
 
