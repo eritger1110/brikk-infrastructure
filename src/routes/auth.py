@@ -47,7 +47,7 @@ def _user_public(u: User):
 
 # ---------- DEBUG/DIAG ROUTES ----------
 
-@auth_bp.route("/_debug-echo", methods=["POST", "OPTIONS"])
+@auth_bp.route("/_debug-echo", methods=["GET", "POST", "OPTIONS"])
 def debug_echo():
     """
     Simple POST echo to confirm:
