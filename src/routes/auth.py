@@ -1,3 +1,27 @@
+# at the top of the file
+from flask import Blueprint, request, jsonify
+import os
+
+PROVISION_SECRET = os.getenv("PROVISION_SECRET", "").strip()
+auth_bp = Blueprint("auth", __name__)
+
+@auth_bp.post("/auth/complete-signup")
+def complete_signup():
+    data = request.get_json(silent=True) or {}
+    # accept token from body or Authorization header
+    body_token = (data.get("token") or "").strip()
+    hdr = (request.headers.get("Authorization") or "").strip()
+    hdr_token = ""
+    if hdr.lower().startswith("bearer "):
+        hdr_token = hdr.split(" ", 1)[1].strip()
+    elif hdr.lower().startswith("provision "):
+        hdr_token = hdr.split(" ", 1)[1].strip()
+
+    token = body_token or hdr_token
+
+    if PROVISION_SECRET:
+        if not token or token != PROVISION_SECRET:
+            return jsonify({"error": "bad token"}), 401
 # src/routes/auth.py
 import os
 from flask import Blueprint, current_app, jsonify, request
