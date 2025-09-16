@@ -1,7 +1,6 @@
 # src/routes/auth.py
 import os
 from datetime import datetime, timezone
-
 from flask import Blueprint, request, jsonify, redirect
 from flask_jwt_extended import (
     create_access_token,
@@ -10,107 +9,74 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
-
 from src.database.db import db
 from src.models.user import User
 from src.services.emailer import send_email
 
-# NOTE: Blueprint is mounted by main.py at url_prefix="/api"
+# NOTE: only "/auth" here; main.py mounts at "/api"
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
 PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # e.g. "debug"
 
-
-def _json_err(code: int, msg: str):
+def _err(code, msg):
     return jsonify({"success": False, "error": msg}), code
 
+# ---- debug helpers -------------------------------------------------
 
-# --------------------------
-# Canary endpoints for wiring
-# --------------------------
-
-@auth_bp.route("/_ping", methods=["GET"])
+@auth_bp.get("/_ping")
 def ping():
-    """Simple GET that never preflights. Use in browser."""
     return jsonify({
         "success": True,
         "message": "pong",
         "provision_secret_set": bool(PROVISION_SECRET),
-        "method": request.method
-    }), 200
+    })
 
-
-@auth_bp.route("/_debug-echo", methods=["GET", "POST", "OPTIONS"])
+@auth_bp.route("/_debug-echo", methods=["GET", "POST"])
 def debug_echo():
-    """
-    GET:  /api/auth/_debug-echo?hello=world
-          -> { method:"GET", args:{...} }
-    POST: JSON body -> echoes body and flags json_ok:true/false
-    OPTIONS: return 204 (for CORS preflight)
-    """
-    if request.method == "OPTIONS":
-        return ("", 204)
-
-    if request.method == "GET":
-        return jsonify({
-            "method": "GET",
-            "args": request.args.to_dict(flat=True)
-        }), 200
-
-    data = request.get_json(silent=True)
+    body = request.get_json(silent=True) or {}
     return jsonify({
-        "method": "POST",
-        "json_ok": isinstance(data, dict),
-        "json": (data if isinstance(data, dict) else None)
-    }), 200
+        "success": True,
+        "method": request.method,
+        "json_ok": isinstance(body, dict),
+        "json": body,
+    })
 
+# ---- primary flows -------------------------------------------------
 
-# --------------------------
-# Production endpoints
-# --------------------------
-
-@auth_bp.route("/complete-signup", methods=["POST", "OPTIONS"])
+@auth_bp.post("/complete-signup")
 def complete_signup():
     """
-    Called by your checkout success page.
-    Body (JSON): { token, first_name, last_name, email, password }
-    If PROVISION_SECRET is set, token must match.
+    Body: { token, first_name, last_name, email, password }
+    If PROVISION_SECRET is set, token must equal PROVISION_SECRET.
     """
-    if request.method == "OPTIONS":
-        return ("", 204)
-
     data = request.get_json(silent=True) or {}
 
-    token = (data.get("token") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    first = (data.get("first_name") or "").strip()
-    last = (data.get("last_name") or "").strip()
+    token     = (data.get("token") or "").strip()
+    email     = (data.get("email") or "").strip().lower()
+    password  = data.get("password") or ""
+    first     = (data.get("first_name") or "").strip()
+    last      = (data.get("last_name") or "").strip()
 
-    if not email or not password:
-        return _json_err(400, "email and password are required")
+    if not email:
+        return _err(400, "missing email")
+    if not password:
+        return _err(400, "missing password")
 
     if PROVISION_SECRET and token != PROVISION_SECRET:
-        return _json_err(403, "Invalid or expired token")
+        return _err(403, "invalid token")
 
-    # Create or update user
     u = User.query.filter_by(email=email).first()
     if not u:
-        # If your User model requires username, derive one
-        base = first or (email.split("@", 1)[0]) or "user"
-        username = base.lower()
+        username = (first or email.split("@",1)[0] or "user").lower()
         u = User(username=username, email=email)
 
-    # Optional profile fields if present on your model
     if hasattr(u, "first_name"):
         u.first_name = first
     if hasattr(u, "last_name"):
         u.last_name = last
 
     u.set_password(password)
-
-    # Mark verified since we’re provisioning post-payment
     if hasattr(u, "email_verified"):
         u.email_verified = True
     if hasattr(u, "clear_verification"):
@@ -119,111 +85,7 @@ def complete_signup():
     db.session.add(u)
     db.session.commit()
 
-    # Set login cookie and return user
-    access = create_access_token(identity=str(u.id))
-    resp = jsonify({"success": True, "user": u.to_dict()})
-    set_access_cookies(resp, access)
-    return resp, 200
-
-
-@auth_bp.route("/register", methods=["POST"])
-def register():
-    data = request.get_json() or {}
-    username = (data.get("username") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-
-    if not username or not email or not password:
-        return _json_err(400, "username, email, password are required")
-
-    if User.query.filter((User.username == username) | (User.email == email)).first():
-        return _json_err(409, "User with that username or email already exists")
-
-    u = User(username=username, email=email)
-    u.set_password(password)
-    if hasattr(u, "email_verified"):
-        u.email_verified = False
-    if hasattr(u, "issue_verification"):
-        u.issue_verification(minutes=120)
-
-    db.session.add(u)
-    db.session.commit()
-
-    if hasattr(u, "verification_token"):
-        verify_link = f"{APP_BASE}/verify/?token={u.verification_token}"
-        html = f"""
-          <p>Welcome to Brikk!</p>
-          <p>Please verify your email by clicking the link below:</p>
-          <p><a href="{verify_link}">Verify my email</a></p>
-          <p>This link expires in 2 hours.</p>
-        """
-        send_email(u.email, "Verify your Brikk email", html)
-
-    return jsonify({"success": True, "message": "Check your email for a verification link"})
-
-
-@auth_bp.route("/verify", methods=["GET"])
-def verify():
-    token = request.args.get("token", "")
-    if not token:
-        return _json_err(400, "Missing token")
-
-    u = User.query.filter_by(verification_token=token).first()
-    if not u:
-        return _json_err(400, "Invalid or used token")
-
-    if not getattr(u, "verification_expires", None) or datetime.now(timezone.utc) > u.verification_expires:
-        return _json_err(400, "Token expired")
-
-    if hasattr(u, "email_verified"):
-        u.email_verified = True
-    if hasattr(u, "clear_verification"):
-        u.clear_verification()
-    db.session.commit()
-
-    access = create_access_token(identity=str(u.id))
-    response = redirect(f"{APP_BASE}/app/")
-    set_access_cookies(response, access)
-    return response
-
-
-@auth_bp.route("/login", methods=["POST"])
-def login():
-    data = request.get_json() or {}
-    user_or_email = (data.get("user_or_email") or "").strip()
-    password = data.get("password") or ""
-
-    if not user_or_email or not password:
-        return _json_err(400, "user_or_email and password are required")
-
-    u = User.query.filter(
-        (User.email == user_or_email.lower()) | (User.username == user_or_email)
-    ).first()
-
-    if not u or not u.check_password(password):
-        return _json_err(401, "Invalid credentials")
-
-    if getattr(u, "email_verified", True) is False:
-        return _json_err(403, "Email not verified")
-
     access = create_access_token(identity=str(u.id))
     resp = jsonify({"success": True, "user": u.to_dict()})
     set_access_cookies(resp, access)
     return resp
-
-
-@auth_bp.route("/logout", methods=["POST"])
-def logout():
-    resp = jsonify({"success": True})
-    unset_jwt_cookies(resp)
-    return resp
-
-
-@auth_bp.route("/me", methods=["GET"])
-@jwt_required()
-def me():
-    uid = get_jwt_identity()
-    u = User.query.get(int(uid))
-    if not u:
-        return _json_err(404, "User not found")
-    return jsonify({"success": True, "user": u.to_dict()})
