@@ -10,19 +10,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.database.db import db  # SQLAlchemy() instance
 
-
 def _opt_import(path, name):
-    """Optional blueprint import that won’t crash if a module is missing."""
     try:
         mod = __import__(path, fromlist=[name])
         return getattr(mod, name)
     except Exception:
         return None
 
-
 auth_bp     = _opt_import("src.routes.auth", "auth_bp")
-security_bp = _opt_import("src.routes.security", "security_bp")  # we will NOT register this yet
-
+security_bp = _opt_import("src.routes.security", "security_bp")  # ok if None
 
 def create_app() -> Flask:
     app = Flask(
@@ -54,7 +50,7 @@ def create_app() -> Flask:
         JWT_COOKIE_CSRF_PROTECT=False,
     )
 
-    # --- CORS (apply to ALL routes so /health and /api work) ---
+    # --- CORS ---
     allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
     CORS(
         app,
@@ -78,26 +74,32 @@ def create_app() -> Flask:
     def root():
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
-    # --- Mount blueprints under /api ---
+    # --- Generic preflight for any /api/* route ---
+    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
+    def api_preflight(_sub):
+        return ("", 204)
+
+    # --- Blueprints ---
     if auth_bp:
         app.register_blueprint(auth_bp, url_prefix="/api")
         print("Registered auth_bp at /api")
-    # IMPORTANT: disable the legacy security blueprint to avoid route collisions
-    # if security_bp:
-    #     app.register_blueprint(security_bp, url_prefix="/api")
-    #     print("Registered security_bp at /api")
+    if security_bp:
+        app.register_blueprint(security_bp, url_prefix="/api")
+        print("Registered security_bp at /api")
 
-    # --- Preflight for ANY /api/* route ---
-    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
-    def api_preflight(_sub):
-        # Flask-CORS will attach the Access-Control-* headers
-        return ("", 204)
+    # Dump the methods for every /api/auth/* rule (helps catch 405s)
+    try:
+        for r in sorted(app.url_map.iter_rules(), key=lambda x: x.rule):
+            if r.rule.startswith("/api/auth/"):
+                allowed = sorted(list(r.methods - {"HEAD", "OPTIONS"}))
+                print(f"   {r.rule} -> {allowed}")
+    except Exception:
+        pass
 
     # Ensure tables exist (sqlite dev)
     with app.app_context():
         db.create_all()
 
     return app
-
 
 app = create_app()
