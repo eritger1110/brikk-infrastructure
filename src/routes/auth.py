@@ -1,5 +1,5 @@
 # src/routes/auth.py
-import os, json
+import os
 from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, redirect
@@ -19,74 +19,86 @@ from src.services.emailer import send_email
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 APP_BASE = os.environ.get("APP_BASE_URL", "https://app.getbrikk.com")
-PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # set in Render env or leave blank to bypass token check
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET", "")  # keep empty while testing, or set to a known value
 
 
 def _json_err(code: int, msg: str):
     return jsonify({"success": False, "error": msg}), code
 
 
-def _loose_json():
+def _take_first_nonempty(*vals):
+    for v in vals:
+        if v is None:
+            continue
+        if isinstance(v, str) and v.strip() == "":
+            continue
+        return v
+    return None
+
+
+def _parse_body():
     """
-    Parse request body very defensively:
-    - try JSON (even if content-type is wrong)
-    - fall back to form fields
-    - fall back to raw body json.loads
+    Tolerant body parser: JSON, then form, then querystring.
+    Returns a dict with possible keys: token, email, password, first_name, last_name
     """
-    data = request.get_json(silent=True)
-    if isinstance(data, dict) and data:
-        return data
+    data = {}
+    if request.is_json:
+        data = (request.get_json(silent=True) or {})  # JSON
+    else:
+        data = (request.get_json(silent=True) or {})  # try JSON anyway
 
-    if request.form:
-        return dict(request.form)
+    # fall back to form-encoded if present
+    if not data and request.form:
+        data = request.form.to_dict(flat=True)
 
-    raw = (request.data or b"").decode("utf-8", "ignore").strip()
-    if raw:
-        try:
-            obj = json.loads(raw)
-            if isinstance(obj, dict):
-                return obj
-        except Exception:
-            pass
+    # make sure we don't miss values if they arrived via query
+    for k in ("token", "email", "password", "first_name", "last_name"):
+        data[k] = _take_first_nonempty(data.get(k), request.args.get(k))
 
-    return {}
+    # normalize
+    if "email" in data and isinstance(data["email"], str):
+        data["email"] = data["email"].strip().lower()
+    for k in ("first_name", "last_name", "token"):
+        if k in data and isinstance(data[k], str):
+            data[k] = data[k].strip()
+
+    return data
 
 
+# ---------------------------------------------------------------------
+# Debug endpoint: echo back the payload. Useful for testing preflight + POST.
+# ---------------------------------------------------------------------
 @auth_bp.route("/_debug-echo", methods=["POST", "OPTIONS"])
 def debug_echo():
-    data = _loose_json()
     return jsonify({
         "ok": True,
+        "json": _parse_body(),
+        "headers": {k: v for k, v in request.headers.items()},
         "method": request.method,
-        "json": data,
-        "content_type": request.headers.get("Content-Type"),
-        "origin": request.headers.get("Origin"),
-    }), 200
+    })
 
 
+# ---------------------------------------------------------------------
+# Success-page flow: create account and sign-in via cookie
+# ---------------------------------------------------------------------
 @auth_bp.post("/complete-signup")
 def complete_signup():
     """
-    Body: { token, first_name, last_name, email, password }
-    If PROVISION_SECRET is set, 'token' must match it.
+    Body (JSON or form): { token, first_name, last_name, email, password }
+    If PROVISION_SECRET is set, token must match.
     """
-    data = _loose_json()
+    data = _parse_body()
+    token = data.get("token")
+    email = data.get("email")
+    password = data.get("password")
+    first = data.get("first_name") or ""
+    last = data.get("last_name") or ""
 
-    token = (data.get("token") or "").strip()
-    email = (data.get("email") or "").strip().lower()
-    password = data.get("password") or ""
-    first = (data.get("first_name") or "").strip()
-    last = (data.get("last_name") or "").strip()
-
-    missing = []
-    if not email: missing.append("email")
-    if not password: missing.append("password")
-    if PROVISION_SECRET and not token: missing.append("token")
+    missing = [k for k in ("email", "password") if not data.get(k)]
+    if PROVISION_SECRET and token != PROVISION_SECRET:
+        return _json_err(403, "invalid token")
     if missing:
         return _json_err(400, f"missing required field(s): {', '.join(missing)}")
-
-    if PROVISION_SECRET and token != PROVISION_SECRET:
-        return _json_err(403, "Invalid or expired token")
 
     # Create or update the user
     u = User.query.filter_by(email=email).first()
@@ -108,7 +120,6 @@ def complete_signup():
     db.session.add(u)
     db.session.commit()
 
-    # Log the user in via cookie
     access = create_access_token(identity=str(u.id))
     resp = jsonify({"success": True, "user": u.to_dict()})
     set_access_cookies(resp, access)
@@ -117,7 +128,7 @@ def complete_signup():
 
 @auth_bp.post("/register")
 def register():
-    data = _loose_json()
+    data = _parse_body()
     username = (data.get("username") or "").strip()
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
@@ -178,7 +189,7 @@ def verify():
 
 @auth_bp.post("/login")
 def login():
-    data = _loose_json()
+    data = _parse_body()
     user_or_email = (data.get("user_or_email") or "").strip()
     password = data.get("password") or ""
 
@@ -220,7 +231,7 @@ def me():
 
 @auth_bp.post("/resend")
 def resend():
-    data = _loose_json()
+    data = _parse_body()
     email = (data.get("email") or "").lower().strip()
     if not email:
         return _json_err(400, "email required")
