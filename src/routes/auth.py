@@ -1,32 +1,25 @@
-# at the top of the file
-from flask import Blueprint, request, jsonify
-import os
-
-PROVISION_SECRET = os.getenv("PROVISION_SECRET", "").strip()
-auth_bp = Blueprint("auth", __name__)
-
-@auth_bp.post("/auth/complete-signup")
-def complete_signup():
-    data = request.get_json(silent=True) or {}
-    # accept token from body or Authorization header
-    body_token = (data.get("token") or "").strip()
-    hdr = (request.headers.get("Authorization") or "").strip()
-    hdr_token = ""
-    if hdr.lower().startswith("bearer "):
-        hdr_token = hdr.split(" ", 1)[1].strip()
-    elif hdr.lower().startswith("provision "):
-        hdr_token = hdr.split(" ", 1)[1].strip()
-
-    token = body_token or hdr_token
-
-    if PROVISION_SECRET:
-        if not token or token != PROVISION_SECRET:
-            return jsonify({"error": "bad token"}), 401
 # src/routes/auth.py
+
 import os
 from flask import Blueprint, current_app, jsonify, request
 
-auth_bp = Blueprint("auth", __name__)  # exported below as variable named auth_bp
+# Optional (used by /auth/me if JWT cookies are set)
+try:
+    from flask_jwt_extended import jwt_required, get_jwt_identity  # type: ignore
+    HAVE_JWT = True
+except Exception:
+    HAVE_JWT = False
+
+# Optional (used by /auth/me to enrich the response if models exist)
+try:
+    from src.models.user import User  # type: ignore
+    from src.models.purchase import Purchase  # type: ignore
+    HAVE_MODELS = True
+except Exception:
+    HAVE_MODELS = False
+
+auth_bp = Blueprint("auth", __name__)  # mounted under /api in main.py
+
 
 # ---- simple health-ish ping for the auth area
 @auth_bp.route("/auth/_ping", methods=["GET"])
@@ -37,6 +30,7 @@ def auth_ping():
         "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
     }), 200
 
+
 # ---- list the routes we registered (handy for proving what Flask sees)
 @auth_bp.route("/auth/_routes", methods=["GET"])
 def auth_routes():
@@ -46,6 +40,7 @@ def auth_routes():
             methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
             routes.append({"rule": rule.rule, "methods": methods, "endpoint": rule.endpoint})
     return jsonify({"count": len(routes), "routes": routes}), 200
+
 
 # ---- echo to prove CORS + body parsing works
 @auth_bp.route("/auth/_debug-echo", methods=["GET", "POST"])
@@ -66,33 +61,8 @@ def debug_echo():
         "json": data,
     }), 200
 
-# ---- the endpoint your success page calls
+
+# ---- complete-signup (kept as-is, guarded by PROVISION_SECRET if set)
 @auth_bp.route("/auth/complete-signup", methods=["POST"])
 def complete_signup():
-    # Optional provisioning guard (NO JWT decode here)
-    required = os.getenv("PROVISION_SECRET")
-    payload = request.get_json(silent=True) or {}
-
-    if required:
-        token = (payload.get("token") or "").strip()
-        if token != required:
-            return jsonify({"error": "bad token"}), 401
-
-    email = (payload.get("email") or "").strip().lower()
-    password = payload.get("password") or ""
-    first_name = payload.get("first_name") or ""
-    last_name = payload.get("last_name") or ""
-
-    if not email:
-        return jsonify({"error": "missing email"}), 400
-    if not password:
-        return jsonify({"error": "missing password"}), 400
-
-    # TODO: create the user, set cookies, etc.
-    # For now, just prove the flow works:
-    return jsonify({
-        "ok": True,
-        "email": email,
-        "first_name": first_name,
-        "last_name": last_name,
-    }), 200
+    required = os.getenv("PROVISION_SECRET", "").strip(_
