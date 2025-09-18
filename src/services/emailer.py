@@ -4,7 +4,7 @@ import json
 import requests
 
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
-FROM_EMAIL = os.environ.get("FROM_EMAIL", "no-reply@getbrikk.com")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "connect@getbrikk.com")
 FROM_NAME = os.environ.get("FROM_NAME", "Brikk")
 
 def send_email(to_email: str, subject: str, html: str) -> bool:
