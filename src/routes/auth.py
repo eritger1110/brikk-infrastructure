@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 from flask import Blueprint, current_app, jsonify, request, make_response
 
-# --- Optional JWT (cookies) -------------------------------------------------
+# ---------------- Optional JWT (cookies) ------------------------------------
 try:
     from flask_jwt_extended import (  # type: ignore
         jwt_required,
@@ -20,7 +20,7 @@ try:
 except Exception:  # pragma: no cover
     HAVE_JWT = False
 
-# --- Optional models (fine if missing) --------------------------------------
+# ---------------- Optional models (fine if missing) -------------------------
 try:
     from src.models.user import User  # type: ignore
     from src.models.purchase import Purchase  # type: ignore
@@ -28,14 +28,14 @@ try:
 except Exception:  # pragma: no cover
     HAVE_MODELS = False
 
-# --- Optional emailer (SendGrid helper) -------------------------------------
+# ---------------- Optional emailer (SendGrid helper) ------------------------
 try:
     from src.services.emailer import send_email  # type: ignore
     HAVE_EMAILER = True
 except Exception:  # pragma: no cover
     HAVE_EMAILER = False
 
-# --- Token signer for email verification ------------------------------------
+# ---------------- Token signer for email verification -----------------------
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
@@ -44,34 +44,27 @@ auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
 # --------------------------------------------------------------------------- #
 # Utilities
 # --------------------------------------------------------------------------- #
-def _bool_env(name: str, default: bool = False) -> bool:
-    v = os.getenv(name)
-    if v is None:
-        return default
-    return v.strip() in {"1", "true", "TRUE", "yes", "on"}
-
-
 def _json() -> Dict[str, Any]:
     return (request.get_json(silent=True) or {}) if request.data else {}
 
 
 def _signer() -> URLSafeTimedSerializer:
-    # uses Flask SECRET_KEY
+    # Uses Flask SECRET_KEY; add extra salt for separation of concerns
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="email-verify")
 
 
 def _make_verify_token(email: str) -> str:
-    return _signer().dumps({"email": email})
+    return _signer().dumps({"email": (email or "").strip().lower()})
 
 
 def _parse_verify_token(token: str, max_age: int = 60 * 60 * 24 * 7) -> str:
-    # 7 days validity; adjust if you want
+    # Default validity: 7 days
     data = _signer().loads(token, max_age=max_age)
     return str(data.get("email", "")).lower().strip()
 
 
 def _frontend_origin() -> str:
-    # where your /verify page lives
+    # Where /verify lives
     return os.getenv("FRONTEND_ORIGIN", "https://www.getbrikk.com").rstrip("/")
 
 
@@ -99,11 +92,7 @@ def auth_routes():
         if rule.rule.startswith("/api/auth"):
             methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
             routes.append(
-                {
-                    "rule": rule.rule,
-                    "methods": methods,
-                    "endpoint": rule.endpoint,
-                }
+                {"rule": rule.rule, "methods": methods, "endpoint": rule.endpoint}
             )
     return jsonify({"count": len(routes), "routes": routes}), 200
 
@@ -123,32 +112,20 @@ def debug_echo():
             200,
         )
     data = _json()
-    return (
-        jsonify(
-            {
-                "success": True,
-                "method": "POST",
-                "json_ok": isinstance(data, dict),
-                "json": data,
-            }
-        ),
-        200,
-    )
+    return jsonify({"success": True, "method": "POST", "json_ok": True, "json": data}), 200
 
 
 # --------------------------------------------------------------------------- #
-# Signup (used by /checkout/success)
+# Signup (used by /checkout/success) – now also sends verification email
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
     if request.method == "OPTIONS":
-        # CORS preflight handled by Flask-CORS; keep the 204 fast path
         return ("", 204)
 
     payload = _json()
-    # IMPORTANT:
-    # In production leave PROVISION_SECRET empty so the client can hit this
-    # endpoint directly. If you do set it, the client must include {token}.
+
+    # If you set PROVISION_SECRET, require the client token. Otherwise, skip.
     required_token = os.getenv("PROVISION_SECRET", "").strip()
     client_token = (payload.get("token") or "").strip()
     if required_token and client_token != required_token:
@@ -158,13 +135,12 @@ def complete_signup():
     password = payload.get("password") or ""
     first_name = (payload.get("first_name") or "").strip()
     last_name = (payload.get("last_name") or "").strip()
-
     if not email:
         return jsonify({"error": "missing email"}), 400
     if not password:
         return jsonify({"error": "missing password"}), 400
 
-    # Optional: create/upsert user if models exist
+    # Optional: upsert a minimal user if models are available
     if HAVE_MODELS:
         try:
             existing = User.query.filter_by(email=email).first()
@@ -191,21 +167,158 @@ def complete_signup():
                 "email": email,
                 "first_name": first_name,
                 "last_name": last_name,
+                "verification_email_queued": bool(HAVE_EMAILER),
             }
         ),
         200,
     )
-
     if HAVE_JWT:
-        claims = {"email": email}
-        token = create_access_token(identity=email, additional_claims=claims)
+        token = create_access_token(identity=email, additional_claims={"email": email})
         set_access_cookies(resp, token)
+
+    # Fire-and-forget verification email (don’t block response)
+    if HAVE_EMAILER:
+        try:
+            vtoken = _make_verify_token(email)
+            verify_link = f"{_frontend_origin()}/verify?token={vtoken}"
+            html = f"""
+            <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
+              <h2>Verify your email</h2>
+              <p>Welcome{', ' + first_name if first_name else ''}! Click below to verify:</p>
+              <p><a href="{verify_link}">Verify your Brikk email</a></p>
+              <p style="opacity:.7">If you didn’t request this, you can ignore it.</p>
+            </div>
+            """
+            send_email(to_email=email, subject="Verify your Brikk email", html=html)
+        except Exception:
+            current_app.logger.exception("signup: sending verification email failed")
 
     return resp
 
 
 # --------------------------------------------------------------------------- #
-# Who am I?  (dashboard uses this)
+# Verify – GET /api/auth/verify?token=...
+# --------------------------------------------------------------------------- #
+@auth_bp.route("/auth/verify", methods=["GET"])
+def verify_email():
+    token = (request.args.get("token") or "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "missing token"}), 400
+
+    try:
+        email = _parse_verify_token(token)
+    except SignatureExpired:
+        return jsonify({"ok": False, "error": "token expired"}), 400
+    except BadSignature:
+        return jsonify({"ok": False, "error": "bad token"}), 400
+    except Exception:
+        current_app.logger.exception("verify: unexpected error")
+        return jsonify({"ok": False, "error": "server error"}), 500
+
+    # If you have a user model, mark as verified
+    if HAVE_MODELS:
+        try:
+            u = User.query.filter_by(email=email).first()
+            if u and hasattr(u, "email_verified"):
+                setattr(u, "email_verified", True)
+                from src.database.db import db
+                db.session.commit()
+        except Exception:
+            current_app.logger.exception("verify: could not set email_verified")
+
+    return jsonify({"ok": True, "email": email}), 200
+
+
+# --------------------------------------------------------------------------- #
+# Resend verification email (uses SendGrid helper)
+# --------------------------------------------------------------------------- #
+@auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
+def resend_verification():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    # Prefer logged-in email from JWT; else accept {email}
+    to_email: Optional[str] = None
+    if HAVE_JWT:
+        try:
+            verify_jwt_in_request(optional=True)
+            ident = get_jwt_identity()
+            if isinstance(ident, str) and "@" in ident:
+                to_email = ident
+        except Exception:
+            pass
+
+    payload = _json()
+    if not to_email:
+        e = (payload.get("email") or "").strip().lower()
+        if e:
+            to_email = e
+
+    if not to_email:
+        return jsonify({"ok": False, "error": "email required"}), 400
+    if not HAVE_EMAILER:
+        current_app.logger.warning("SendGrid emailer not available; skipping send")
+        return jsonify({"ok": False, "sent": False, "reason": "emailer-unavailable"}), 501
+
+    try:
+        vtoken = _make_verify_token(to_email)
+        verify_link = f"{_frontend_origin()}/verify?token={vtoken}"
+        html = f"""
+        <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
+          <h2>Verify your email</h2>
+          <p>We’re confirming <strong>{to_email}</strong> for your Brikk account.</p>
+          <p>Click to verify: <a href="{verify_link}">Verify</a></p>
+          <p style="opacity:.7">If you didn’t request this, you can ignore it.</p>
+        </div>
+        """
+        ok = bool(
+            send_email(to_email=to_email, subject="Verify your Brikk email", html=html)
+        )
+    except Exception:
+        current_app.logger.exception("resend: SendGrid send failed")
+        ok = False
+
+    return jsonify({"ok": ok, "sent": ok}), (200 if ok else 502)
+
+
+# --------------------------------------------------------------------------- #
+# Simple test email endpoint (optional)
+# --------------------------------------------------------------------------- #
+@auth_bp.route("/auth/_email-test", methods=["POST", "OPTIONS"])
+def email_test():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    if not HAVE_EMAILER:
+        return jsonify({"ok": False, "reason": "emailer-unavailable"}), 501
+
+    to_email = None
+    try:
+        if HAVE_JWT:
+            verify_jwt_in_request(optional=True)
+            ident = get_jwt_identity()
+            if isinstance(ident, str) and "@" in ident:
+                to_email = ident
+    except Exception:
+        pass
+
+    payload = _json()
+    to_email = to_email or (payload.get("email") or "").strip().lower()
+    if not to_email:
+        return jsonify({"ok": False, "error": "email required"}), 400
+
+    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works ✅</p>"
+    text = f"Brikk test email to {to_email}. If you see this, SendGrid works."
+    try:
+        ok = send_email(to_email=to_email, subject="Brikk test email", html=html, text=text)
+        return jsonify({"ok": bool(ok)}), (200 if ok else 502)
+    except Exception as e:
+        current_app.logger.exception("email-test failed")
+        return jsonify({"ok": False, "error": repr(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+# Who am I? (used by dashboard)
 # --------------------------------------------------------------------------- #
 if HAVE_JWT:
 
@@ -219,7 +332,7 @@ if HAVE_JWT:
         if not ident:
             return jsonify({"authenticated": False, "user": None}), 200
 
-        # If models are available, enrich the response.
+        # Enrich from DB if available
         if HAVE_MODELS:
             try:
                 q = (User.id == ident) | (User.email == str(ident))
@@ -278,137 +391,7 @@ else:
 def logout():
     if request.method == "OPTIONS":
         return ("", 204)
-
     resp = make_response(jsonify({"ok": True}), 200)
     if HAVE_JWT:
         unset_jwt_cookies(resp)
     return resp
-
-
-# --------------------------------------------------------------------------- #
-# Email test helper
-# --------------------------------------------------------------------------- #
-@auth_bp.route("/auth/_email-test", methods=["POST", "OPTIONS"])
-def email_test():
-    if request.method == "OPTIONS":
-        return ("", 204)
-
-    if not HAVE_EMAILER:
-        return jsonify({"ok": False, "reason": "emailer-unavailable"}), 501
-
-    to_email = None
-    try:
-        if HAVE_JWT:
-            verify_jwt_in_request(optional=True)
-            ident = get_jwt_identity()
-            if isinstance(ident, str) and "@" in ident:
-                to_email = ident
-    except Exception:
-        pass
-
-    payload = _json()
-    to_email = to_email or (payload.get("email") or "").strip().lower()
-    if not to_email:
-        return jsonify({"ok": False, "error": "email required"}), 400
-
-    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works ✅</p>"
-    text = f"Brikk test email to {to_email}. If you see this, SendGrid works."
-
-    try:
-        ok = send_email(to_email=to_email, subject="Brikk test email", html=html, text=text)
-        return jsonify({"ok": bool(ok)}), (200 if ok else 502)
-    except Exception as e:
-        current_app.logger.exception("email-test failed")
-        return jsonify({"ok": False, "error": repr(e)}), 500
-
-
-# --------------------------------------------------------------------------- #
-# Resend verification (tokenized link via SendGrid)
-# --------------------------------------------------------------------------- #
-@auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
-def resend_verification():
-    if request.method == "OPTIONS":
-        return ("", 204)
-
-    # Prefer the logged-in email (JWT) if present; otherwise accept {email}
-    to_email: Optional[str] = None
-    if HAVE_JWT:
-        try:
-            verify_jwt_in_request(optional=True)
-            ident = get_jwt_identity()
-            if isinstance(ident, str) and "@" in ident:
-                to_email = ident
-        except Exception:
-            pass
-
-    payload = _json()
-    if not to_email:
-        e = (payload.get("email") or "").strip().lower()
-        if e:
-            to_email = e
-
-    if not to_email:
-        return jsonify({"ok": False, "error": "email required"}), 400
-
-    if not HAVE_EMAILER:
-        current_app.logger.warning("SendGrid emailer not available; skipping send")
-        return jsonify({"ok": False, "sent": False, "reason": "emailer-unavailable"}), 501
-
-    # --- generate a signed token & link ---
-    token = _make_verify_token(to_email)
-    verify_link = f"{_frontend_origin()}/verify?token={token}"
-
-    html = f"""
-    <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
-      <h2>Verify your email</h2>
-      <p>We’re confirming <strong>{to_email}</strong> for your Brikk account.</p>
-      <p>Click here to verify: <a href="{verify_link}">Verify your email</a></p>
-      <p style="opacity:.7">If you didn’t request this, just ignore it.</p>
-      <p style="opacity:.7">Thanks,<br/>The Brikk Team</p>
-    </div>
-    """
-    text = f"Verify your Brikk email: {verify_link}"
-
-    try:
-        ok = bool(send_email(to_email=to_email, subject="Verify your Brikk email", html=html))
-    except Exception:
-        current_app.logger.exception("SendGrid send failed")
-        ok = False
-
-    return jsonify({"ok": ok, "sent": ok}), (200 if ok else 502)
-
-
-# --------------------------------------------------------------------------- #
-# Verify endpoint - called by /verify?token=... on the frontend
-# --------------------------------------------------------------------------- #
-@auth_bp.route("/auth/verify", methods=["GET", "OPTIONS"])
-def verify_email():
-    if request.method == "OPTIONS":
-        return ("", 204)
-
-    token = (request.args.get("token") or "").strip()
-    if not token:
-        return jsonify({"ok": False, "error": "missing token"}), 400
-
-    try:
-        email = _parse_verify_token(token)  # raises if invalid/expired
-    except SignatureExpired:
-        return jsonify({"ok": False, "error": "token expired"}), 400
-    except BadSignature:
-        return jsonify({"ok": False, "error": "invalid token"}), 400
-    except Exception:
-        current_app.logger.exception("verify parse failed")
-        return jsonify({"ok": False, "error": "bad token"}), 400
-
-    # If you have models, mark verified
-    if HAVE_MODELS:
-        try:
-            u = User.query.filter_by(email=email).first()
-            if u and hasattr(u, "email_verified"):
-                setattr(u, "email_verified", True)
-                from src.database.db import db  # lazy import
-                db.session.commit()
-        except Exception:
-            current_app.logger.exception("verify DB update failed")
-
-    return jsonify({"ok": True, "email": email}), 200
