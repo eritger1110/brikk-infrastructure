@@ -1,128 +1,188 @@
 # src/routes/app.py
+from __future__ import annotations
+
 import os
-from typing import Optional
+import hashlib
+from typing import Any, Dict, List
 
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask import Blueprint, jsonify, request, current_app
+from werkzeug.exceptions import BadRequest
 
-# Stripe (12.x)
+# Optional JWT (for knowing who the user is)
+try:
+    from flask_jwt_extended import jwt_required, get_jwt_identity  # type: ignore
+    HAVE_JWT = True
+except Exception:  # pragma: no cover
+    HAVE_JWT = False
+
+# Stripe
 import stripe
 
-app_bp = Blueprint("app", __name__)  # mounted under /api by main.py
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "").strip()
 
-# ---- helpers ---------------------------------------------------------------
+app_bp = Blueprint("app", __name__)  # mounted at /api in main.py
 
-def _stripe_ready() -> bool:
-    api_key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
-    if not api_key:
-        return False
-    stripe.api_key = api_key
-    return True
 
-def _current_email() -> Optional[str]:
-    """
-    We store the user's email as the JWT identity during login/sign-up.
-    If you encode a different identity, adjust this accordingly.
-    """
-    try:
-        ident = get_jwt_identity()
-        if isinstance(ident, str) and "@" in ident:
-            return ident
-        if isinstance(ident, dict):
-            # common pattern: {"email": "...", ...}
-            email = ident.get("email")
-            if isinstance(email, str) and "@" in email:
-                return email
-    except Exception:
-        pass
-    return None
+def _json() -> Dict[str, Any]:
+    return (request.get_json(silent=True) or {}) if request.data else {}
 
-def _find_or_create_customer(email: str) -> stripe.Customer:
-    """
-    1) Try to find an existing Stripe customer by email.
-    2) If none found, create a new one so the portal can open.
-    NOTE: If your checkout flow definitely creates a customer, step (1) will hit.
-    """
-    # Search (fast path). If search isn’t enabled on your account, fallback below.
+
+# --------------------------------------------------------------------------- #
+# Helper: find Stripe customer by email (uses Customers Search)
+# --------------------------------------------------------------------------- #
+def _find_customer_id_for_email(email: str) -> str | None:
+    if not stripe.api_key:
+        raise RuntimeError("Stripe not configured")
+    # Stripe Customers Search requires live mode enabled on your account
+    # and the API key to be valid. We use exact email match.
     try:
         res = stripe.Customer.search(query=f"email:'{email}'", limit=1)
         if res and res.data:
-            return res.data[0]
-    except Exception:
-        # Some accounts don’t have Customer Search – fall back to list.
-        existing = stripe.Customer.list(email=email, limit=1)
-        if existing and existing.data:
-            return existing.data[0]
+            return res.data[0]["id"]
+        return None
+    except Exception as e:  # bubble detailed error to logs, generic to client
+        current_app.logger.exception("Stripe customer search failed: %s", e)
+        raise
 
-    # Create a new customer so the portal can still open
-    return stripe.Customer.create(email=email, metadata={"source": "brikk-dashboard"})
 
-# ---- debug / discovery -----------------------------------------------------
-
-@app_bp.get("/_routes")
+# --------------------------------------------------------------------------- #
+# Diagnostics
+# --------------------------------------------------------------------------- #
+@app_bp.route("/_routes", methods=["GET"])
 def all_routes():
-    # Handy to confirm what’s mounted at /api/*
-    from flask import current_app
-    out = []
-    for rule in current_app.url_map.iter_rules():
-        if rule.rule.startswith("/api/"):
-            methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
-            out.append({"endpoint": rule.endpoint, "methods": methods, "rule": rule.rule})
-    return jsonify({"count": len(out), "routes": out})
+    routes: List[Dict[str, Any]] = []
+    for r in current_app.url_map.iter_rules():
+        if str(r).startswith("/api"):
+            routes.append(
+                {
+                    "rule": str(r),
+                    "methods": sorted(list(r.methods - {"HEAD", "OPTIONS"})),
+                    "endpoint": r.endpoint,
+                }
+            )
+    return jsonify({"count": len(routes), "routes": routes})
 
-# ---- metrics (stub so charts work) ----------------------------------------
 
-@app_bp.get("/metrics")
+# --------------------------------------------------------------------------- #
+# Charts – simple demo series
+# --------------------------------------------------------------------------- #
+@app_bp.route("/metrics", methods=["GET"])
 def metrics():
-    # Replace later with real data
-    return jsonify({
-        "series": {
-            "last10m": [2, 3, 5, 4, 6, 7, 4, 6, 5, 8],
-            "latency": [220, 210, 230, 190, 200, 240, 210, 220, 205, 215],
+    # Static-ish demo data; replace later with real metrics
+    return jsonify(
+        {
+            "series": {
+                "last10m": [2, 3, 5, 4, 6, 7, 4, 6, 5, 8],
+                "latency": [220, 210, 230, 190, 200, 240, 210, 220, 205, 215],
+            }
         }
-    })
+    )
 
-# ---- billing portal --------------------------------------------------------
 
-@app_bp.post("/billing/portal")
-@jwt_required(optional=False)
+# --------------------------------------------------------------------------- #
+# Demo workflows
+# --------------------------------------------------------------------------- #
+@app_bp.route("/workflows/<workflow>/execute", methods=["POST", "OPTIONS"])
+def execute_workflow(workflow: str):
+    if request.method == "OPTIONS":
+        return ("", 204)
+    payload = _json()
+    who = None
+    if HAVE_JWT:
+        try:
+            who = get_jwt_identity()
+        except Exception:
+            who = None
+
+    return jsonify(
+        {
+            "ok": True,
+            "workflow": workflow,
+            "ran_as": who,
+            "echo": {"demo": True, **payload},
+            "result": f"demo result for '{workflow}'",
+        }
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Billing portal (Stripe)
+# --------------------------------------------------------------------------- #
+@app_bp.route("/billing/portal", methods=["POST", "OPTIONS"])
 def billing_portal():
-    if not _stripe_ready():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    if not stripe.api_key:
         return jsonify({"error": "Stripe not configured"}), 500
 
-    email = _current_email()
-    if not email:
-        return jsonify({"error": "Not authenticated"}), 401
+    return_url = os.getenv("BILLING_PORTAL_RETURN_URL", "").strip()
+    if not return_url:
+        return jsonify({"error": "BILLING_PORTAL_RETURN_URL not set"}), 500
+
+    data = _json()
+    customer_id = (data.get("customer_id") or "").strip()
+
+    # If a specific customer_id is supplied, prefer it (useful for admin tools)
+    if not customer_id:
+        # Otherwise derive from the logged-in email
+        email = None
+        if HAVE_JWT:
+            try:
+                email = get_jwt_identity()
+            except Exception:
+                email = None
+        if not email or "@" not in str(email):
+            return jsonify({"error": "No Stripe customer on file for this user"}), 400
+
+        try:
+            cid = _find_customer_id_for_email(str(email))
+        except Exception:
+            # Already logged server-side
+            return (
+                jsonify(
+                    {
+                        "error": "Could not locate Stripe customer for this email. "
+                        "Ensure the checkout used the same email."
+                    }
+                ),
+                502,
+            )
+        if not cid:
+            return jsonify({"error": "No Stripe customer on file for this user"}), 400
+        customer_id = cid
 
     try:
-        customer = _find_or_create_customer(email)
-        return_url = (os.getenv("BILLING_PORTAL_RETURN_URL") or "https://www.getbrikk.com/app/").strip()
         session = stripe.billing_portal.Session.create(
-            customer=customer.id,
-            return_url=return_url,
+            customer=customer_id, return_url=return_url
         )
         return jsonify({"url": session.url})
-    except stripe.error.StripeError as e:
-        # Bubble Stripe error message so you can see exactly what’s wrong
-        return jsonify({"error": f"Stripe error: {str(e)}"}), 502
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        current_app.logger.exception("Stripe portal create failed: %s", e)
+        return jsonify({"error": f"Stripe error: {str(e)}"}), 502
 
-# ---- demo workflows --------------------------------------------------------
 
-@app_bp.post("/workflows/<workflow>/execute")
-@jwt_required(optional=True)
-def execute_workflow(workflow: str):
+# --------------------------------------------------------------------------- #
+# API key reveal (temporary demo)
+# --------------------------------------------------------------------------- #
+@app_bp.route("/key", methods=["GET"])
+def api_key_demo():
     """
-    Demo handler that echoes back a pretend result so the dashboard
-    looks alive. Swap this with real logic when ready.
+    Temporary/demo key until we add DB-backed keys.
+    Generates a deterministic token from email + SECRET_KEY so the same user
+    sees the same key across sessions, but nothing is persisted.
     """
-    email = _current_email() or "—"
-    body = request.get_json(silent=True) or {}
-    return jsonify({
-        "ok": True,
-        "workflow": workflow,
-        "ran_as": email,
-        "result": f"demo result for '{workflow}'",
-        "echo": {"demo": True} if body is None else body,
-    })
+    email = None
+    if HAVE_JWT:
+        try:
+            email = get_jwt_identity()
+        except Exception:
+            email = None
+
+    if not email or "@" not in str(email):
+        return jsonify({"error": "Not authenticated"}), 401
+
+    secret = os.getenv("SECRET_KEY", "brikk-demo")
+    h = hashlib.sha256(f"{email}:{secret}".encode("utf-8")).hexdigest()[:24]
+    demo_key = f"brk_live_{h}"
+    return jsonify({"key": demo_key})
