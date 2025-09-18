@@ -47,6 +47,7 @@ def _bool_env(name: str, default: bool = False) -> bool:
         return default
     return v.strip() in {"1", "true", "TRUE", "yes", "on"}
 
+
 def _json() -> Dict[str, Any]:
     return (request.get_json(silent=True) or {}) if request.data else {}
 
@@ -56,14 +57,16 @@ def _json() -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/_ping", methods=["GET"])
 def auth_ping():
-    return jsonify({
-        "success": True,
-        "message": "pong",
-        "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
-        "have_jwt": HAVE_JWT,
-        "have_models": HAVE_MODELS,
-        "have_emailer": HAVE_EMAILER,
-    }), 200
+    return jsonify(
+        {
+            "success": True,
+            "message": "pong",
+            "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
+            "have_jwt": HAVE_JWT,
+            "have_models": HAVE_MODELS,
+            "have_emailer": HAVE_EMAILER,
+        }
+    ), 200
 
 
 @auth_bp.route("/auth/_routes", methods=["GET"])
@@ -72,30 +75,42 @@ def auth_routes():
     for rule in current_app.url_map.iter_rules():
         if rule.rule.startswith("/api/auth"):
             methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
-            routes.append({
-                "rule": rule.rule,
-                "methods": methods,
-                "endpoint": rule.endpoint,
-            })
+            routes.append(
+                {
+                    "rule": rule.rule,
+                    "methods": methods,
+                    "endpoint": rule.endpoint,
+                }
+            )
     return jsonify({"count": len(routes), "routes": routes}), 200
 
 
 @auth_bp.route("/auth/_debug-echo", methods=["GET", "POST"])
 def debug_echo():
     if request.method == "GET":
-        return jsonify({
-            "success": True,
-            "method": "GET",
-            "args": request.args.to_dict(),
-            "json_ok": False,
-        }), 200
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "method": "GET",
+                    "args": request.args.to_dict(),
+                    "json_ok": False,
+                }
+            ),
+            200,
+        )
     data = _json()
-    return jsonify({
-        "success": True,
-        "method": "POST",
-        "json_ok": isinstance(data, dict),
-        "json": data,
-    }), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "method": "POST",
+                "json_ok": isinstance(data, dict),
+                "json": data,
+            }
+        ),
+        200,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -139,18 +154,24 @@ def complete_signup():
                 if hasattr(u, "last_name"):
                     setattr(u, "last_name", last_name)
                 from src.database.db import db  # lazy import
+
                 db.session.add(u)
                 db.session.commit()
         except Exception:
             current_app.logger.exception("Signup upsert failed")
 
     # Prepare response and set JWT cookie if available
-    resp = make_response(jsonify({
-        "ok": True,
-        "email": email,
-        "first_name": first_name,
-        "last_name": last_name,
-    }), 200)
+    resp = make_response(
+        jsonify(
+            {
+                "ok": True,
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name,
+            }
+        ),
+        200,
+    )
 
     if HAVE_JWT:
         claims = {"email": email}
@@ -164,6 +185,7 @@ def complete_signup():
 # Who am I?  (dashboard uses this)
 # --------------------------------------------------------------------------- #
 if HAVE_JWT:
+
     @auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
     @jwt_required(optional=True)
     def auth_me():
@@ -182,22 +204,32 @@ if HAVE_JWT:
                 purchase = None
                 try:
                     if user_obj and hasattr(Purchase, "email"):
-                        purchase = (Purchase.query.filter_by(email=user_obj.email)
-                                    .order_by(Purchase.id.desc()).first())
+                        purchase = (
+                            Purchase.query.filter_by(email=user_obj.email)
+                            .order_by(Purchase.id.desc())
+                            .first()
+                        )
                 except Exception:
                     purchase = None
 
                 if user_obj:
-                    return jsonify({
-                        "authenticated": True,
-                        "user": {
-                            "id": str(getattr(user_obj, "id", "") or ""),
-                            "email": getattr(user_obj, "email", None),
-                            "username": getattr(user_obj, "username", None),
-                            "email_verified": bool(getattr(user_obj, "email_verified", False)),
-                        },
-                        "order_ref": getattr(purchase, "order_ref", None),
-                    }), 200
+                    return (
+                        jsonify(
+                            {
+                                "authenticated": True,
+                                "user": {
+                                    "id": str(getattr(user_obj, "id", "") or ""),
+                                    "email": getattr(user_obj, "email", None),
+                                    "username": getattr(user_obj, "username", None),
+                                    "email_verified": bool(
+                                        getattr(user_obj, "email_verified", False)
+                                    ),
+                                },
+                                "order_ref": getattr(purchase, "order_ref", None),
+                            }
+                        ),
+                        200,
+                    )
             except Exception:
                 current_app.logger.exception("auth/me enrichment failed")
 
@@ -206,7 +238,9 @@ if HAVE_JWT:
         if isinstance(ident, str) and "@" in ident:
             user_min["email"] = ident
         return jsonify({"authenticated": True, "user": user_min}), 200
+
 else:
+
     @auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
     def auth_me_nojwt():
         if request.method == "OPTIONS":
@@ -229,7 +263,7 @@ def logout():
 
 
 # --------------------------------------------------------------------------- #
-# Resend verification (now uses SendGrid helper if available)
+# Resend verification (uses SendGrid helper if available)
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
 def resend_verification():
@@ -256,27 +290,26 @@ def resend_verification():
     if not to_email:
         return jsonify({"ok": False, "error": "email required"}), 400
 
-    # If the emailer isn't available (missing key/module), return success=false
     if not HAVE_EMAILER:
         current_app.logger.warning("SendGrid emailer not available; skipping send")
         return jsonify({"ok": False, "sent": False, "reason": "emailer-unavailable"}), 501
 
+    # Temporary verification email (we'll switch to signed token flow)
+    verify_link = f"https://www.getbrikk.com/verify?email={to_email}"
     html = f"""
     <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
       <h2>Verify your email</h2>
       <p>We’re confirming <strong>{to_email}</strong> for your Brikk account.</p>
-      <p>If you didn’t request this, you can ignore it.</p>
+      <p>Click here to verify: <a href="{verify_link}">Verify</a></p>
+      <p style="opacity:.7">If you didn’t request this, you can ignore it.</p>
       <p style="opacity:.7">Thanks,<br/>The Brikk Team</p>
     </div>
     """
-    text = (
-        f"Verify your email for Brikk ({to_email}). "
-        "If you didn’t request this, ignore it."
-    )
 
     ok = False
     try:
-        ok = bool(send_email(to_email=to_email, subject="Verify your email for Brikk", html=html, text=text))
+        # Your emailer signature is (to_email, subject, html)
+        ok = bool(send_email(to_email=to_email, subject="Verify your Brikk email", html=html))
     except Exception:
         current_app.logger.exception("SendGrid send failed")
         ok = False
