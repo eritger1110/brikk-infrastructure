@@ -11,6 +11,7 @@ from src.database.db import db  # SQLAlchemy() instance
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 
+
 def create_app() -> Flask:
     app = Flask(
         __name__,
@@ -44,22 +45,28 @@ def create_app() -> Flask:
 
     # --- CORS (apply to ALL routes) ---
     allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
-    CORS(app, supports_credentials=True, resources={
-        r"/*": {
-            "origins": allowed,
-            "methods": ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-            "allow_headers": ["Content-Type","Authorization","X-Requested-With"],
-            "expose_headers": [],
-            "max_age": 600,
-        }
-    })
+    CORS(
+        app,
+        supports_credentials=True,
+        resources={
+            r"/*": {
+                "origins": allowed,
+                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                "expose_headers": [],
+                "max_age": 600,
+            }
+        },
+    )
 
     # --- Health & root ---
-    @app.route("/health", methods=["GET","HEAD"])
-    def health(): return jsonify({"ok": True}), 200
+    @app.route("/health", methods=["GET", "HEAD"])
+    def health():
+        return jsonify({"ok": True}), 200
 
-    @app.route("/", methods=["GET","HEAD"])
-    def root(): return jsonify({"ok": True, "service": "brikk-api"}), 200
+    @app.route("/", methods=["GET", "HEAD"])
+    def root():
+        return jsonify({"ok": True, "service": "brikk-api"}), 200
 
     # --- Mount blueprints under /api ---
     try:
@@ -79,6 +86,16 @@ def create_app() -> Flask:
         print(f"app_bp import/registration failed: {e}")
         app.logger.exception(f"app_bp import/registration failed: {e}")
 
+    # NEW: Billing routes (Stripe customer portal)
+    try:
+        from src.routes.billing import billing_bp
+        app.register_blueprint(billing_bp, url_prefix="/api")
+        print("Registered billing_bp at /api"); app.logger.info("Registered billing_bp at /api")
+    except Exception as e:
+        print(f"billing_bp import/registration failed: {e}")
+        app.logger.exception(f"billing_bp import/registration failed: {e}")
+
+    # Legacy security routes are OFF unless explicitly enabled
     if ENABLE_SECURITY_ROUTES:
         try:
             from src.routes.security import security_bp
@@ -92,11 +109,13 @@ def create_app() -> Flask:
 
     # --- Preflight for ANY /api/* route (CORS) ---
     @app.route("/api/<path:_sub>", methods=["OPTIONS"])
-    def api_preflight(_sub): return ("", 204)  # Flask-CORS adds headers
+    def api_preflight(_sub):
+        return ("", 204)  # Flask-CORS adds headers
 
     with app.app_context():
         db.create_all()
 
     return app
+
 
 app = create_app()
