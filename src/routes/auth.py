@@ -14,6 +14,7 @@ try:
         create_access_token,
         set_access_cookies,
         unset_jwt_cookies,
+        verify_jwt_in_request,
     )
     HAVE_JWT = True
 except Exception:  # pragma: no cover
@@ -27,13 +28,19 @@ try:
 except Exception:  # pragma: no cover
     HAVE_MODELS = False
 
+# --- Optional emailer (SendGrid helper) -------------------------------------
+try:
+    from src.services.emailer import send_email  # type: ignore
+    HAVE_EMAILER = True
+except Exception:  # pragma: no cover
+    HAVE_EMAILER = False
+
 auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
 
 
 # --------------------------------------------------------------------------- #
 # Utilities
 # --------------------------------------------------------------------------- #
-
 def _bool_env(name: str, default: bool = False) -> bool:
     v = os.getenv(name)
     if v is None:
@@ -47,13 +54,15 @@ def _json() -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Diagnostics
 # --------------------------------------------------------------------------- #
-
 @auth_bp.route("/auth/_ping", methods=["GET"])
 def auth_ping():
     return jsonify({
         "success": True,
         "message": "pong",
         "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
+        "have_jwt": HAVE_JWT,
+        "have_models": HAVE_MODELS,
+        "have_emailer": HAVE_EMAILER,
     }), 200
 
 
@@ -92,7 +101,6 @@ def debug_echo():
 # --------------------------------------------------------------------------- #
 # Signup (used by /checkout/success)
 # --------------------------------------------------------------------------- #
-
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
     if request.method == "OPTIONS":
@@ -101,9 +109,8 @@ def complete_signup():
 
     payload = _json()
     # IMPORTANT:
-    # In production we recommend leaving PROVISION_SECRET empty (unset) so
-    # the Netlify indirection is not required. If you do set it, the client
-    # must include { token: <secret> }.
+    # In production leave PROVISION_SECRET empty so the client can hit this
+    # endpoint directly. If you do set it, the client must include {token}.
     required_token = os.getenv("PROVISION_SECRET", "").strip()
     client_token = (payload.get("token") or "").strip()
     if required_token and client_token != required_token:
@@ -119,18 +126,14 @@ def complete_signup():
     if not password:
         return jsonify({"error": "missing password"}), 400
 
-    # NOTE: This stub intentionally does not persist to a DB so you can run
-    # without models. If you have models, try to upsert a minimal user.
+    # Optional: create/upsert user if models exist
     if HAVE_MODELS:
         try:
             existing = User.query.filter_by(email=email).first()
             if not existing:
-                # Create a minimal user; adapt fields to your model.
                 u = User(email=email, username=first_name or email.split("@")[0])
-                # If you have a setter/hasher, call it here:
                 if hasattr(u, "set_password"):
                     u.set_password(password)
-                # Best-effort for names:
                 if hasattr(u, "first_name"):
                     setattr(u, "first_name", first_name)
                 if hasattr(u, "last_name"):
@@ -139,10 +142,9 @@ def complete_signup():
                 db.session.add(u)
                 db.session.commit()
         except Exception:
-            # Non-fatal: we still log the user in via cookie below
             current_app.logger.exception("Signup upsert failed")
 
-    # Create response and (optionally) attach JWT cookie
+    # Prepare response and set JWT cookie if available
     resp = make_response(jsonify({
         "ok": True,
         "email": email,
@@ -152,9 +154,7 @@ def complete_signup():
 
     if HAVE_JWT:
         claims = {"email": email}
-        # identity can be email (string). If you have numeric IDs, use that.
         token = create_access_token(identity=email, additional_claims=claims)
-        # Uses JWT_* cookie settings from main.py
         set_access_cookies(resp, token)
 
     return resp
@@ -163,7 +163,6 @@ def complete_signup():
 # --------------------------------------------------------------------------- #
 # Who am I?  (dashboard uses this)
 # --------------------------------------------------------------------------- #
-
 if HAVE_JWT:
     @auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
     @jwt_required(optional=True)
@@ -218,7 +217,6 @@ else:
 # --------------------------------------------------------------------------- #
 # Logout (clears the cookie)
 # --------------------------------------------------------------------------- #
-
 @auth_bp.route("/auth/logout", methods=["POST", "OPTIONS"])
 def logout():
     if request.method == "OPTIONS":
@@ -231,12 +229,56 @@ def logout():
 
 
 # --------------------------------------------------------------------------- #
-# Resend verification (stub – wire SendGrid later)
+# Resend verification (now uses SendGrid helper if available)
 # --------------------------------------------------------------------------- #
-
 @auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
 def resend_verification():
     if request.method == "OPTIONS":
         return ("", 204)
-    # TODO: integrate SendGrid; for now we just pretend it was sent.
-    return jsonify({"ok": True, "sent": True}), 200
+
+    # Prefer the logged-in email (JWT) if present; otherwise accept {email}
+    to_email: Optional[str] = None
+    if HAVE_JWT:
+        try:
+            verify_jwt_in_request(optional=True)
+            ident = get_jwt_identity()
+            if isinstance(ident, str) and "@" in ident:
+                to_email = ident
+        except Exception:
+            pass
+
+    payload = _json()
+    if not to_email:
+        e = (payload.get("email") or "").strip().lower()
+        if e:
+            to_email = e
+
+    if not to_email:
+        return jsonify({"ok": False, "error": "email required"}), 400
+
+    # If the emailer isn't available (missing key/module), return success=false
+    if not HAVE_EMAILER:
+        current_app.logger.warning("SendGrid emailer not available; skipping send")
+        return jsonify({"ok": False, "sent": False, "reason": "emailer-unavailable"}), 501
+
+    html = f"""
+    <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
+      <h2>Verify your email</h2>
+      <p>We’re confirming <strong>{to_email}</strong> for your Brikk account.</p>
+      <p>If you didn’t request this, you can ignore it.</p>
+      <p style="opacity:.7">Thanks,<br/>The Brikk Team</p>
+    </div>
+    """
+    text = (
+        f"Verify your email for Brikk ({to_email}). "
+        "If you didn’t request this, ignore it."
+    )
+
+    ok = False
+    try:
+        ok = bool(send_email(to_email=to_email, subject="Verify your email for Brikk", html=html, text=text))
+    except Exception:
+        current_app.logger.exception("SendGrid send failed")
+        ok = False
+
+    return jsonify({"ok": ok, "sent": ok}), (200 if ok else 502)
