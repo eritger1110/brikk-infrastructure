@@ -261,6 +261,40 @@ def logout():
         unset_jwt_cookies(resp)
     return resp
 
+# inside src/routes/auth.py, add near the bottom:
+
+@auth_bp.route("/auth/_email-test", methods=["POST", "OPTIONS"])
+def email_test():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    if not HAVE_EMAILER:
+        return jsonify({"ok": False, "reason": "emailer-unavailable"}), 501
+
+    to_email = None
+    try:
+        if HAVE_JWT:
+            verify_jwt_in_request(optional=True)
+            ident = get_jwt_identity()
+            if isinstance(ident, str) and "@" in ident:
+                to_email = ident
+    except Exception:
+        pass
+
+    payload = _json()
+    to_email = to_email or (payload.get("email") or "").strip().lower()
+    if not to_email:
+        return jsonify({"ok": False, "error": "email required"}), 400
+
+    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works ✅</p>"
+    text = f"Brikk test email to {to_email}. If you see this, SendGrid works."
+
+    try:
+        ok = send_email(to_email=to_email, subject="Brikk test email", html=html, text=text)
+        return jsonify({"ok": bool(ok)}), (200 if ok else 502)
+    except Exception as e:
+        current_app.logger.exception("email-test failed")
+        return jsonify({"ok": False, "error": repr(e)}), 500
 
 # --------------------------------------------------------------------------- #
 # Resend verification (uses SendGrid helper if available)
