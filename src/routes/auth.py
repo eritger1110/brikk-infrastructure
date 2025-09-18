@@ -51,6 +51,24 @@ def _bool_env(name: str, default: bool = False) -> bool:
 def _json() -> Dict[str, Any]:
     return (request.get_json(silent=True) or {}) if request.data else {}
 
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
+def _signer() -> URLSafeTimedSerializer:
+    # uses Flask SECRET_KEY
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="email-verify")
+
+def _make_verify_token(email: str) -> str:
+    return _signer().dumps({"email": email})
+
+def _parse_verify_token(token: str, max_age: int = 60 * 60 * 24 * 7) -> str:
+    # 7 days validity; adjust if you want
+    data = _signer().loads(token, max_age=max_age)
+    return str(data.get("email", "")).lower().strip()
+
+def _frontend_origin() -> str:
+    # where your /verify page lives
+    return os.getenv("FRONTEND_ORIGIN", "https://www.getbrikk.com").rstrip("/")
+
 
 # --------------------------------------------------------------------------- #
 # Diagnostics
