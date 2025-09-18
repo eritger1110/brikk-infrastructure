@@ -1,104 +1,86 @@
 # src/routes/app.py
 import os
+from typing import Any, Dict
+
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
-# Optional JWT (protect if desired)
-try:
-    from flask_jwt_extended import jwt_required, get_jwt_identity  # type: ignore
-    HAVE_JWT = True
-except Exception:
-    HAVE_JWT = False
-
-# Optional Stripe
-try:
-    import stripe  # type: ignore
-    HAVE_STRIPE = True
-except Exception:
-    stripe = None
-    HAVE_STRIPE = False
+import stripe
 
 app_bp = Blueprint("app", __name__)
 
-# --- Metrics (used by dashboard graphs) ---
-@app_bp.route("/metrics", methods=["GET"])
-def metrics():
-    # Return a harmless empty dataset for now
-    return jsonify({
-        "requests": [],     # e.g., [{ts: "...", count: 0}]
-        "latency_ms": [],   # e.g., [{ts: "...", p50: 0, p95: 0}]
-    }), 200
+# ---------- Stripe setup ----------
+stripe.api_key = (os.getenv("STRIPE_SECRET") or "").strip()
 
-# --- Run demo workflow (stub) ---
-@app_bp.route("/workflows/<string:slug>/execute", methods=["POST","OPTIONS"])
-def run_workflow(slug: str):
-    if request.method == "OPTIONS": return ("", 204)
-    inp = request.get_json(silent=True) or {}
-    actor = None
-    if HAVE_JWT:
-        try:
-            # optional; won't fail if no cookie
-            from flask_jwt_extended import verify_jwt_in_request
-            verify_jwt_in_request(optional=True)
-            actor = get_jwt_identity()
-        except Exception:
-            actor = None
-    return jsonify({
-        "ok": True,
-        "workflow": slug,
-        "ran_as": actor,
-        "echo": inp,
-        "result": f"demo result for '{slug}'",
-    }), 200
+def _create_billing_portal_session(**kwargs):
+    """
+    Stripe SDK compatibility:
+    - v12+: stripe.billing_portal.sessions.create(...)
+    - older: stripe.billing_portal.Session.create(...)
+    """
+    try:
+        return stripe.billing_portal.sessions.create(**kwargs)  # v12+
+    except AttributeError:
+        return stripe.billing_portal.Session.create(**kwargs)   # older
 
-# --- Stripe Billing Portal (server-side) ---
-@app_bp.route("/billing/portal", methods=["POST","OPTIONS"])
+
+# ---------- Billing Portal ----------
+@app_bp.post("/billing/portal")
+@jwt_required(optional=True)
 def billing_portal():
-    if request.method == "OPTIONS": return ("", 204)
-    secret = os.getenv("STRIPE_SECRET", "").strip()
-    if not (HAVE_STRIPE and secret):
+    if not stripe.api_key:
+        # Matches the “Stripe not configured” error you saw in the console.
         return jsonify({"error": "Stripe not configured"}), 501
 
-    stripe.api_key = secret
-
-    # Use JWT email if available; otherwise allow client to pass {email:"..."}
+    # Identify current user (adjust to your identity payload structure).
+    ident = get_jwt_identity() or {}
     email = None
-    if HAVE_JWT:
-        try:
-            from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
-            verify_jwt_in_request(optional=True)
-            ident = get_jwt_identity()
-            if isinstance(ident, str) and "@" in ident: email = ident
-        except Exception:
-            email = None
-    if not email:
-        email = (request.get_json(silent=True) or {}).get("email")
+    if isinstance(ident, dict):
+        email = ident.get("email")
 
-    if not email:
-        return jsonify({"error": "email required"}), 400
-
-    # Try to find Stripe customer by email
-    customer = None
-    try:
-        # Prefer search (faster/accurate) if enabled
-        try:
-            res = stripe.Customer.search(query=f'email:"{email}"', limit=1)
-            if res and res.get("data"): customer = res["data"][0]
-        except Exception:
-            pass
-        if not customer:
-            res = stripe.Customer.list(email=email, limit=1)
-            if res and res.get("data"): customer = res["data"][0]
-    except Exception as e:
-        return jsonify({"error": f"stripe error: {e}"}), 502
-
-    if not customer:
-        return jsonify({"error": "no customer for that email"}), 404
+    # If your user model stores stripe_customer_id, you can accept/forward it.
+    customer_id = None
+    if request.is_json:
+        customer_id = (request.json or {}).get("customer_id")
 
     try:
-        session = stripe.billing_portal.Session.create(
-            customer=customer["id"],
-            return_url=os.getenv("PORTAL_RETURN_URL", "https://www.getbrikk.com/app/"),
-        )
-        return jsonify({"url": session["url"]}), 200
+        # Fallback: try locating the customer by email if not provided/stored.
+        if not customer_id and email:
+            found = stripe.customers.search(query=f"email:'{email}'", limit=1)
+            if found.data:
+                customer_id = found.data[0].id
+
+        if not customer_id:
+            return jsonify({"error": "No Stripe customer found for this user"}), 404
+
+        return_url = (os.getenv("BILLING_PORTAL_RETURN_URL") or "https://www.getbrikk.com/app/").strip()
+        sess = _create_billing_portal_session(customer=customer_id, return_url=return_url)
+        return jsonify({"url": sess.url}), 200
+
+    except stripe.error.StripeError as e:
+        return jsonify({"error": e.user_message or str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"stripe portal error: {e}"}), 502
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------- Dashboard: Metrics (demo) ----------
+@app_bp.get("/metrics")
+@jwt_required(optional=True)
+def metrics():
+    # Simple synthetic data so the charts render.
+    demo = {
+        "series": {
+            "last10m": [2, 3, 5, 4, 6, 7, 4, 6, 5, 8],
+            "latency": [220, 210, 230, 190, 200, 240, 210, 220, 205, 215],
+        }
+    }
+    return jsonify(demo), 200
+
+
+# ---------- Demo Workflows ----------
+@app_bp.post("/workflows/<workflow>/execute")
+@jwt_required(optional=True)
+def run_workflow(workflow: str):
+    # Echo back something friendly so the UI shows results.
+    ident = get_jwt_identity() or {}
+    as_email = ident.get("email") if i_
