@@ -1,86 +1,127 @@
 # src/routes/app.py
 import os
-from typing import Any, Dict
+from typing import Dict, Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-import stripe
+# Stripe is optional. We return a 501 if it's not configured.
+try:
+    import stripe  # type: ignore
+except Exception:  # pragma: no cover
+    stripe = None  # type: ignore
 
-app_bp = Blueprint("app", __name__)
+app_bp = Blueprint("app", __name__)  # this is what main.py registers at url_prefix="/api"
 
-# ---------- Stripe setup ----------
-stripe.api_key = (os.getenv("STRIPE_SECRET") or "").strip()
 
-def _create_billing_portal_session(**kwargs):
+# ---- Utilities --------------------------------------------------------------
+
+def _ok(data: Dict[str, Any], status: int = 200):
+    return jsonify(data), status
+
+
+def _err(message: str, status: int):
+    return jsonify({"error": message}), status
+
+
+# ---- Debug: list all /api routes we have registered ------------------------
+
+@app_bp.get("/_routes")
+def all_routes():
+    routes = []
+    for rule in current_app.url_map.iter_rules():
+        if rule.rule.startswith("/api/"):
+            methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
+            routes.append({"rule": rule.rule, "methods": methods, "endpoint": rule.endpoint})
+    routes.sort(key=lambda r: r["rule"])
+    return _ok({"count": len(routes), "routes": routes})
+
+
+# ---- Simple dashboard metrics (stub) ---------------------------------------
+
+@app_bp.get("/metrics")
+def metrics():
+    # Stubbed series so the charts have data; replace with real metrics later.
+    series = {
+        "last10m":  [2, 3, 5, 4, 6, 7, 4, 6, 5, 8],
+        "latency":  [220, 210, 230, 190, 200, 240, 210, 220, 205, 215],
+    }
+    return _ok({"series": series})
+
+
+# ---- Demo workflow executor (stub) -----------------------------------------
+
+@app_bp.post("/workflows/<workflow>/execute")
+@jwt_required(optional=True)
+def execute_workflow(workflow: str):
     """
-    Stripe SDK compatibility:
-    - v12+: stripe.billing_portal.sessions.create(...)
-    - older: stripe.billing_portal.Session.create(...)
+    Minimal echo so the dashboard has something to show.
+    Replace with your actual workflow runner.
     """
-    try:
-        return stripe.billing_portal.sessions.create(**kwargs)  # v12+
-    except AttributeError:
-        return stripe.billing_portal.Session.create(**kwargs)   # older
+    body = request.get_json(silent=True) or {}
+    identity = get_jwt_identity()
+    ran_as = None
+    if isinstance(identity, dict):
+        ran_as = identity.get("email") or identity.get("id")
+    elif isinstance(identity, str):
+        ran_as = identity
+
+    result = {
+        "ok": True,
+        "workflow": workflow,
+        "ran_as": ran_as,
+        "echo": body.get("echo") or {"demo": True},
+        "result": f"demo result for '{workflow}'",
+    }
+    return _ok(result)
 
 
-# ---------- Billing Portal ----------
+# ---- Billing portal (Stripe) -----------------------------------------------
+
 @app_bp.post("/billing/portal")
 @jwt_required(optional=True)
 def billing_portal():
-    if not stripe.api_key:
-        # Matches the “Stripe not configured” error you saw in the console.
-        return jsonify({"error": "Stripe not configured"}), 501
+    """
+    Creates a Stripe Billing Portal session for the authenticated user.
+    Requirements to return a URL:
+      - STRIPE_SECRET_KEY env var is set
+      - A Stripe Customer ID is known for this user (you need to implement lookup)
+    """
+    # 1) Require Stripe be configured
+    secret = os.getenv("STRIPE_SECRET_KEY", "").strip()
+    if not secret or stripe is None:
+        return _err("Stripe not configured", 501)
 
-    # Identify current user (adjust to your identity payload structure).
-    ident = get_jwt_identity() or {}
-    email = None
-    if isinstance(ident, dict):
-        email = ident.get("email")
+    stripe.api_key = secret
 
-    # If your user model stores stripe_customer_id, you can accept/forward it.
-    customer_id = None
-    if request.is_json:
-        customer_id = (request.json or {}).get("customer_id")
+    # 2) Determine which customer to open the portal for
+    #    For now we try to infer from JWT identity or request JSON.
+    identity = get_jwt_identity()
+    email_from_jwt = None
+    if isinstance(identity, dict):
+        email_from_jwt = (identity.get("email") or "").strip().lower()
+    elif isinstance(identity, str):
+        # if you store plain email as identity
+        email_from_jwt = identity.strip().lower()
 
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or email_from_jwt or "").strip().lower()
+
+    # TODO: implement your mapping from user/email -> Stripe customer id.
+    # For now, if you don’t have one, return a clear 400 so the UI can react.
+    customer_id = data.get("customer_id")  # allow passing directly for testing
+
+    if not customer_id:
+        return _err("No Stripe customer on file for this user", 400)
+
+    # 3) Create the portal session
+    return_url = os.getenv("BILLING_PORTAL_RETURN_URL", "https://www.getbrikk.com/app/")
     try:
-        # Fallback: try locating the customer by email if not provided/stored.
-        if not customer_id and email:
-            found = stripe.customers.search(query=f"email:'{email}'", limit=1)
-            if found.data:
-                customer_id = found.data[0].id
-
-        if not customer_id:
-            return jsonify({"error": "No Stripe customer found for this user"}), 404
-
-        return_url = (os.getenv("BILLING_PORTAL_RETURN_URL") or "https://www.getbrikk.com/app/").strip()
-        sess = _create_billing_portal_session(customer=customer_id, return_url=return_url)
-        return jsonify({"url": sess.url}), 200
-
-    except stripe.error.StripeError as e:
-        return jsonify({"error": e.user_message or str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ---------- Dashboard: Metrics (demo) ----------
-@app_bp.get("/metrics")
-@jwt_required(optional=True)
-def metrics():
-    # Simple synthetic data so the charts render.
-    demo = {
-        "series": {
-            "last10m": [2, 3, 5, 4, 6, 7, 4, 6, 5, 8],
-            "latency": [220, 210, 230, 190, 200, 240, 210, 220, 205, 215],
-        }
-    }
-    return jsonify(demo), 200
-
-
-# ---------- Demo Workflows ----------
-@app_bp.post("/workflows/<workflow>/execute")
-@jwt_required(optional=True)
-def run_workflow(workflow: str):
-    # Echo back something friendly so the UI shows results.
-    ident = get_jwt_identity() or {}
-    as_email = ident.get("email") if i_
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=return_url,
+        )
+        return _ok({"url": session.url})
+    except Exception as e:  # pragma: no cover
+        current_app.logger.exception("Failed to create billing portal session")
+        return _err(f"Stripe error: {str(e)}", 502)
