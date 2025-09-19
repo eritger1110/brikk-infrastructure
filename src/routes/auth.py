@@ -35,9 +35,11 @@ try:
 except Exception:
     HAVE_EMAILER = False
 
+# --- Token signing -----------------------------------------------------------
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
+
 
 # --------------------------------------------------------------------------- #
 # Utilities
@@ -45,8 +47,11 @@ auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
 def _json() -> Dict[str, Any]:
     return (request.get_json(silent=True) or {}) if request.data else {}
 
+
 def _frontend_origin() -> str:
+    # where your /verify page lives
     return os.getenv("FRONTEND_ORIGIN", "https://www.getbrikk.com").rstrip("/")
+
 
 def _signer() -> URLSafeTimedSerializer:
     sk = current_app.config.get("SECRET_KEY")
@@ -54,20 +59,24 @@ def _signer() -> URLSafeTimedSerializer:
         raise RuntimeError("SECRET_KEY is not set")
     return URLSafeTimedSerializer(sk, salt="email-verify")
 
+
 def _make_token(email: str) -> str:
     return _signer().dumps({"email": email})
 
+
 def _parse_token(token: str, max_age: int = 60 * 60 * 24 * 7) -> str:
+    # 7-day validity
     data = _signer().loads(token, max_age=max_age)
     return str(data.get("email", "")).lower().strip()
+
 
 def _send_verify_email(to_email: str) -> bool:
     """Create token, build front-end link, send email via SendGrid."""
     token = _make_token(to_email)
     verify_link = f"{_frontend_origin()}/verify?token={token}"
 
-    # helpful during setup
-    current_app.logger.info(f"[verify-email] sending to={to_email} link={verify_link}")
+    # Helpful during setup
+    current_app.logger.info(f"[verify-email] to={to_email} link={verify_link}")
 
     if not HAVE_EMAILER:
         current_app.logger.warning("SendGrid emailer not available; skipping send")
@@ -83,25 +92,36 @@ def _send_verify_email(to_email: str) -> bool:
     </div>
     """
     try:
-        ok = bool(send_email(to_email=to_email, subject="Verify your email for Brikk", html=html))
+        ok = bool(
+            send_email(
+                to_email=to_email,
+                subject="Verify your email for Brikk",
+                html=html,
+                # text is optional in your helper; omit or add if you like
+            )
+        )
         return ok
     except Exception:
         current_app.logger.exception("SendGrid send failed")
         return False
+
 
 # --------------------------------------------------------------------------- #
 # Diagnostics
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/_ping", methods=["GET"])
 def auth_ping():
-    return jsonify({
-        "success": True,
-        "message": "pong",
-        "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
-        "have_jwt": HAVE_JWT,
-        "have_models": HAVE_MODELS,
-        "have_emailer": HAVE_EMAILER,
-    }), 200
+    return jsonify(
+        {
+            "success": True,
+            "message": "pong",
+            "provision_secret_set": bool(os.getenv("PROVISION_SECRET")),
+            "have_jwt": HAVE_JWT,
+            "have_models": HAVE_MODELS,
+            "have_emailer": HAVE_EMAILER,
+        }
+    ), 200
+
 
 @auth_bp.route("/auth/_routes", methods=["GET"])
 def auth_routes():
@@ -109,15 +129,39 @@ def auth_routes():
     for rule in current_app.url_map.iter_rules():
         if rule.rule.startswith("/api/auth"):
             methods = sorted(list(rule.methods - {"HEAD", "OPTIONS"}))
-            routes.append({"rule": rule.rule, "methods": methods, "endpoint": rule.endpoint})
+            routes.append(
+                {"rule": rule.rule, "methods": methods, "endpoint": rule.endpoint}
+            )
     return jsonify({"count": len(routes), "routes": routes}), 200
+
 
 @auth_bp.route("/auth/_debug-echo", methods=["GET", "POST"])
 def debug_echo():
     if request.method == "GET":
-        return jsonify({"success": True, "method": "GET", "args": request.args.to_dict(), "json_ok": False}), 200
+        return (
+            jsonify(
+                {
+                    "success": True,
+                    "method": "GET",
+                    "args": request.args.to_dict(),
+                    "json_ok": False,
+                }
+            ),
+            200,
+        )
     data = _json()
-    return jsonify({"success": True, "method": "POST", "json_ok": isinstance(data, dict), "json": data}), 200
+    return (
+        jsonify(
+            {
+                "success": True,
+                "method": "POST",
+                "json_ok": isinstance(data, dict),
+                "json": data,
+            }
+        ),
+        200,
+    )
+
 
 # --------------------------------------------------------------------------- #
 # Signup (used by /checkout/success) – also sends the first verification email
@@ -128,6 +172,7 @@ def complete_signup():
         return ("", 204)
 
     payload = _json()
+    # Optional shared-secret
     required_token = os.getenv("PROVISION_SECRET", "").strip()
     client_token = (payload.get("token") or "").strip()
     if required_token and client_token != required_token:
@@ -138,32 +183,44 @@ def complete_signup():
     first_name = (payload.get("first_name") or "").strip()
     last_name = (payload.get("last_name") or "").strip()
 
-    if not email:    return jsonify({"error": "missing email"}), 400
-    if not password: return jsonify({"error": "missing password"}), 400
+    if not email:
+        return jsonify({"error": "missing email"}), 400
+    if not password:
+        return jsonify({"error": "missing password"}), 400
 
+    # Optional: upsert user
     if HAVE_MODELS:
         try:
             existing = User.query.filter_by(email=email).first()
             if not existing:
                 u = User(email=email, username=first_name or email.split("@")[0])
-                if hasattr(u, "set_password"): u.set_password(password)
-                if hasattr(u, "first_name"):   setattr(u, "first_name", first_name)
-                if hasattr(u, "last_name"):    setattr(u, "last_name", last_name)
+                if hasattr(u, "set_password"):
+                    u.set_password(password)
+                if hasattr(u, "first_name"):
+                    setattr(u, "first_name", first_name)
+                if hasattr(u, "last_name"):
+                    setattr(u, "last_name", last_name)
                 from src.database.db import db  # lazy import
-                db.session.add(u); db.session.commit()
+
+                db.session.add(u)
+                db.session.commit()
         except Exception:
             current_app.logger.exception("Signup upsert failed")
 
-    # send the initial verification email
     sent = _send_verify_email(email)
 
-    resp = make_response(jsonify({
-        "ok": True,
-        "email": email,
-        "first_name": first_name,
-        "last_name": last_name,
-        "verification_sent": bool(sent),
-    }), 200)
+    resp = make_response(
+        jsonify(
+            {
+                "ok": True,
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name,
+                "verification_sent": bool(sent),
+            }
+        ),
+        200,
+    )
 
     if HAVE_JWT:
         token = create_access_token(identity=email, additional_claims={"email": email})
@@ -171,14 +228,23 @@ def complete_signup():
 
     return resp
 
+
 # --------------------------------------------------------------------------- #
-# Verify token (front-end calls GET /api/auth/verify?token=...)
+# Verify token (front-end should GET /api/auth/verify?token=...)
+# Accept GET or POST to avoid 405s if a client POSTs.
 # --------------------------------------------------------------------------- #
-@auth_bp.route("/auth/verify", methods=["GET"])
+@auth_bp.route("/auth/verify", methods=["GET", "POST", "OPTIONS"])
 def verify_email():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     token = (request.args.get("token") or "").strip()
+    if not token and request.method == "POST":
+        token = str((_json().get("token") or "")).strip()
+
     if not token:
         return jsonify({"ok": False, "error": "missing token"}), 400
+
     try:
         email = _parse_token(token)
     except SignatureExpired:
@@ -199,14 +265,17 @@ def verify_email():
 
     return jsonify({"ok": True, "email": email}), 200
 
+
 # --------------------------------------------------------------------------- #
 # Who am I?  (dashboard)
 # --------------------------------------------------------------------------- #
 if HAVE_JWT:
+
     @auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
     @jwt_required(optional=True)
     def auth_me():
-        if request.method == "OPTIONS": return ("", 204)
+        if request.method == "OPTIONS":
+            return ("", 204)
 
         ident = get_jwt_identity()
         if not ident:
@@ -219,49 +288,69 @@ if HAVE_JWT:
                 purchase = None
                 try:
                     if user_obj and hasattr(Purchase, "email"):
-                        purchase = (Purchase.query.filter_by(email=user_obj.email)
-                                    .order_by(Purchase.id.desc()).first())
+                        purchase = (
+                            Purchase.query.filter_by(email=user_obj.email)
+                            .order_by(Purchase.id.desc())
+                            .first()
+                        )
                 except Exception:
                     purchase = None
+
                 if user_obj:
-                    return jsonify({
-                        "authenticated": True,
-                        "user": {
-                            "id": str(getattr(user_obj, "id", "") or ""),
-                            "email": getattr(user_obj, "email", None),
-                            "username": getattr(user_obj, "username", None),
-                            "email_verified": bool(getattr(user_obj, "email_verified", False)),
-                        },
-                        "order_ref": getattr(purchase, "order_ref", None),
-                    }), 200
+                    return (
+                        jsonify(
+                            {
+                                "authenticated": True,
+                                "user": {
+                                    "id": str(getattr(user_obj, "id", "") or ""),
+                                    "email": getattr(user_obj, "email", None),
+                                    "username": getattr(user_obj, "username", None),
+                                    "email_verified": bool(
+                                        getattr(user_obj, "email_verified", False)
+                                    ),
+                                },
+                                "order_ref": getattr(purchase, "order_ref", None),
+                            }
+                        ),
+                        200,
+                    )
             except Exception:
                 current_app.logger.exception("auth/me enrichment failed")
 
         user_min: Dict[str, Any] = {"id": str(ident)}
-        if isinstance(ident, str) and "@" in ident: user_min["email"] = ident
+        if isinstance(ident, str) and "@" in ident:
+            user_min["email"] = ident
         return jsonify({"authenticated": True, "user": user_min}), 200
+
 else:
+
     @auth_bp.route("/auth/me", methods=["GET", "OPTIONS"])
     def auth_me_nojwt():
-        if request.method == "OPTIONS": return ("", 204)
+        if request.method == "OPTIONS":
+            return ("", 204)
         return jsonify({"authenticated": False, "user": None}), 200
+
 
 # --------------------------------------------------------------------------- #
 # Logout (clears the cookie)
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/logout", methods=["POST", "OPTIONS"])
 def logout():
-    if request.method == "OPTIONS": return ("", 204)
+    if request.method == "OPTIONS":
+        return ("", 204)
     resp = make_response(jsonify({"ok": True}), 200)
-    if HAVE_JWT: unset_jwt_cookies(resp)
+    if HAVE_JWT:
+        unset_jwt_cookies(resp)
     return resp
 
+
 # --------------------------------------------------------------------------- #
-# Resend verification (POST) – sends the same tokenized /verify link
+# Resend verification (POST) – sends a fresh tokenized /verify link
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
 def resend_verification():
-    if request.method == "OPTIONS": return ("", 204)
+    if request.method == "OPTIONS":
+        return ("", 204)
 
     to_email: Optional[str] = None
     if HAVE_JWT:
@@ -276,7 +365,8 @@ def resend_verification():
     payload = _json()
     if not to_email:
         e = (payload.get("email") or "").strip().lower()
-        if e: to_email = e
+        if e:
+            to_email = e
 
     if not to_email:
         return jsonify({"ok": False, "error": "email required"}), 400
@@ -284,12 +374,15 @@ def resend_verification():
     ok = _send_verify_email(to_email)
     return jsonify({"ok": ok, "sent": ok}), (200 if ok else 502)
 
+
 # --------------------------------------------------------------------------- #
 # Email test helper
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/_email-test", methods=["POST", "OPTIONS"])
 def email_test():
-    if request.method == "OPTIONS": return ("", 204)
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     if not HAVE_EMAILER:
         return jsonify({"ok": False, "reason": "emailer-unavailable"}), 501
 
@@ -305,7 +398,8 @@ def email_test():
 
     payload = _json()
     to_email = to_email or (payload.get("email") or "").strip().lower()
-    if not to_email: return jsonify({"ok": False, "error": "email required"}), 400
+    if not to_email:
+        return jsonify({"ok": False, "error": "email required"}), 400
 
     html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works ✅</p>"
     try:
