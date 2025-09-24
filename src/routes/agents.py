@@ -10,11 +10,13 @@ from ..schemas.agent import AgentCreateSchema
 from ..services.security import require_auth, require_perm, redact_dict
 from ..services.audit import log_action
 
-# NOTE: We mount this blueprint in main.py with url_prefix="/api/v1"
-# so the full paths are /api/v1/agents and /api/v1/agents/
-agents_bp = Blueprint("agents", __name__, url_prefix="/api/v1/agents")
+# IMPORTANT:
+# - This blueprint includes the FULL prefix "/api/v1/agents".
+# - In main.py, register it WITHOUT adding another url_prefix.
+#   i.e., app.register_blueprint(agents_bp)
+agents_bp = Blueprint("agents_bp", __name__, url_prefix="/api/v1/agents")
 
-# Limiter instance; main.py calls limiter.init_app(app)
+# Limiter instance; limiter.init_app(app) is called in main.py
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -25,9 +27,9 @@ def _iso(dt):
         return None
 
 
-# ---------- GET /api/v1/agents ----------
-@agents_bp.get("")
-@agents_bp.get("/")
+# ---------- GET /api/v1/agents (+ with trailing slash) ----------
+@agents_bp.route("", methods=["GET", "OPTIONS"])
+@agents_bp.route("/", methods=["GET", "OPTIONS"])
 @require_auth
 def list_agents():
     q = db.session.query(Agent)
@@ -43,7 +45,7 @@ def list_agents():
         q = q.order_by(Agent.id.desc())
 
     # optional org scoping
-    if hasattr(Agent, "org_id") and hasattr(g.user, "org_id"):
+    if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
         q = q.filter(Agent.org_id == g.user.org_id)
 
     items = []
@@ -61,50 +63,47 @@ def list_agents():
     return jsonify({"agents": items}), 200
 
 
-# ---------- POST /api/v1/agents ----------
-@agents_bp.post("")
-@agents_bp.post("/")
+# ---------- POST /api/v1/agents (+ with trailing slash) ----------
+@agents_bp.route("", methods=["POST", "OPTIONS"])
+@agents_bp.route("/", methods=["POST", "OPTIONS"])
 @require_auth
 @require_perm("agent:create")
 @limiter.limit("10/minute")
 def create_agent():
-    # Parse JSON safely
     payload = request.get_json(silent=True) or {}
 
-    # Validate (ok if schema doesn’t yet have 'language'; we’ll default below)
+    # Validate payload
     try:
         data = AgentCreateSchema().load(payload)
     except ValidationError as e:
         return jsonify({"error": "validation_error", "details": e.messages}), 400
 
-    # Enforce unique name (per org if applicable)
+    # Unique name (per-org if present)
     q = db.session.query(Agent).filter(Agent.name == data["name"])
-    if hasattr(Agent, "org_id") and hasattr(g.user, "org_id"):
+    if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
         q = q.filter(Agent.org_id == g.user.org_id)
     if q.first():
         return jsonify({"error": "duplicate_name"}), 409
 
-    # ---- CRITICAL: Provide language (model requires it) ----
-    language = data.get("language") or "en"
+    language = (data.get("language") or "en").strip()
 
     try:
         agent = Agent(
             name=data["name"].strip(),
             description=(data.get("description") or "").strip() or None,
-            language=language,  # required by model
+            language=language,
         )
     except TypeError as te:
-        # If the model changes again (new required args), return a 400 instead of 500
         return jsonify({
             "error": "model_constructor_error",
             "message": str(te),
-            "hint": "Align AgentCreateSchema and the Agent model required fields."
+            "hint": "Align AgentCreateSchema with Agent model required fields."
         }), 400
 
-    # Ownership / org / misc fields (only if those columns exist)
-    if hasattr(Agent, "org_id") and hasattr(g.user, "org_id"):
+    # Optional columns
+    if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
         agent.org_id = g.user.org_id
-    if hasattr(Agent, "owner_id") and hasattr(g.user, "id"):
+    if hasattr(Agent, "owner_id") and hasattr(g, "user") and getattr(g.user, "id", None):
         agent.owner_id = g.user.id
     if hasattr(Agent, "capabilities"):
         agent.capabilities = data.get("capabilities") or []
@@ -116,7 +115,7 @@ def create_agent():
     db.session.add(agent)
     db.session.commit()
 
-    # Audit (redacts sensitive keys)
+    # Audit (safely redacted)
     log_action("agent.created", "agent", resource_id=agent.id, metadata=redact_dict(data))
 
     return jsonify({
