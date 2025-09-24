@@ -1,23 +1,16 @@
 # src/routes/agents.py
 """
-Agents endpoints.
-
-Design goals for reliability:
-- Keep blueprint import side-effect free so main.py can always register it.
-- Lazy import db/models/schemas INSIDE handlers to avoid import-time failures.
-- Bind BOTH "" and "/" for GET/POST to avoid 301/405 on trailing slash.
-- Include OPTIONS in @route methods so preflight is satisfied automatically.
+Agents endpoints (lazy imports so blueprint always registers cleanly).
 """
 
 from flask import Blueprint, request, jsonify, g
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-# Exported limiter object; main.py calls limiter.init_app(app)
+# Exported limiter; main.py calls limiter.init_app(app)
 limiter = Limiter(key_func=get_remote_address)
 
-# IMPORTANT: This blueprint includes the full prefix.
-# In main.py: app.register_blueprint(agents_bp)  (no extra url_prefix)
+# IMPORTANT: full prefix here; in main.py register WITHOUT extra url_prefix
 agents_bp = Blueprint("agents_bp", __name__, url_prefix="/api/v1/agents")
 
 
@@ -28,29 +21,28 @@ def _iso(dt):
         return None
 
 
-def _safe_get_db_objects():
-    """
-    Lazy import of heavy modules.
-    Returns (db, Agent, AgentCreateSchema, redact_dict, require_auth, require_perm, log_action)
-    or raises the underlying ImportError/AttributeError for better logs.
-    """
-    # Local imports to avoid import-time failures blocking blueprint registration
+def _imports_common():
+    """Only what both handlers need (no schema)."""
     from src.database.db import db
     from src.models.agent import Agent
-    from src.schemas.agent import AgentCreateSchema
     from src.services.security import require_auth, require_perm, redact_dict
     from src.services.audit import log_action
-    return db, Agent, AgentCreateSchema, redact_dict, require_auth, require_perm, log_action
+    return db, Agent, require_auth, require_perm, redact_dict, log_action
+
+
+def _imports_create():
+    """Create-specific import kept separate so GET never loads schemas."""
+    from src.schemas.agent import AgentCreateSchema
+    from marshmallow import ValidationError
+    return AgentCreateSchema, ValidationError
 
 
 # ---------- GET /api/v1/agents ----------
 @agents_bp.route("", methods=["GET", "OPTIONS"])
 @agents_bp.route("/", methods=["GET", "OPTIONS"])
 def list_agents():
-    # bring in dependencies lazily
-    db, Agent, _, _, require_auth, _, _ = _safe_get_db_objects()
+    db, Agent, require_auth, _, _, _ = _imports_common()
 
-    # auth (explicit call here since decorator is imported lazily)
     @require_auth
     def _impl():
         q = db.session.query(Agent)
@@ -91,17 +83,15 @@ def list_agents():
 @agents_bp.route("/", methods=["POST", "OPTIONS"])
 @limiter.limit("10/minute")
 def create_agent():
-    db, Agent, AgentCreateSchema, redact_dict, require_auth, require_perm, log_action = _safe_get_db_objects()
+    db, Agent, require_auth, require_perm, redact_dict, log_action = _imports_common()
+    AgentCreateSchema, ValidationError = _imports_create()
 
-    # auth + permission (explicit wrappers so we can lazy-import)
     @require_auth
     @require_perm("agent:create")
     def _impl():
-        from marshmallow import ValidationError
-
         payload = request.get_json(silent=True) or {}
 
-        # Validate payload
+        # Validate payload (marshmallow v4)
         try:
             data = AgentCreateSchema().load(payload)
         except ValidationError as e:
@@ -114,16 +104,13 @@ def create_agent():
         if q.first():
             return jsonify({"error": "duplicate_name"}), 409
 
-        language = (data.get("language") or "en").strip()
-
         try:
             agent = Agent(
                 name=data["name"].strip(),
                 description=(data.get("description") or "").strip() or None,
-                language=language,
+                language=(data.get("language") or "en").strip(),
             )
         except TypeError as te:
-            # If the model signature changes, surface a helpful 400
             return jsonify({
                 "error": "model_constructor_error",
                 "message": str(te),
