@@ -28,5 +28,5 @@ def dev_login():
     access = create_access_token(identity=email, expires_delta=timedelta(days=7))
 
     resp = jsonify({"ok": True, "identity": email})
-    set_access_cookies(resp, access_token=access, max_age=int(timedelta(days=7).total_seconds()))
+    set_access_cookies(resp, access, max_age=int(timedelta(days=7).total_seconds()))
     return resp, 200
