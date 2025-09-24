@@ -1,8 +1,17 @@
-from marshmallow import Schema, fields
+# src/schemas/agent.py
+from marshmallow import Schema, fields, validate, EXCLUDE
 
 class AgentCreateSchema(Schema):
-    name = fields.Str(required=True)
-    description = fields.Str(required=False)
-    capabilities = fields.List(fields.Str(), required=False)
-    tags = fields.List(fields.Str(), required=False)
-    language = fields.Str(required=False, missing="en")  # <-- add this
+    # v4: use load_default instead of missing
+    name = fields.Str(required=True, validate=validate.Length(min=1, max=120))
+    description = fields.Str(load_default=None, allow_none=True)
+
+    # Use load_default=list so you get [] when key is absent
+    capabilities = fields.List(fields.Str(), load_default=list)
+    tags = fields.List(fields.Str(), load_default=list)
+
+    # default to English if not provided
+    language = fields.Str(load_default="en")
+
+    class Meta:
+        unknown = EXCLUDE
