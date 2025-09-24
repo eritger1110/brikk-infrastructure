@@ -9,6 +9,16 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src.database.db import db  # SQLAlchemy() instance
 
+# NEW: security headers (CSP/HSTS) + request-id
+try:
+    from flask_talisman import Talisman
+except Exception:
+    Talisman = None  # optional; app still runs without it
+from src.services.security import attach_request_id
+
+# NEW: agents API blueprint
+from src.routes.agents import agents_bp
+
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 
 
@@ -59,6 +69,21 @@ def create_app() -> Flask:
         },
     )
 
+    # --- Security headers (optional but recommended) ---
+    if Talisman:
+        csp = {
+            "default-src": "'self'",
+            "img-src": "'self' data:",
+            "script-src": "'self'",
+            "style-src": "'self' 'unsafe-inline'",
+            "connect-src": "'self'",
+        }
+        # In Render/HTTPS you can set force_https=True. Keeping False to avoid local dev issues.
+        Talisman(app, force_https=False, content_security_policy=csp)
+
+    # --- Request ID for every request (helps logs/tracing) ---
+    attach_request_id(app)
+
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
     def health():
@@ -86,6 +111,15 @@ def create_app() -> Flask:
         print(f"app_bp import/registration failed: {e}")
         app.logger.exception(f"app_bp import/registration failed: {e}")
 
+    # NEW: Agents registry (mounted at /api/v1/agents by the blueprint itself)
+    try:
+        # NOTE: agents_bp already has url_prefix="/api/v1/agents"; register without extra prefix.
+        app.register_blueprint(agents_bp)
+        print("Registered agents_bp at /api/v1/agents"); app.logger.info("Registered agents_bp at /api/v1/agents")
+    except Exception as e:
+        print(f"agents_bp import/registration failed: {e}")
+        app.logger.exception(f"agents_bp import/registration failed: {e}")
+
     # NEW: Billing routes (Stripe customer portal)
     try:
         from src.routes.billing import billing_bp
@@ -112,7 +146,10 @@ def create_app() -> Flask:
     def api_preflight(_sub):
         return ("", 204)  # Flask-CORS adds headers
 
+    # Ensure tables exist (including the new audit_logs)
     with app.app_context():
+        # Import here so create_all can see the models
+        from src.models.audit_log import AuditLog  # noqa: F401
         db.create_all()
 
     return app
