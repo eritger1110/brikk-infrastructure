@@ -1,17 +1,12 @@
+# src/models/audit_log.py
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.dialects.sqlite import JSON as SQLITE_JSON
-try:
-    from sqlalchemy.dialects.postgresql import JSONB as JSONType  # when you move to Postgres
-except Exception:
-    JSONType = SQLITE_JSON
-
+from sqlalchemy.types import JSON as SA_JSON  # generic JSON that works on SQLite & Postgres
 from ..database.db import db
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
 
-    # Integer primary key avoids SQLite autoincrement issues
     id = Column(Integer, primary_key=True, autoincrement=True)
     org_id = Column(Integer, nullable=True)
     actor_user_id = Column(Integer, nullable=True)
@@ -22,7 +17,7 @@ class AuditLog(db.Model):
     ip = Column(String(64), nullable=True)
     user_agent = Column(String(255), nullable=True)
 
-    # IMPORTANT: attribute is 'meta' (safe), DB column name remains 'metadata'
-    meta = Column("metadata", JSONType, nullable=True)
+    # attribute name must NOT be 'metadata' (reserved). Keep column name 'metadata' though.
+    meta = Column("metadata", SA_JSON, nullable=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
