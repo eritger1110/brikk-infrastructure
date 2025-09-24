@@ -147,12 +147,7 @@ def create_app() -> Flask:
     else:
         app.logger.info("Skipped security_bp registration")
 
-    # --- Preflight for ANY /api/* route (CORS) ---
-    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
-    def api_preflight(_sub):
-        return ("", 204)  # Flask-CORS adds headers
-
-    # --- Debug endpoint: list all registered routes & methods ---
+        # --- Debug endpoint: list all registered routes & methods ---
     @app.get("/api/_routes")
     def _routes():
         routes = []
