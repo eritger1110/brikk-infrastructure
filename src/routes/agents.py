@@ -1,6 +1,7 @@
 # src/routes/agents.py
 """
 Agents endpoints (lazy imports so blueprint always registers cleanly).
+- IMPORTANT: Do NOT handle OPTIONS here; let Flask-CORS generate preflight.
 """
 
 from flask import Blueprint, request, jsonify, g
@@ -10,7 +11,7 @@ from flask_limiter.util import get_remote_address
 # Exported limiter; main.py calls limiter.init_app(app)
 limiter = Limiter(key_func=get_remote_address)
 
-# IMPORTANT: full prefix here; in main.py register WITHOUT extra url_prefix
+# Full prefix here; in main.py register WITHOUT extra url_prefix
 agents_bp = Blueprint("agents_bp", __name__, url_prefix="/api/v1/agents")
 
 
@@ -38,8 +39,8 @@ def _imports_create():
 
 
 # ---------- GET /api/v1/agents ----------
-@agents_bp.route("", methods=["GET", "OPTIONS"])
-@agents_bp.route("/", methods=["GET", "OPTIONS"])
+@agents_bp.route("", methods=["GET"])
+@agents_bp.route("/", methods=["GET"])
 def list_agents():
     db, Agent, require_auth, _, _, _ = _imports_common()
 
@@ -79,8 +80,8 @@ def list_agents():
 
 
 # ---------- POST /api/v1/agents ----------
-@agents_bp.route("", methods=["POST", "OPTIONS"])
-@agents_bp.route("/", methods=["POST", "OPTIONS"])
+@agents_bp.route("", methods=["POST"])
+@agents_bp.route("/", methods=["POST"])
 @limiter.limit("10/minute")
 def create_agent():
     db, Agent, require_auth, require_perm, redact_dict, log_action = _imports_common()
