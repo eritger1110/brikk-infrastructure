@@ -3,24 +3,13 @@ import os, sys
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from src.database.db import db  # SQLAlchemy() instance
 
 # make relative imports work when launched by gunicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.database.db import db  # SQLAlchemy() instance
-
-# NEW: security headers (CSP/HSTS) + request-id
-try:
-    from flask_talisman import Talisman
-except Exception:
-    Talisman = None  # optional; app still runs without it
-from src.services.security import attach_request_id
-
-# NEW: agents API blueprint
-from src.routes.agents import agents_bp
-
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
-
+ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
 
 def create_app() -> Flask:
     app = Flask(
@@ -53,7 +42,7 @@ def create_app() -> Flask:
     )
     JWTManager(app)
 
-    # --- CORS (apply to ALL routes) ---
+    # --- CORS ---
     allowed = ["https://www.getbrikk.com", "https://getbrikk.com"]
     CORS(
         app,
@@ -68,21 +57,6 @@ def create_app() -> Flask:
             }
         },
     )
-
-    # --- Security headers (optional but recommended) ---
-    if Talisman:
-        csp = {
-            "default-src": "'self'",
-            "img-src": "'self' data:",
-            "script-src": "'self'",
-            "style-src": "'self' 'unsafe-inline'",
-            "connect-src": "'self'",
-        }
-        # In Render/HTTPS you can set force_https=True. Keeping False to avoid local dev issues.
-        Talisman(app, force_https=False, content_security_policy=csp)
-
-    # --- Request ID for every request (helps logs/tracing) ---
-    attach_request_id(app)
 
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
@@ -111,16 +85,14 @@ def create_app() -> Flask:
         print(f"app_bp import/registration failed: {e}")
         app.logger.exception(f"app_bp import/registration failed: {e}")
 
-    # NEW: Agents registry (mounted at /api/v1/agents by the blueprint itself)
     try:
-        # NOTE: agents_bp already has url_prefix="/api/v1/agents"; register without extra prefix.
-        app.register_blueprint(agents_bp)
+        from src.routes.agents import agents_bp
+        app.register_blueprint(agents_bp, url_prefix="/api/v1")
         print("Registered agents_bp at /api/v1/agents"); app.logger.info("Registered agents_bp at /api/v1/agents")
     except Exception as e:
         print(f"agents_bp import/registration failed: {e}")
         app.logger.exception(f"agents_bp import/registration failed: {e}")
 
-    # NEW: Billing routes (Stripe customer portal)
     try:
         from src.routes.billing import billing_bp
         app.register_blueprint(billing_bp, url_prefix="/api")
@@ -129,7 +101,16 @@ def create_app() -> Flask:
         print(f"billing_bp import/registration failed: {e}")
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-    # Legacy security routes are OFF unless explicitly enabled
+    # Optional dev login (gated by ENABLE_DEV_LOGIN=1)
+    if ENABLE_DEV_LOGIN:
+        try:
+            from src.routes.dev_login import dev_bp
+            app.register_blueprint(dev_bp, url_prefix="/api")
+            print("Registered dev_login at /api/auth/dev-login"); app.logger.info("Registered dev_login")
+        except Exception as e:
+            print(f"dev_login import/registration failed: {e}")
+            app.logger.exception(f"dev_login import/registration failed: {e}")
+
     if ENABLE_SECURITY_ROUTES:
         try:
             from src.routes.security import security_bp
@@ -146,13 +127,9 @@ def create_app() -> Flask:
     def api_preflight(_sub):
         return ("", 204)  # Flask-CORS adds headers
 
-    # Ensure tables exist (including the new audit_logs)
     with app.app_context():
-        # Import here so create_all can see the models
-        from src.models.audit_log import AuditLog  # noqa: F401
         db.create_all()
 
     return app
-
 
 app = create_app()
