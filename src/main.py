@@ -18,7 +18,19 @@ def create_app() -> Flask:
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
     )
     app.url_map.strict_slashes = False
-
+    # Debug endpoint: list all registered routes & methods
+@app.get("/api/_routes")
+def _routes():
+    return jsonify(
+        sorted(
+            [
+                {"rule": str(r.rule), "methods": sorted(m for m in r.methods or [])}
+                for r in app.url_map.iter_rules()
+            ],
+            key=lambda x: x["rule"],
+        )
+    ))
+ 
     # --- Core config ---
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
