@@ -17,10 +17,10 @@ class User(db.Model):
     verification_token = db.Column(db.String(128), index=True, nullable=True)
     verification_expires = db.Column(db.DateTime, nullable=True)
 
-    # NEW: basic role for RBAC. Keep it simple: owner|admin|member
+    # Basic role for RBAC. Keep it simple: owner | admin | member
     role = db.Column(db.String(20), nullable=True, index=True, default="member")
 
-    # OPTIONAL: if you do organizations later
+    # Optional: organization/tenant id
     org_id = db.Column(db.String(64), nullable=True, index=True)
 
     created_at = db.Column(
@@ -51,7 +51,7 @@ class User(db.Model):
         self.verification_token = None
         self.verification_expires = None
 
-    # Convenience flag (don’t persist; derive from role)
+    # Convenience flag (derive from role)
     @property
     def is_admin(self) -> bool:
         r = (self.role or "member").lower()
