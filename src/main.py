@@ -5,18 +5,33 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-from src.database.db import db  # SQLAlchemy() instance
+from src.database.db import db  # the global SQLAlchemy() instance
 
-# make relative imports work when launched by gunicorn
+# Make relative imports work when launched by gunicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
-ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"   # set 0 to disable
+ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
 
-# Recommended for prod: Redis URI, e.g. redis://:password@hostname:6379/0
+# Recommended for prod: Redis URI, e.g. "redis://:password@hostname:6379/0"
 # Flask-Limiter (inside routes/agents.py) will read this when limiter.init_app(app) is called.
 os.environ.setdefault("RATELIMIT_STORAGE_URI", os.getenv("RATELIMIT_STORAGE_URI", "memory://"))
+
+
+def _normalize_db_url(url: str) -> str:
+    """
+    Normalize DATABASE_URL so SQLAlchemy loads the right DBAPI.
+
+    - Render often exposes "postgres://…"; SQLAlchemy prefers explicit driver.
+    - If it's already "postgresql+<driver>://", leave it alone.
+    """
+    if url.startswith("postgres://"):
+        # Explicitly select psycopg2 since requirements.txt includes psycopg2-binary
+        return url.replace("postgres://", "postgresql+psycopg2://", 1)
+    if url.startswith("postgresql://") and "+psycopg2://" not in url and "+psycopg://" not in url:
+        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    return url
 
 
 def create_app() -> Flask:
@@ -34,11 +49,21 @@ def create_app() -> Flask:
     # --- DB config ---
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
+        # Local fallback: SQLite file in ./database/app.db
         db_path = os.path.join(os.path.dirname(__file__), "database", "app.db")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         db_url = f"sqlite:///{db_path}"
+    else:
+        db_url = _normalize_db_url(db_url)
+
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    # Safer engine options for ephemeral networks (Render)
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,  # recycle stale connections (seconds)
+    }
+
     db.init_app(app)
 
     # --- JWT cookies ---
@@ -71,18 +96,27 @@ def create_app() -> Flask:
     if ENABLE_TALISMAN:
         try:
             from flask_talisman import Talisman
+
             csp = {
                 "default-src": "'self'",
                 "img-src": "'self' data:",
                 "script-src": "'self'",
                 "style-src": "'self' 'unsafe-inline'",
                 # Allow API, Stripe, and jsdelivr (e.g., sourcemaps)
-                "connect-src": "'self' https://api.getbrikk.com https://js.stripe.com https://hooks.stripe.com https://cdn.jsdelivr.net",
+                "connect-src": (
+                    "'self' "
+                    "https://api.getbrikk.com "
+                    "https://js.stripe.com https://hooks.stripe.com "
+                    "https://cdn.jsdelivr.net"
+                ),
             }
+            # Render terminates TLS at the edge; keep security posture consistent
             Talisman(app, force_https=True, content_security_policy=csp)
             app.logger.info("Talisman enabled")
         except Exception as e:
-            app.logger.warning(f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or add flask-talisman.")
+            app.logger.warning(
+                f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or add flask-talisman."
+            )
 
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
@@ -171,14 +205,17 @@ def create_app() -> Flask:
         from sqlalchemy import inspect, text
         try:
             insp = inspect(db.engine)
-            cols = {c["name"] for c in insp.get_columns("agents")}
-            with db.engine.begin() as conn:
-                if "description" not in cols:
-                    conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
-                if "tags" not in cols:
-                    conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
+            if insp.has_table("agents"):
+                cols = {c["name"] for c in insp.get_columns("agents")}
+                with db.engine.begin() as conn:
+                    if "description" not in cols:
+                        conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
+                    if "tags" not in cols:
+                        conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
         except Exception as mig_err:
             app.logger.warning(f"Skipped agents column migration: {mig_err}")
+
+        app.logger.info(f"DB ready using URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
     return app
 
