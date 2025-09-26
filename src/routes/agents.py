@@ -1,29 +1,64 @@
 # src/routes/agents.py
 """
-Agents endpoints (lazy imports so blueprint always registers cleanly).
+Agents endpoints + rate limiting.
 
-We store list-like fields (capabilities, tags) as JSON-encoded TEXT on write,
-and decode them on read. This works with SQLite immediately and is also safe
-for Postgres/MySQL (the ORM will accept TEXT for JSON as well).
+- List fields (capabilities, tags) are stored as JSON-encoded TEXT for
+  compatibility across SQLite and Postgres.
+- Rate limits:
+    Default (per IP): 10/second, 60/minute
+    GET  /api/v1/agents: 300/minute
+    POST /api/v1/agents: 10/minute and 100/day
 """
 
+from __future__ import annotations
+
 import json
+import os
 from typing import Any
 
 from flask import Blueprint, request, jsonify, g
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_limiter.errors import RateLimitExceeded
 
-# Exported limiter; main.py calls limiter.init_app(app)
-limiter = Limiter(key_func=get_remote_address)
 
-# Full prefix here; in main.py register WITHOUT extra url_prefix
+# -----------------------------
+# Rate limiting configuration
+# -----------------------------
+def _rate_key():
+    """
+    Rate limit key function.
+    Defaults to client IP; you can later switch to per-user by reading JWT.
+    """
+    # Example for per-user limiting (uncomment when JWT is always present):
+    # from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+    # try:
+    #     verify_jwt_in_request(optional=True)
+    #     uid = get_jwt_identity()
+    #     if uid:
+    #         return f"user:{uid}"
+    # except Exception:
+    #     pass
+    return get_remote_address()
+
+
+limiter = Limiter(
+    key_func=_rate_key,
+    storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
+    strategy="moving-window",
+    default_limits=["10 per second", "60 per minute"],  # global default
+)
+
+# Full prefix here; register WITHOUT extra url_prefix in main.py
 agents_bp = Blueprint("agents_bp", __name__, url_prefix="/api/v1/agents")
 
 
+# -----------------------------
+# Helpers
+# -----------------------------
 def _iso(dt):
     try:
-        return dt.isoformat() + "Z" if dt else None
+        return dt.isoformat() if dt else None
     except Exception:
         return None
 
@@ -34,6 +69,7 @@ def _imports_common():
     from src.models.agent import Agent
     from src.services.security import require_auth, require_perm, redact_dict
     from src.services.audit import log_action
+
     return db, Agent, require_auth, require_perm, redact_dict, log_action
 
 
@@ -41,10 +77,11 @@ def _imports_create():
     """Create-specific import kept separate so GET never loads schemas."""
     from src.schemas.agent import AgentCreateSchema
     from marshmallow import ValidationError
+
     return AgentCreateSchema, ValidationError
 
 
-# ---------- helpers for JSON-as-TEXT storage ----------
+# JSON-as-TEXT helpers
 def _encode_list(value: Any) -> str:
     """Always store list-like fields as JSON strings."""
     try:
@@ -68,9 +105,21 @@ def _decode_list(value: Any):
     return []
 
 
-# ---------- GET /api/v1/agents ----------
+# -----------------------------
+# Error handling (JSON 429)
+# -----------------------------
+@agents_bp.errorhandler(RateLimitExceeded)
+def _rate_limited(e: RateLimitExceeded):
+    # Flask-Limiter already sets Retry-After header
+    return jsonify({"error": "rate_limited", "message": str(e)}), 429
+
+
+# -----------------------------
+# GET /api/v1/agents
+# -----------------------------
 @agents_bp.route("", methods=["GET"])
 @agents_bp.route("/", methods=["GET"])
+@limiter.limit("300 per minute")  # reads are generously allowed
 def list_agents():
     db, Agent, require_auth, _, _, _ = _imports_common()
 
@@ -94,25 +143,30 @@ def list_agents():
 
         items = []
         for a in q.limit(200).all():
-            items.append({
-                "id": a.id,
-                "name": a.name,
-                "description": getattr(a, "description", None),         # safe
-                "capabilities": _decode_list(getattr(a, "capabilities", [])),
-                "tags": _decode_list(getattr(a, "tags", [])),
-                "status": getattr(a, "status", "active"),
-                "language": getattr(a, "language", None),
-                "created_at": _iso(getattr(a, "created_at", None)),
-            })
+            items.append(
+                {
+                    "id": a.id,
+                    "name": a.name,
+                    "description": getattr(a, "description", None),
+                    "capabilities": _decode_list(getattr(a, "capabilities", [])),
+                    "tags": _decode_list(getattr(a, "tags", [])),
+                    "status": getattr(a, "status", "active"),
+                    "language": getattr(a, "language", None),
+                    "created_at": _iso(getattr(a, "created_at", None)),
+                }
+            )
         return jsonify({"agents": items}), 200
 
     return _impl()
 
 
-# ---------- POST /api/v1/agents ----------
+# -----------------------------
+# POST /api/v1/agents
+# -----------------------------
 @agents_bp.route("", methods=["POST"])
 @agents_bp.route("/", methods=["POST"])
-@limiter.limit("10/minute")
+@limiter.limit("10 per minute")
+@limiter.limit("100 per day")
 def create_agent():
     db, Agent, require_auth, require_perm, redact_dict, log_action = _imports_common()
     AgentCreateSchema, ValidationError = _imports_create()
@@ -140,20 +194,23 @@ def create_agent():
         caps = data.get("capabilities") or []
         tags = data.get("tags") or []
 
+        # Build model with only columns that exist
         try:
-            agent = Agent(
-                name=data["name"].strip(),
-                # set only if the column exists
-                **({"description": (data.get("description") or "").strip() or None}
-                   if hasattr(Agent, "description") else {}),
-                language=language,
-            )
+            kwargs = {"language": language, "name": data["name"].strip()}
+            if hasattr(Agent, "description"):
+                kwargs["description"] = (data.get("description") or "").strip() or None
+            agent = Agent(**kwargs)
         except TypeError as te:
-            return jsonify({
-                "error": "model_constructor_error",
-                "message": str(te),
-                "hint": "Align AgentCreateSchema with Agent model required fields."
-            }), 400
+            return (
+                jsonify(
+                    {
+                        "error": "model_constructor_error",
+                        "message": str(te),
+                        "hint": "Align AgentCreateSchema with Agent model required fields.",
+                    }
+                ),
+                400,
+            )
 
         # Optional columns
         if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
@@ -171,15 +228,24 @@ def create_agent():
         db.session.commit()
 
         # Audit (safely redacted)
-        log_action("agent.created", "agent", resource_id=agent.id, metadata=redact_dict(data))
+        try:
+            log_action("agent.created", "agent", resource_id=agent.id, metadata=redact_dict(data))
+        except Exception:
+            # Don’t fail the request if audit logging has an issue
+            pass
 
-        return jsonify({
-            "id": agent.id,
-            "name": agent.name,
-            "description": getattr(agent, "description", None),         # safe
-            "language": getattr(agent, "language", None),
-            "capabilities": _decode_list(getattr(agent, "capabilities", [])),
-            "tags": _decode_list(getattr(agent, "tags", [])),
-        }), 201
+        return (
+            jsonify(
+                {
+                    "id": agent.id,
+                    "name": agent.name,
+                    "description": getattr(agent, "description", None),
+                    "language": getattr(agent, "language", None),
+                    "capabilities": _decode_list(getattr(agent, "capabilities", [])),
+                    "tags": _decode_list(getattr(agent, "tags", [])),
+                }
+            ),
+            201,
+        )
 
     return _impl()
