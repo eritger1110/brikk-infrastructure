@@ -59,11 +59,12 @@ def create_app() -> Flask:
     db.init_app(app)
 
     # --- JWT cookies ---
+    jwt_cookie_domain = os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com")
     app.config.update(
         JWT_TOKEN_LOCATION=["cookies"],
-        JWT_COOKIE_SECURE=True,
-        JWT_COOKIE_SAMESITE="None",
-        JWT_COOKIE_DOMAIN=os.getenv("JWT_COOKIE_DOMAIN", ".getbrikk.com"),
+        JWT_COOKIE_SECURE=True,          # HTTPS only
+        JWT_COOKIE_SAMESITE="None",      # allow cross-site from www.getbrikk.com
+        JWT_COOKIE_DOMAIN=jwt_cookie_domain if jwt_cookie_domain else None,
         JWT_COOKIE_CSRF_PROTECT=False,
     )
     JWTManager(app)
@@ -84,7 +85,7 @@ def create_app() -> Flask:
         },
     )
 
-    # --- Security headers / CSP (quiet jsdelivr warnings & allow Stripe) ---
+    # --- Security headers / CSP (allow Stripe + jsdelivr for sourcemaps/etc.) ---
     if ENABLE_TALISMAN:
         try:
             from flask_talisman import Talisman
@@ -133,7 +134,7 @@ def create_app() -> Flask:
         from src.routes.agents import agents_bp, limiter as agents_limiter
         app.register_blueprint(agents_bp)
         try:
-            agents_limiter.init_app(app)
+            agents_limiter.init_app(app)  # uses RATELIMIT_STORAGE_URI
         except Exception:
             pass
         app.logger.info("Registered agents_bp at /api/v1/agents")
@@ -197,7 +198,9 @@ def create_app() -> Flask:
         except Exception as mig_err:
             app.logger.warning(f"Skipped agents column migration: {mig_err}")
 
-        app.logger.info(f"DB ready using URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        # Minimal/log-safe visibility of the configured driver
+        driver = app.config["SQLALCHEMY_DATABASE_URI"].split("://", 1)[0]
+        app.logger.info(f"DB ready (driver={driver})")
 
     return app
 
