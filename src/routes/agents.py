@@ -1,13 +1,15 @@
 # src/routes/agents.py
 """
-Agents endpoints + rate limiting.
+Agents endpoints + per-user rate limiting with admin exemption.
 
-- List fields (capabilities, tags) are stored as JSON-encoded TEXT for
-  compatibility across SQLite and Postgres.
-- Rate limits:
-    Default (per IP): 10/second, 60/minute
-    GET  /api/v1/agents: 300/minute
-    POST /api/v1/agents: 10/minute and 100/day
+- List fields (capabilities, tags) are stored as JSON-encoded TEXT.
+- Rate limits (per user if logged-in, else per IP):
+    Default: 10/sec, 60/min
+    GET  /api/v1/agents: 300/min
+    POST /api/v1/agents: 10/min and 100/day
+- Admins/owners are exempt from limits:
+    * g.user.role in {"admin","owner"} OR g.user.is_admin True
+    * OR JWT claim role in {"admin","owner"} OR is_admin True
 """
 
 from __future__ import annotations
@@ -21,29 +23,71 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_limiter.errors import RateLimitExceeded
 
+# JWT helpers (optional; we guard calls so routes work even if not present)
+try:
+    from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, get_jwt
+except Exception:  # pragma: no cover
+    verify_jwt_in_request = None
+    get_jwt_identity = None
+    get_jwt = None
+
 
 # -----------------------------
-# Rate limiting configuration
+# Per-user key + admin exempt
 # -----------------------------
-def _rate_key():
-    """
-    Rate limit key function.
-    Defaults to client IP; you can later switch to per-user by reading JWT.
-    """
-    # Example for per-user limiting (uncomment when JWT is always present):
-    # from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
-    # try:
-    #     verify_jwt_in_request(optional=True)
-    #     uid = get_jwt_identity()
-    #     if uid:
-    #         return f"user:{uid}"
-    # except Exception:
-    #     pass
-    return get_remote_address()
+def current_identity() -> str | None:
+    """Return JWT identity if available, else None."""
+    if verify_jwt_in_request and get_jwt_identity:
+        try:
+            verify_jwt_in_request(optional=True)
+            uid = get_jwt_identity()
+            if uid:
+                return str(uid)
+        except Exception:
+            pass
+    # Fallback to g.user.id if your auth sets it without JWT
+    try:
+        uid = getattr(getattr(g, "user", None), "id", None)
+        if uid:
+            return str(uid)
+    except Exception:
+        pass
+    return None
+
+
+def is_admin() -> bool:
+    """Detect admin via g.user or JWT claims."""
+    # g.user check
+    try:
+        user = getattr(g, "user", None)
+        if user:
+            role = (getattr(user, "role", None) or "").lower()
+            if role in {"admin", "owner"} or bool(getattr(user, "is_admin", False)):
+                return True
+    except Exception:
+        pass
+
+    # JWT claims check
+    if get_jwt:
+        try:
+            verify_jwt_in_request(optional=True)
+            claims = get_jwt() or {}
+            role = (claims.get("role") or "").lower()
+            if role in {"admin", "owner"} or bool(claims.get("is_admin")):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def rate_key() -> str:
+    """Use per-user key when possible; otherwise client IP."""
+    uid = current_identity()
+    return f"user:{uid}" if uid else get_remote_address()
 
 
 limiter = Limiter(
-    key_func=_rate_key,
+    key_func=rate_key,
     storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
     strategy="moving-window",
     default_limits=["10 per second", "60 per minute"],  # global default
@@ -110,7 +154,7 @@ def _decode_list(value: Any):
 # -----------------------------
 @agents_bp.errorhandler(RateLimitExceeded)
 def _rate_limited(e: RateLimitExceeded):
-    # Flask-Limiter already sets Retry-After header
+    # Flask-Limiter sets Retry-After
     return jsonify({"error": "rate_limited", "message": str(e)}), 429
 
 
@@ -119,7 +163,7 @@ def _rate_limited(e: RateLimitExceeded):
 # -----------------------------
 @agents_bp.route("", methods=["GET"])
 @agents_bp.route("/", methods=["GET"])
-@limiter.limit("300 per minute")  # reads are generously allowed
+@limiter.limit("300 per minute", exempt_when=is_admin)
 def list_agents():
     db, Agent, require_auth, _, _, _ = _imports_common()
 
@@ -165,8 +209,8 @@ def list_agents():
 # -----------------------------
 @agents_bp.route("", methods=["POST"])
 @agents_bp.route("/", methods=["POST"])
-@limiter.limit("10 per minute")
-@limiter.limit("100 per day")
+@limiter.limit("10 per minute", exempt_when=is_admin)
+@limiter.limit("100 per day", exempt_when=is_admin)
 def create_agent():
     db, Agent, require_auth, require_perm, redact_dict, log_action = _imports_common()
     AgentCreateSchema, ValidationError = _imports_create()
@@ -231,7 +275,6 @@ def create_agent():
         try:
             log_action("agent.created", "agent", resource_id=agent.id, metadata=redact_dict(data))
         except Exception:
-            # Don’t fail the request if audit logging has an issue
             pass
 
         return (
