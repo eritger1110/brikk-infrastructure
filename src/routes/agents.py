@@ -1,10 +1,10 @@
 # src/routes/agents.py
 """
 Agents endpoints (lazy imports so blueprint always registers cleanly).
-NOTE:
-- Do NOT handle OPTIONS here; let Flask-CORS generate preflight responses.
-- When running on SQLite, JSON-like columns (capabilities, tags) are stored as TEXT,
-  so we JSON-encode on write and decode on read.
+
+We store list-like fields (capabilities, tags) as JSON-encoded TEXT on write,
+and decode them on read. This works with SQLite immediately and is also safe
+for Postgres/MySQL (the ORM will accept TEXT for JSON as well).
 """
 
 import json
@@ -44,26 +44,19 @@ def _imports_create():
     return AgentCreateSchema, ValidationError
 
 
-def _is_sqlite(db) -> bool:
+# ---------- helpers for JSON-as-TEXT storage ----------
+def _encode_list(value: Any) -> str:
+    """Always store list-like fields as JSON strings."""
     try:
-        return (db.session.bind and db.session.bind.dialect.name == "sqlite")
+        if isinstance(value, list):
+            return json.dumps(value)
+        return "[]" if value in (None, "", False) else json.dumps([value])
     except Exception:
-        return False
+        return "[]"
 
 
-def _to_json_if_sqlite(db, value: Any):
-    """Return a DB-storable representation for list-like fields."""
-    if _is_sqlite(db):
-        try:
-            return json.dumps(value if isinstance(value, list) else [])
-        except Exception:
-            return "[]"
-    # non-sqlite (e.g., Postgres JSON/JSONB) can accept Python lists natively
-    return value if isinstance(value, list) else []
-
-
-def _list_from_db(value: Any):
-    """Normalize DB value (list or JSON string) to a Python list for responses."""
+def _decode_list(value: Any):
+    """Return Python list for DB value that may already be list or JSON string."""
     if isinstance(value, list):
         return value
     if isinstance(value, str):
@@ -105,8 +98,8 @@ def list_agents():
                 "id": a.id,
                 "name": a.name,
                 "description": getattr(a, "description", None),
-                "capabilities": _list_from_db(getattr(a, "capabilities", [])),
-                "tags": _list_from_db(getattr(a, "tags", [])),
+                "capabilities": _decode_list(getattr(a, "capabilities", [])),
+                "tags": _decode_list(getattr(a, "tags", [])),
                 "status": getattr(a, "status", "active"),
                 "language": getattr(a, "language", None),
                 "created_at": _iso(getattr(a, "created_at", None)),
@@ -142,10 +135,10 @@ def create_agent():
         if q.first():
             return jsonify({"error": "duplicate_name"}), 409
 
-        # Normalize lists and language
+        # Normalize inputs
+        language = (data.get("language") or "en").strip()
         caps = data.get("capabilities") or []
         tags = data.get("tags") or []
-        language = (data.get("language") or "en").strip()
 
         try:
             agent = Agent(
@@ -166,9 +159,9 @@ def create_agent():
         if hasattr(Agent, "owner_id") and hasattr(g, "user") and getattr(g.user, "id", None):
             agent.owner_id = g.user.id
         if hasattr(Agent, "capabilities"):
-            agent.capabilities = _to_json_if_sqlite(db, caps)
+            agent.capabilities = _encode_list(caps)
         if hasattr(Agent, "tags"):
-            agent.tags = _to_json_if_sqlite(db, tags)
+            agent.tags = _encode_list(tags)
         if hasattr(Agent, "status"):
             agent.status = "active"
 
@@ -183,8 +176,8 @@ def create_agent():
             "name": agent.name,
             "description": agent.description,
             "language": getattr(agent, "language", None),
-            "capabilities": _list_from_db(getattr(agent, "capabilities", [])),
-            "tags": _list_from_db(getattr(agent, "tags", [])),
+            "capabilities": _decode_list(getattr(agent, "capabilities", [])),
+            "tags": _decode_list(getattr(agent, "tags", [])),
         }), 201
 
     return _impl()
