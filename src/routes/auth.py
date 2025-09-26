@@ -11,8 +11,11 @@ try:
     from flask_jwt_extended import (  # type: ignore
         jwt_required,
         get_jwt_identity,
+        get_jwt,
         create_access_token,
+        create_refresh_token,
         set_access_cookies,
+        set_refresh_cookies,
         unset_jwt_cookies,
         verify_jwt_in_request,
     )
@@ -24,6 +27,7 @@ except Exception:
 try:
     from src.models.user import User  # type: ignore
     from src.models.purchase import Purchase  # type: ignore
+    from src.database.db import db  # type: ignore
     HAVE_MODELS = True
 except Exception:
     HAVE_MODELS = False
@@ -35,7 +39,7 @@ try:
 except Exception:
     HAVE_EMAILER = False
 
-# --- Token signing -----------------------------------------------------------
+# --- Token signing for email verify -----------------------------------------
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 auth_bp = Blueprint("auth", __name__)  # mounted at /api in main.py
@@ -75,7 +79,6 @@ def _send_verify_email(to_email: str) -> bool:
     token = _make_token(to_email)
     verify_link = f"{_frontend_origin()}/verify?token={token}"
 
-    # Helpful during setup
     current_app.logger.info(f"[verify-email] to={to_email} link={verify_link}")
 
     if not HAVE_EMAILER:
@@ -97,13 +100,23 @@ def _send_verify_email(to_email: str) -> bool:
                 to_email=to_email,
                 subject="Verify your email for Brikk",
                 html=html,
-                # text is optional in your helper; omit or add if you like
             )
         )
         return ok
     except Exception:
         current_app.logger.exception("SendGrid send failed")
         return False
+
+
+def _claims_from_user(user: "User") -> Dict[str, Any]:
+    """Server-trusted claims to embed in JWTs."""
+    role = (getattr(user, "role", None) or "member").lower()
+    return {
+        "role": role,
+        "is_admin": role in ("owner", "admin"),
+        "org_id": getattr(user, "org_id", None),
+        "email": getattr(user, "email", None),
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -165,6 +178,7 @@ def debug_echo():
 
 # --------------------------------------------------------------------------- #
 # Signup (used by /checkout/success) – also sends the first verification email
+# Creates user if missing and sets initial JWT with server-trusted claims.
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
@@ -188,21 +202,23 @@ def complete_signup():
     if not password:
         return jsonify({"error": "missing password"}), 400
 
-    # Optional: upsert user
+    user = None
     if HAVE_MODELS:
         try:
-            existing = User.query.filter_by(email=email).first()
-            if not existing:
-                u = User(email=email, username=first_name or email.split("@")[0])
-                if hasattr(u, "set_password"):
-                    u.set_password(password)
-                if hasattr(u, "first_name"):
-                    setattr(u, "first_name", first_name)
-                if hasattr(u, "last_name"):
-                    setattr(u, "last_name", last_name)
-                from src.database.db import db  # lazy import
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                user = User(
+                    email=email,
+                    username=first_name or email.split("@")[0],
+                    role="member",          # default
+                )
+                user.set_password(password)
+                if hasattr(user, "first_name"):
+                    setattr(user, "first_name", first_name)
+                if hasattr(user, "last_name"):
+                    setattr(user, "last_name", last_name)
 
-                db.session.add(u)
+                db.session.add(user)
                 db.session.commit()
         except Exception:
             current_app.logger.exception("Signup upsert failed")
@@ -222,16 +238,52 @@ def complete_signup():
         200,
     )
 
+    # Set JWT cookies with server-trusted claims
     if HAVE_JWT:
-        token = create_access_token(identity=email, additional_claims={"email": email})
-        set_access_cookies(resp, token)
+        if user is None and HAVE_MODELS:
+            user = User.query.filter_by(email=email).first()
+        additional_claims = _claims_from_user(user) if (user and HAVE_MODELS) else {"email": email}
+        access = create_access_token(identity=str(getattr(user, "id", email)), additional_claims=additional_claims)
+        refresh = create_refresh_token(identity=str(getattr(user, "id", email)), additional_claims=additional_claims)
+        set_access_cookies(resp, access)
+        set_refresh_cookies(resp, refresh)
 
     return resp
 
 
 # --------------------------------------------------------------------------- #
-# Verify token (front-end should GET /api/auth/verify?token=...)
-# Accept GET or POST to avoid 405s if a client POSTs.
+# Password login (server-side claims in JWT)
+# --------------------------------------------------------------------------- #
+@auth_bp.route("/auth/login", methods=["POST", "OPTIONS"])
+def login():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    if not HAVE_MODELS or not HAVE_JWT:
+        return jsonify({"error": "login_unavailable"}), 501
+
+    payload = _json()
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    if not email or not password:
+        return jsonify({"error": "missing_credentials"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "invalid_credentials"}), 401
+
+    claims = _claims_from_user(user)
+    access = create_access_token(identity=str(user.id), additional_claims=claims)
+    refresh = create_refresh_token(identity=str(user.id), additional_claims=claims)
+
+    resp = make_response(jsonify({"ok": True}), 200)
+    set_access_cookies(resp, access)
+    set_refresh_cookies(resp, refresh)
+    return resp
+
+
+# --------------------------------------------------------------------------- #
+# Verify token (front-end: GET /api/auth/verify?token=...)
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/verify", methods=["GET", "POST", "OPTIONS"])
 def verify_email():
@@ -258,7 +310,6 @@ def verify_email():
             user = User.query.filter_by(email=email).first()
             if user and hasattr(user, "email_verified"):
                 setattr(user, "email_verified", True)
-                from src.database.db import db
                 db.session.commit()
         except Exception:
             current_app.logger.exception("verify: could not persist email_verified")
@@ -278,16 +329,18 @@ if HAVE_JWT:
             return ("", 204)
 
         ident = get_jwt_identity()
+        claims = get_jwt() if ident else {}
         if not ident:
             return jsonify({"authenticated": False, "user": None}), 200
 
         if HAVE_MODELS:
             try:
+                # allow lookup by id or email if identity was email
                 q = (User.id == ident) | (User.email == str(ident))
                 user_obj = User.query.filter(q).first()
                 purchase = None
                 try:
-                    if user_obj and hasattr(Purchase, "email"):
+                    if user_obj and 'Purchase' in globals() and hasattr(Purchase, "email"):
                         purchase = (
                             Purchase.query.filter_by(email=user_obj.email)
                             .order_by(Purchase.id.desc())
@@ -305,11 +358,13 @@ if HAVE_JWT:
                                     "id": str(getattr(user_obj, "id", "") or ""),
                                     "email": getattr(user_obj, "email", None),
                                     "username": getattr(user_obj, "username", None),
-                                    "email_verified": bool(
-                                        getattr(user_obj, "email_verified", False)
-                                    ),
+                                    "email_verified": bool(getattr(user_obj, "email_verified", False)),
+                                    "role": (getattr(user_obj, "role", None) or "member").lower(),
+                                    "org_id": getattr(user_obj, "org_id", None),
+                                    "is_admin": user_obj.is_admin,
                                 },
                                 "order_ref": getattr(purchase, "order_ref", None),
+                                "claims": {k: claims.get(k) for k in ("role", "is_admin", "org_id", "email")},
                             }
                         ),
                         200,
@@ -317,9 +372,11 @@ if HAVE_JWT:
             except Exception:
                 current_app.logger.exception("auth/me enrichment failed")
 
+        # fallback when no model
         user_min: Dict[str, Any] = {"id": str(ident)}
         if isinstance(ident, str) and "@" in ident:
             user_min["email"] = ident
+        user_min.update({k: claims.get(k) for k in ("role", "is_admin", "org_id") if k in claims})
         return jsonify({"authenticated": True, "user": user_min}), 200
 
 else:
@@ -345,7 +402,7 @@ def logout():
 
 
 # --------------------------------------------------------------------------- #
-# Resend verification (POST) – sends a fresh tokenized /verify link
+# Resend verification (POST)
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/resend-verification", methods=["POST", "OPTIONS"])
 def resend_verification():
