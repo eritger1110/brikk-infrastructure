@@ -97,7 +97,7 @@ def list_agents():
             items.append({
                 "id": a.id,
                 "name": a.name,
-                "description": getattr(a, "description", None),
+                "description": getattr(a, "description", None),         # safe
                 "capabilities": _decode_list(getattr(a, "capabilities", [])),
                 "tags": _decode_list(getattr(a, "tags", [])),
                 "status": getattr(a, "status", "active"),
@@ -143,7 +143,9 @@ def create_agent():
         try:
             agent = Agent(
                 name=data["name"].strip(),
-                description=(data.get("description") or "").strip() or None,
+                # set only if the column exists
+                **({"description": (data.get("description") or "").strip() or None}
+                   if hasattr(Agent, "description") else {}),
                 language=language,
             )
         except TypeError as te:
@@ -174,7 +176,7 @@ def create_agent():
         return jsonify({
             "id": agent.id,
             "name": agent.name,
-            "description": agent.description,
+            "description": getattr(agent, "description", None),         # safe
             "language": getattr(agent, "language", None),
             "capabilities": _decode_list(getattr(agent, "capabilities", [])),
             "tags": _decode_list(getattr(agent, "tags", [])),
