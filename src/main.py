@@ -181,13 +181,15 @@ def create_app() -> Flask:
         routes.sort(key=lambda x: x["rule"])
         return jsonify(routes)
 
-    # --- DB init & gentle SQLite migration (add Agent.description/tags if missing) ---
+    # --- DB init & gentle SQLite migration ---
     with app.app_context():
         db.create_all()
 
         from sqlalchemy import inspect, text
         try:
             insp = inspect(db.engine)
+
+            # agents: add description/tags if missing
             if insp.has_table("agents"):
                 cols = {c["name"] for c in insp.get_columns("agents")}
                 with db.engine.begin() as conn:
@@ -195,11 +197,20 @@ def create_app() -> Flask:
                         conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
                     if "tags" not in cols:
                         conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
+
+            # users: add role/org_id if missing (handy for SQLite dev)
+            if insp.has_table("users"):
+                ucols = {c["name"] for c in insp.get_columns("users")}
+                with db.engine.begin() as conn:
+                    if "role" not in ucols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20)"))
+                    if "org_id" not in ucols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN org_id VARCHAR(64)"))
         except Exception as mig_err:
-            app.logger.warning(f"Skipped agents column migration: {mig_err}")
+            app.logger.warning(f"Skipped column migration: {mig_err}")
 
         # Minimal/log-safe visibility of the configured driver
-        driver = app.config["SQLALCHEMY_DATABASE_URI"].split("://", 1)[0]
+        driver = app.config["SQLALCHEMY_DATABASE_URI"].split('://', 1)[0]
         app.logger.info(f"DB ready (driver={driver})")
 
     return app
