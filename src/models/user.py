@@ -17,6 +17,12 @@ class User(db.Model):
     verification_token = db.Column(db.String(128), index=True, nullable=True)
     verification_expires = db.Column(db.DateTime, nullable=True)
 
+    # NEW: basic role for RBAC. Keep it simple: owner|admin|member
+    role = db.Column(db.String(20), nullable=True, index=True, default="member")
+
+    # OPTIONAL: if you do organizations later
+    org_id = db.Column(db.String(64), nullable=True, index=True)
+
     created_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
@@ -45,6 +51,12 @@ class User(db.Model):
         self.verification_token = None
         self.verification_expires = None
 
+    # Convenience flag (don’t persist; derive from role)
+    @property
+    def is_admin(self) -> bool:
+        r = (self.role or "member").lower()
+        return r in ("owner", "admin")
+
     # --- safe serializer ---
     def to_dict(self):
         return {
@@ -52,6 +64,8 @@ class User(db.Model):
             "username": self.username,
             "email": self.email,
             "email_verified": self.email_verified,
+            "role": (self.role or "member").lower(),
+            "org_id": self.org_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
