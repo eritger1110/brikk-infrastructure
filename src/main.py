@@ -12,11 +12,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
-ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"   # turn off with 0 if needed
+ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"   # set 0 to disable
 
-# Recommended for prod: set to your Redis, e.g. redis://:pwd@host:6379/0
-# Flask-Limiter will read this in the routes module when limiter.init_app(app) is called.
+# Recommended for prod: Redis URI, e.g. redis://:password@hostname:6379/0
+# Flask-Limiter (inside routes/agents.py) will read this when limiter.init_app(app) is called.
 os.environ.setdefault("RATELIMIT_STORAGE_URI", os.getenv("RATELIMIT_STORAGE_URI", "memory://"))
+
 
 def create_app() -> Flask:
     app = Flask(
@@ -66,7 +67,7 @@ def create_app() -> Flask:
         },
     )
 
-    # --- Optional: Security headers / CSP (quiet jsdelivr warning & allow Stripe) ---
+    # --- Security headers / CSP (quiet jsdelivr warnings & allow Stripe) ---
     if ENABLE_TALISMAN:
         try:
             from flask_talisman import Talisman
@@ -75,14 +76,13 @@ def create_app() -> Flask:
                 "img-src": "'self' data:",
                 "script-src": "'self'",
                 "style-src": "'self' 'unsafe-inline'",
-                # Allow API, Stripe, and (optional) jsdelivr for sourcemaps/future fetches
+                # Allow API, Stripe, and jsdelivr (e.g., sourcemaps)
                 "connect-src": "'self' https://api.getbrikk.com https://js.stripe.com https://hooks.stripe.com https://cdn.jsdelivr.net",
             }
-            # Render terminates TLS at the edge; force_https keeps security posture consistent
             Talisman(app, force_https=True, content_security_policy=csp)
             app.logger.info("Talisman enabled")
         except Exception as e:
-            app.logger.warning(f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or install flask-talisman.")
+            app.logger.warning(f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or add flask-talisman.")
 
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
@@ -147,7 +147,12 @@ def create_app() -> Flask:
     else:
         app.logger.info("Skipped security_bp registration")
 
-        # --- Debug endpoint: list all registered routes & methods ---
+    # --- Preflight for ANY /api/* route (returns empty 204; Flask-CORS adds headers) ---
+    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
+    def api_preflight(_sub):
+        return ("", 204)
+
+    # --- Debug endpoint: list all registered routes & methods ---
     @app.get("/api/_routes")
     def _routes():
         routes = []
@@ -157,9 +162,23 @@ def create_app() -> Flask:
         routes.sort(key=lambda x: x["rule"])
         return jsonify(routes)
 
-    # --- Create tables ---
+    # --- Create tables + gentle SQLite migration for new Agent columns ---
     with app.app_context():
         db.create_all()
+
+        # If the DB already existed (SQLite), add new columns if missing.
+        # Safe no-op on Postgres/Alembic-backed envs.
+        from sqlalchemy import inspect, text
+        try:
+            insp = inspect(db.engine)
+            cols = {c["name"] for c in insp.get_columns("agents")}
+            with db.engine.begin() as conn:
+                if "description" not in cols:
+                    conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
+                if "tags" not in cols:
+                    conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
+        except Exception as mig_err:
+            app.logger.warning(f"Skipped agents column migration: {mig_err}")
 
     return app
 
