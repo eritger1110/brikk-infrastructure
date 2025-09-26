@@ -108,14 +108,16 @@ def _send_verify_email(to_email: str) -> bool:
         return False
 
 
-def _claims_from_user(user: "User") -> Dict[str, Any]:
+def _claims_from_user(user: "User" | None, email_fallback: str | None = None) -> Dict[str, Any]:
     """Server-trusted claims to embed in JWTs."""
+    if not user:
+        return {"email": email_fallback, "role": "member", "is_admin": False, "org_id": None}
     role = (getattr(user, "role", None) or "member").lower()
     return {
         "role": role,
         "is_admin": role in ("owner", "admin"),
         "org_id": getattr(user, "org_id", None),
-        "email": getattr(user, "email", None),
+        "email": getattr(user, "email", email_fallback),
     }
 
 
@@ -177,8 +179,7 @@ def debug_echo():
 
 
 # --------------------------------------------------------------------------- #
-# Signup (used by /checkout/success) – also sends the first verification email
-# Creates user if missing and sets initial JWT with server-trusted claims.
+# Signup (used by /checkout/success) – sends verification & sets initial JWT
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
@@ -210,7 +211,7 @@ def complete_signup():
                 user = User(
                     email=email,
                     username=first_name or email.split("@")[0],
-                    role="member",          # default
+                    role="member",  # default
                 )
                 user.set_password(password)
                 if hasattr(user, "first_name"):
@@ -242,9 +243,10 @@ def complete_signup():
     if HAVE_JWT:
         if user is None and HAVE_MODELS:
             user = User.query.filter_by(email=email).first()
-        additional_claims = _claims_from_user(user) if (user and HAVE_MODELS) else {"email": email}
-        access = create_access_token(identity=str(getattr(user, "id", email)), additional_claims=additional_claims)
-        refresh = create_refresh_token(identity=str(getattr(user, "id", email)), additional_claims=additional_claims)
+        claims = _claims_from_user(user, email_fallback=email)
+        ident = str(getattr(user, "id", email))
+        access = create_access_token(identity=ident, additional_claims=claims)
+        refresh = create_refresh_token(identity=ident, additional_claims=claims)
         set_access_cookies(resp, access)
         set_refresh_cookies(resp, refresh)
 
@@ -252,7 +254,7 @@ def complete_signup():
 
 
 # --------------------------------------------------------------------------- #
-# Password login (server-side claims in JWT)
+# Password login (server-trusted claims in JWT)
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/login", methods=["POST", "OPTIONS"])
 def login():
@@ -283,7 +285,7 @@ def login():
 
 
 # --------------------------------------------------------------------------- #
-# Verify token (front-end: GET /api/auth/verify?token=...)
+# Verify email token
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/verify", methods=["GET", "POST", "OPTIONS"])
 def verify_email():
