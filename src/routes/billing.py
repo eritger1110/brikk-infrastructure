@@ -4,17 +4,16 @@ from __future__ import annotations
 import os
 from typing import Optional, Dict, Any
 
-from flask import Blueprint, jsonify, request
-from flask import current_app as log
+from flask import Blueprint, jsonify, request, current_app
 
-# JWT (optional; we’ll only read identity if available)
+# JWT is optional; we’ll read email if present
 try:
     from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
     HAVE_JWT = True
 except Exception:  # pragma: no cover
     HAVE_JWT = False
 
-# Stripe (optional – only needed for the portal)
+# Stripe is only needed for the portal route here
 try:
     import stripe  # type: ignore
     HAVE_STRIPE = True
@@ -41,7 +40,10 @@ def billing_portal():
         return jsonify({"error": "STRIPE_SECRET_KEY missing"}), 500
     stripe.api_key = secret
 
-    return_url = os.getenv("BILLING_PORTAL_RETURN_URL", "").strip() or "https://www.getbrikk.com/app/"
+    return_url = (
+        os.getenv("BILLING_PORTAL_RETURN_URL", "").strip()
+        or "https://www.getbrikk.com/app/"
+    )
 
     payload = _json()
     customer_id = (payload.get("customer_id") or "").strip() or None
@@ -50,7 +52,6 @@ def billing_portal():
     email: Optional[str] = None
     if not customer_id and HAVE_JWT:
         try:
-            # This is the correct API call; it accepts optional=True
             verify_jwt_in_request(optional=True)
             ident = get_jwt_identity()
             if isinstance(ident, str) and "@" in ident:
@@ -60,15 +61,15 @@ def billing_portal():
 
     try:
         if not customer_id:
-            # If we know the email, find or create the Customer
             if email:
-                # Basic search by email (works without Search beta)
+                # find-or-create by email
                 found = stripe.Customer.list(limit=1, email=email)
                 if found.data:
                     customer_id = found.data[0].id
-
                 if not customer_id:
-                    created = stripe.Customer.create(email=email, description="Brikk user")
+                    created = stripe.Customer.create(
+                        email=email, description="Brikk user"
+                    )
                     customer_id = created.id
 
             if not customer_id:
@@ -78,12 +79,13 @@ def billing_portal():
             customer=customer_id,
             return_url=return_url,
         )
+        current_app.logger.info(f"[billing] portal for customer={customer_id}")
         return jsonify({"url": sess.url}), 200
 
     except stripe.error.StripeError as e:
         msg = getattr(e, "user_message", None) or str(e)
-        log.logger.error(f"Stripe error: {msg}")
+        current_app.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
-    except Exception:
-        log.logger.exception("Unexpected error creating portal session")
+    except Exception as e:
+        current_app.logger.exception("Unexpected error creating portal session")
         return jsonify({"error": "Unexpected server error"}), 500
