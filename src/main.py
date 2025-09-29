@@ -15,7 +15,10 @@ ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
 ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
 
 # Flask-Limiter storage (agents blueprint calls limiter.init_app(app))
-os.environ.setdefault("RATELIMIT_STORAGE_URI", os.getenv("RATELIMIT_STORAGE_URI", "memory://"))
+os.environ.setdefault(
+    "RATELIMIT_STORAGE_URI",
+    os.getenv("RATELIMIT_STORAGE_URI", "memory://"),
+)
 
 
 def _normalize_db_url(url: str) -> str:
@@ -23,8 +26,6 @@ def _normalize_db_url(url: str) -> str:
     Normalize DATABASE_URL so SQLAlchemy loads the right DBAPI.
     We standardize on psycopg v3 driver ('+psycopg'), which supports Python 3.13.
     """
-    if not url:
-        return url
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg://", 1)
     if url.startswith("postgresql://") and "+psycopg://" not in url:
@@ -150,7 +151,7 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-    # NEW: inbound jobs webhook you created
+    # Optional: inbound job enqueue endpoint (safe if file exists)
     try:
         from src.routes.inbound import inbound_bp
         app.register_blueprint(inbound_bp, url_prefix="/api")
@@ -158,7 +159,7 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"inbound_bp import/registration failed: {e}")
 
-    # OPTIONAL: Zendesk connector (safe to keep; won’t be called unless you hit it)
+    # Optional: Zendesk connector. If you’re not using it yet, this will just no-op.
     try:
         from src.routes.connectors_zendesk import zendesk_bp
         app.register_blueprint(zendesk_bp, url_prefix="/api")
@@ -213,7 +214,7 @@ def create_app() -> Flask:
                 with db.engine.begin() as conn:
                     if "description" not in cols:
                         conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
-                    if "tags" not in cols":
+                    if "tags" not in cols:
                         conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
 
             # users: add role/org_id if missing (handy for SQLite dev)
@@ -227,6 +228,7 @@ def create_app() -> Flask:
         except Exception as mig_err:
             app.logger.warning(f"Skipped column migration: {mig_err}")
 
+        # Minimal/log-safe visibility of the configured driver
         driver = app.config["SQLALCHEMY_DATABASE_URI"].split('://', 1)[0]
         app.logger.info(f"DB ready (driver={driver})")
 
