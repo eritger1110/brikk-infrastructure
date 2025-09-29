@@ -114,7 +114,7 @@ def create_app() -> Flask:
     def root():
         return jsonify({"ok": True, "service": "brikk-api"}), 200
 
-    # --- Mount blueprints ---
+    # --- Mount blueprints (register routes) ---
     try:
         from src.routes.auth import auth_bp
         app.register_blueprint(auth_bp, url_prefix="/api")
@@ -147,6 +147,21 @@ def create_app() -> Flask:
         app.logger.info("Registered billing_bp at /api")
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
+
+    # NEW: inbound + connectors
+    try:
+        from src.routes.inbound import inbound_bp
+        app.register_blueprint(inbound_bp, url_prefix="/api")
+        app.logger.info("Registered inbound_bp at /api")
+    except Exception as e:
+        app.logger.exception(f"inbound_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.connectors_zendesk import zendesk_bp
+        app.register_blueprint(zendesk_bp, url_prefix="/api")
+        app.logger.info("Registered zendesk_bp at /api")
+    except Exception as e:
+        app.logger.exception(f"zendesk_bp import/registration failed: {e}")
 
     if ENABLE_DEV_LOGIN:
         try:
@@ -209,7 +224,6 @@ def create_app() -> Flask:
         except Exception as mig_err:
             app.logger.warning(f"Skipped column migration: {mig_err}")
 
-        # Minimal/log-safe visibility of the configured driver
         driver = app.config["SQLALCHEMY_DATABASE_URI"].split('://', 1)[0]
         app.logger.info(f"DB ready (driver={driver})")
 
