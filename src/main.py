@@ -23,6 +23,8 @@ def _normalize_db_url(url: str) -> str:
     Normalize DATABASE_URL so SQLAlchemy loads the right DBAPI.
     We standardize on psycopg v3 driver ('+psycopg'), which supports Python 3.13.
     """
+    if not url:
+        return url
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg://", 1)
     if url.startswith("postgresql://") and "+psycopg://" not in url:
@@ -148,7 +150,7 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-    # NEW: inbound + connectors
+    # NEW: inbound jobs webhook you created
     try:
         from src.routes.inbound import inbound_bp
         app.register_blueprint(inbound_bp, url_prefix="/api")
@@ -156,6 +158,7 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"inbound_bp import/registration failed: {e}")
 
+    # OPTIONAL: Zendesk connector (safe to keep; won’t be called unless you hit it)
     try:
         from src.routes.connectors_zendesk import zendesk_bp
         app.register_blueprint(zendesk_bp, url_prefix="/api")
@@ -210,7 +213,7 @@ def create_app() -> Flask:
                 with db.engine.begin() as conn:
                     if "description" not in cols:
                         conn.execute(text("ALTER TABLE agents ADD COLUMN description TEXT"))
-                    if "tags" not in cols:
+                    if "tags" not in cols":
                         conn.execute(text("ALTER TABLE agents ADD COLUMN tags TEXT"))
 
             # users: add role/org_id if missing (handy for SQLite dev)
