@@ -166,7 +166,8 @@ def create_app() -> Flask:
         app.logger.info("Registered zendesk_bp at /api")
     except Exception as e:
         app.logger.exception(f"zendesk_bp import/registration failed: {e}")
-
+        raise
+        
     if ENABLE_DEV_LOGIN:
         try:
             from src.routes.dev_login import dev_bp
