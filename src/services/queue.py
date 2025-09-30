@@ -1,17 +1,22 @@
 # src/services/queue.py
 import os
+from functools import lru_cache
 import redis
 from rq import Queue
 
-redis_url = (
-    os.environ.get("REDIS_URL")
-    or os.environ.get("RATELIMIT_STORAGE_URI")
-    or "redis://localhost:6379/0"
-)
+def _redis_url() -> str:
+    url = os.environ.get("REDIS_URL") or os.environ.get("RQ_REDIS_URL")
+    if not url:
+        raise RuntimeError("REDIS_URL not set")
+    return url
 
-_pool = redis.ConnectionPool.from_url(redis_url, max_connections=10, decode_responses=False)
-_redis = redis.Redis(connection_pool=_pool)
-q = Queue("default", connection=_redis)
+@lru_cache()
+def _queue() -> Queue:
+    conn = redis.from_url(_redis_url())
+    return Queue("default", connection=conn)
 
 def enqueue(func, *args, **kwargs):
-    return q.enqueue(func, *args, **kwargs)
+    """
+    Enqueue a job into RQ. Raises clearly if REDIS_URL is missing.
+    """
+    return _queue().enqueue(func, *args, **kwargs)
