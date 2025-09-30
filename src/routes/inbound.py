@@ -1,24 +1,20 @@
 # src/routes/inbound.py
-# Only POST/OPTIONS on /order, plus simple GET/POST testers.
 from __future__ import annotations
 
 from flask import Blueprint, request, jsonify
 from werkzeug.exceptions import BadRequest
 
+# Import inside the function is fine, but keeping at top is clearer.
 from src.services.queue import enqueue
 from src.jobs.orders import place_supplier_order
 
-# NOTE: only "/inbound" here; "/api" is added by main.py
+# IMPORTANT: only the sub-path here; /api is added in main.py
 inbound_bp = Blueprint("inbound", __name__, url_prefix="/inbound")
 
 @inbound_bp.get("/ping")
 def inbound_ping():
-    return jsonify({"ok": True, "route": "/api/inbound/ping"}), 200
-
-@inbound_bp.post("/echo")
-def inbound_echo():
-    data = request.get_json(silent=True) or {}
-    return jsonify({"ok": True, "echo": data}), 200
+    # simple GET route to prove the blueprint is mounted
+    return jsonify({"ok": True, "where": "inbound"}), 200
 
 @inbound_bp.route("/order", methods=["POST", "OPTIONS"])
 def inbound_order():
