@@ -151,13 +151,24 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-    # Optional: inbound job enqueue endpoint (safe if file exists)
+       # Optional: inbound job enqueue endpoint (safe if file exists)
+    # --- Inbound (force-verbose so we can see why it fails) ---
+    @app.get("/api/inbound/_ping_inline")
+    def _inbound_inline():
+        return jsonify({"ok": True, "where": "inline"}), 200
+
+    import importlib
+    print(">>> inbound: attempting import", flush=True)
     try:
-        from src.routes.inbound import inbound_bp
+        mod = importlib.import_module("src.routes.inbound")
+        inbound_bp = getattr(mod, "inbound_bp")
         app.register_blueprint(inbound_bp, url_prefix="/api")
         app.logger.info("Registered inbound_bp at /api")
+        print(">>> inbound: registered OK", flush=True)
     except Exception as e:
+        # log loudly so we see the traceback in Render logs
         app.logger.exception(f"inbound_bp import/registration failed: {e}")
+        # no raise here – keep the app up even if inbound is missing
 
     # Optional: Zendesk connector. If you’re not using it yet, this will just no-op.
     try:
@@ -166,7 +177,7 @@ def create_app() -> Flask:
         app.logger.info("Registered zendesk_bp at /api")
     except Exception as e:
         app.logger.exception(f"zendesk_bp import/registration failed: {e}")
-        raise
+        # no raise – it's optional
         
     if ENABLE_DEV_LOGIN:
         try:
