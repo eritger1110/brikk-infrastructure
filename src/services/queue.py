@@ -1,22 +1,21 @@
 # src/services/queue.py
+from __future__ import annotations
 import os
-from functools import lru_cache
+from typing import Any
 import redis
 from rq import Queue
 
-def _redis_url() -> str:
-    url = os.environ.get("REDIS_URL") or os.environ.get("RQ_REDIS_URL")
-    if not url:
-        raise RuntimeError("REDIS_URL not set")
-    return url
+# Single source of truth for Redis URL.
+# Use your Render Redis "Internal Key-Value URL" here via env var.
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
-@lru_cache()
-def _queue() -> Queue:
-    conn = redis.from_url(_redis_url())
-    return Queue("default", connection=conn)
+# One global connection that everyone (web & worker) should use.
+# decode_responses=False keeps RQ binary-safe for pickled jobs.
+_redis = redis.from_url(REDIS_URL, decode_responses=False)
 
-def enqueue(func, *args, **kwargs):
-    """
-    Enqueue a job into RQ. Raises clearly if REDIS_URL is missing.
-    """
-    return _queue().enqueue(func, *args, **kwargs)
+# Queue name MUST match your worker start command. We use "default".
+queue = Queue("default", connection=_redis)
+
+def enqueue(func: Any, *args, **kwargs):
+    """Enqueue a job on the default queue."""
+    return queue.enqueue(func, *args, **kwargs)
