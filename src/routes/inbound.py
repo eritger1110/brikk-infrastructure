@@ -13,12 +13,17 @@ inbound_bp = Blueprint("inbound", __name__, url_prefix="/inbound")
 
 @inbound_bp.get("/_ping")
 def inbound_ping():
-    # Sanity check that the blueprint is live
+    """Sanity check that the blueprint is live."""
     return jsonify({"ok": True, "bp": "inbound"}), 200
 
 
 @inbound_bp.route("/order", methods=["POST", "OPTIONS"])
 def inbound_order():
+    """Enqueue a supplier order job.
+
+    POST JSON body (object), e.g.:
+      { "supplier_id": "demo", "sku": "ABC-123", "qty": 1 }
+    """
     # CORS preflight short-circuit
     if request.method == "OPTIONS":
         return ("", 204)
@@ -50,54 +55,20 @@ def inbound_order():
         return jsonify({"queued": False, "error": str(e)}), 500
 
 
-# ----------------------------
-# TEMP: job status inspector
-# ----------------------------
 @inbound_bp.get("/status/<job_id>")
 def inbound_job_status(job_id: str):
-    """
-    Inspect an RQ job by id. Handy to verify the worker is pulling and finishing jobs.
-    Return shape is safe to log and debug with; remove this route later.
-    """
-    try:
-        from src.services.queue import _redis  # same connection used by the queue
-        from rq.job import Job
-
-        job: Optional[Job] = Job.fetch(job_id, connection=_redis)  # type: ignore
-    except Exception:
-        return jsonify({"error": "job_not_found", "job_id": job_id}), 404
-
-    def _iso(dt: Optional[datetime]) -> Optional[str]:
-        try:
-            return dt.isoformat() if dt else None
-        except Exception:
-            return None
-
-    info = {
-        "id": job.id,
-        "status": job.get_status(),
-        "enqueued_at": _iso(getattr(job, "enqueued_at", None)),
-        "started_at": _iso(getattr(job, "started_at", None)),
-        "ended_at": _iso(getattr(job, "ended_at", None)),
-        "meta": getattr(job, "meta", {}) or {},
-        # Only include result if finished (avoid huge payloads/errors mid-run)
-        "result": job.result if job.is_finished else None,
-        "exc_info": job.exc_info,  # stack if failed
-    }
-    return jsonify(info), 200
-@inbound_bp.get("/status/<job_id>")
-def inbound_job_status(job_id: str):
+    """Inspect an RQ job by id. Handy to verify the worker is pulling/finishing jobs."""
     from rq.job import Job
     from rq.exceptions import NoSuchJobError
     try:
-        from src.services.queue import _redis
-        job = Job.fetch(job_id, connection=_redis)
+        from src.services.queue import _redis  # use same connection as the queue
+        job: Job = Job.fetch(job_id, connection=_redis)
     except NoSuchJobError:
         return jsonify({"error": "job_not_found_in_redis", "job_id": job_id}), 404
     except Exception as e:
         return jsonify({"error": "redis_error", "detail": str(e)}), 500
 
-    def _iso(dt):
+    def _iso(dt: Optional[datetime]) -> Optional[str]:
         try:
             return dt.isoformat() if dt else None
         except Exception:
@@ -110,8 +81,9 @@ def inbound_job_status(job_id: str):
         "started_at": _iso(getattr(job, "started_at", None)),
         "ended_at": _iso(getattr(job, "ended_at", None)),
         "meta": getattr(job, "meta", {}) or {},
+        # Only include result if finished (avoid huge payloads/errors mid-run)
         "result": job.result if job.is_finished else None,
-        "exc_info": job.exc_info,
+        "exc_info": job.exc_info,  # stack if failed
     }), 200
 
 
