@@ -151,24 +151,33 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-       # Optional: inbound job enqueue endpoint (safe if file exists)
-    # --- Inbound (force-verbose so we can see why it fails) ---
+       # --- Inbound (debug: verify blueprint contents) ---
     @app.get("/api/inbound/_ping_inline")
     def _inbound_inline():
         return jsonify({"ok": True, "where": "inline"}), 200
 
-    import importlib
+    import importlib, inspect
     print(">>> inbound: attempting import", flush=True)
     try:
         mod = importlib.import_module("src.routes.inbound")
+        print(f">>> inbound: module file = {getattr(mod, '__file__', '<no file>')}", flush=True)
+
         inbound_bp = getattr(mod, "inbound_bp")
+        # BEFORE registration: blueprints store handlers as deferred functions
+        df = getattr(inbound_bp, "deferred_functions", None)
+        print(f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}", flush=True)
+
         app.register_blueprint(inbound_bp, url_prefix="/api")
         app.logger.info("Registered inbound_bp at /api")
+
+        # AFTER registration: count app routes that start with /api/inbound/
+        routes_now = [str(r.rule) for r in app.url_map.iter_rules() if str(r.rule).startswith("/api/inbound/")]
+        print(f">>> inbound: routes after register = {routes_now}", flush=True)
         print(">>> inbound: registered OK", flush=True)
+
     except Exception as e:
-        # log loudly so we see the traceback in Render logs
         app.logger.exception(f"inbound_bp import/registration failed: {e}")
-        # no raise here – keep the app up even if inbound is missing
+        print(f">>> inbound: FAILED -> {e}", flush=True)
 
     # Optional: Zendesk connector. If you’re not using it yet, this will just no-op.
     try:
