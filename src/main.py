@@ -167,7 +167,7 @@ def create_app() -> Flask:
         df = getattr(inbound_bp, "deferred_functions", None)
         print(f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}", flush=True)
 
-        app.register_blueprint(inbound_bp, url_prefix="/api")
+        app.register_blueprint(inbound_bp, url_prefix="/api/inbound")
         app.logger.info("Registered inbound_bp at /api")
 
         # AFTER registration: count app routes that start with /api/inbound/
