@@ -8,24 +8,38 @@ from dataclasses import dataclass
 from typing import Any, Dict, Tuple, Callable, Optional
 
 import requests
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
+# -------- Optional RQ & DB imports (safe if missing on web dyno) --------
 try:
-    # Available in RQ workers; safe no-op in web context
+    # Available when running inside an RQ worker
     from rq import get_current_job  # type: ignore
 except Exception:  # pragma: no cover
-    def get_current_job():
-        return None  # type: ignore
+    def get_current_job():  # type: ignore
+        return None
 
-# If SQLAlchemy is available we can persist a lightweight row.
-# This is optional—will no-op if the table doesn't exist.
+# SQLAlchemy + Flask app (optional)
 try:
     from sqlalchemy import inspect, text  # type: ignore
     from src.database.db import db  # type: ignore
 except Exception:  # pragma: no cover
-    db = None  # type: ignore
-    inspect = None  # type: ignore
-    text = None  # type: ignore
+    db = None          # type: ignore
+    inspect = None     # type: ignore
+    text = None        # type: ignore
+
+# We'll lazy-create the Flask app only if/when we need DB access.
+_APP_SINGLETON = None
+def _get_app():
+    """Create (once) and return the Flask app for DB work inside a job."""
+    global _APP_SINGLETON
+    if _APP_SINGLETON is None:
+        try:
+            from src.main import create_app  # import here to avoid circulars
+            _APP_SINGLETON = create_app()
+        except Exception:
+            _APP_SINGLETON = False  # sentinel: app unavailable
+    return _APP_SINGLETON or None
 
 
 # ------------------------
@@ -60,24 +74,38 @@ def _update_job_meta(**kw: Any) -> None:
 
 
 def _persist_order_row(row: JSON) -> None:
-    """Write a minimal record to DB if 'orders' table exists."""
+    """
+    Best-effort write of a minimal record to DB if an 'orders' table exists.
+    This runs inside a Flask app context to avoid the "working outside of
+    application context" warning.
+    """
     if not (db and inspect and text):
         return
+    app = _get_app()
+    if app is None:
+        return
+
     try:
-        insp = inspect(db.engine)
-        if not insp.has_table("orders"):
-            return
-        cols = insp.get_columns("orders")
-        names = {c["name"] for c in cols}
-        # Only insert what exists (works for a simple demo table)
-        fields = {k: v for k, v in row.items() if k in names}
-        if not fields:
-            return
-        placeholders = ", ".join(f":{k}" for k in fields.keys())
-        columns = ", ".join(fields.keys())
-        sql = text(f"INSERT INTO orders ({columns}) VALUES ({placeholders})")
-        with db.engine.begin() as conn:
-            conn.execute(sql, fields)
+        with app.app_context():
+            insp = inspect(db.engine)
+            if not insp.has_table("orders"):
+                return
+
+            cols = insp.get_columns("orders")
+            names = {c["name"] for c in cols}
+
+            # Only insert fields that actually exist on the table
+            fields = {k: v for k, v in row.items() if k in names}
+            if not fields:
+                return
+
+            columns = ", ".join(fields.keys())
+            placeholders = ", ".join(f":{k}" for k in fields.keys())
+            sql = text(f"INSERT INTO orders ({columns}) VALUES ({placeholders})")
+
+            with db.engine.begin() as conn:
+                conn.execute(sql, fields)
+
     except Exception as e:
         # Don't fail the job if logging is noisy—just stash it in job meta
         _update_job_meta(db_error=str(e))
@@ -214,14 +242,14 @@ def place_supplier_order(payload: JSON) -> JSON:
     cfg, handler = SUPPLIERS[supplier_id]
     ok, supplier_result = handler(payload, cfg)
 
-    # ---- Optional persistence (best-effort)
+    # ---- Optional persistence (best-effort; uses Flask app context)
     _persist_order_row({
         "id": str(uuid.uuid4()),
         "supplier_id": supplier_id,
         "sku": str(sku),
         "qty": int(qty),
         "status": "submitted" if ok else "failed",
-        "result_json": str(supplier_result),  # store as TEXT; or use a JSON column if you have one
+        "result_json": str(supplier_result),  # store as TEXT; or use JSON column if you have one
         "created_at": int(time.time()),
     })
 
