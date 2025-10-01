@@ -3,129 +3,137 @@ from __future__ import annotations
 
 import hmac
 import os
-from hashlib import sha256
+import time
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
-from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import BadRequest
 
-# Only the sub-path here; /api is added in main.py when the blueprint is registered
 inbound_bp = Blueprint("inbound", __name__, url_prefix="/inbound")
 
 
-def _cfg(name: str, default: Optional[str] = None) -> Optional[str]:
-    """
-    Read config from Flask app.config first, then environment, then default.
-    This lets main.py inject values while still working if module is imported standalone.
-    """
-    try:
-        v = current_app.config.get(name)  # type: ignore[attr-defined]
-        if v is not None:
-            return str(v)
-    except Exception:
-        pass
-    return os.getenv(name, default)
+# ---------------------------
+# Helpers: signatures & utils
+# ---------------------------
+
+def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
+    v = os.getenv(name)
+    return v if v is not None and v != "" else default
 
 
-def _parse_sig_header(header: str) -> Tuple[Optional[int], Optional[str]]:
+def _parse_signature_header(header_val: str) -> Tuple[Optional[int], Optional[str]]:
     """
-    X-Brikk-Signature: 't=<unix_ts>,v1=<hex>'
-    Returns (ts, v1) or (None, None) if invalid.
+    Parse: X-Brikk-Signature: t=<ts>,v1=<hex>
+    Returns (ts, v1) where ts is int or None.
     """
-    if not header:
-        return None, None
-    parts = dict(
-        kv.split("=", 1) for kv in (p.strip() for p in header.split(",")) if "=" in kv
-    )
     try:
-        ts = int(parts.get("t", ""))
+        parts = dict(item.split("=", 1) for item in header_val.split(","))
+        ts = int(parts.get("t", "")) if "t" in parts else None
         v1 = parts.get("v1")
         return ts, v1
     except Exception:
         return None, None
 
 
-def _verify_signature(raw_body: bytes) -> Tuple[bool, str]:
-    """
-    Verify HMAC SHA256 over message: f"{ts}." + raw_body
-    - secret: INBOUND_SIGNING_SECRET
-    - skew: INBOUND_MAX_SKEW (seconds)
-    Returns (ok, error_message)
-    """
-    required = _cfg("REQUIRE_INBOUND_SIGNATURE", "1") == "1"
-    secret = _cfg("INBOUND_SIGNING_SECRET")
-    header = request.headers.get("X-Brikk-Signature", "")
+def _constant_time_equal(a: str, b: str) -> bool:
+    try:
+        return hmac.compare_digest(a, b)
+    except Exception:
+        return False
 
-    if not required:
-        return True, ""
 
+def _compute_v1(secret: str, ts: int, body_bytes: bytes) -> str:
+    mac = hmac.new(secret.encode("utf-8"), f"{ts}.".encode("utf-8") + body_bytes, "sha256")
+    return mac.hexdigest()
+
+
+def _verify_signature_or_401(req) -> Optional[Tuple[int, Any]]:
+    """
+    If REQUIRE_INBOUND_SIGNATURE=1, verify header. On failure, return (status, json).
+    If verification passes or not required, return None.
+    """
+    require = _get_env("REQUIRE_INBOUND_SIGNATURE", "1") == "1"
+    if not require:
+        return None
+
+    secret = _get_env("INBOUND_SIGNING_SECRET")
+    secret_alt = _get_env("INBOUND_SIGNING_SECRET_ALT")
     if not secret:
-        return False, "signing_secret_missing"
+        return  (500, {"error": "signing_not_configured"})
 
-    ts, v1 = _parse_sig_header(header)
-    if ts is None or v1 is None:
-        return False, "invalid_signature_header"
+    header_val = req.headers.get("X-Brikk-Signature")
+    if not header_val:
+        return (401, {"error": "missing_signature_header"})
 
-    # Clock skew window
-    max_skew = int(_cfg("INBOUND_MAX_SKEW", "300") or "300")
-    now = int(datetime.now(timezone.utc).timestamp())
+    ts, v1 = _parse_signature_header(header_val)
+    if ts is None or not v1:
+        return (401, {"error": "malformed_signature_header"})
+
+    # Clock skew
+    max_skew = int(_get_env("INBOUND_MAX_SKEW", "300") or "300")
+    now = int(time.time())
     if abs(now - ts) > max_skew:
-        return False, "timestamp_out_of_window"
+        return (401, {"error": "timestamp_out_of_range", "now": now, "ts": ts, "max_skew": max_skew})
 
-    msg = f"{ts}.".encode("utf-8") + raw_body
-    expected = hmac.new(secret.encode("utf-8"), msg, sha256).hexdigest()
+    body_bytes = req.get_data() or b""
+    expected = _compute_v1(secret, ts, body_bytes)
+    if _constant_time_equal(expected, v1):
+        return None
 
-    if not hmac.compare_digest(expected, v1):
-        return False, "signature_mismatch"
+    # Allow rotation with alternate secret
+    if secret_alt:
+        expected_alt = _compute_v1(secret_alt, ts, body_bytes)
+        if _constant_time_equal(expected_alt, v1):
+            return None
 
-    return True, ""
+    return (401, {"error": "bad_signature"})
 
+
+def _iso(dt: Optional[datetime]) -> Optional[str]:
+    try:
+        return dt.isoformat() if dt else None
+    except Exception:
+        return None
+
+
+# ---------------------------
+# Routes
+# ---------------------------
 
 @inbound_bp.get("/_ping")
 def inbound_ping():
-    """Sanity check that the blueprint is live."""
     return jsonify({"ok": True, "bp": "inbound"}), 200
 
 
 @inbound_bp.route("/order", methods=["POST", "OPTIONS"])
 def inbound_order():
-    """Enqueue a supplier order job.
-
-    POST JSON body (object), e.g.:
-      { "supplier_id": "demo", "sku": "ABC-123", "qty": 1 }
-    """
-    # CORS preflight short-circuit
     if request.method == "OPTIONS":
         return ("", 204)
 
-    # Use the raw body for signature verification
-    raw = request.get_data(cache=True, as_text=False)  # cache=True so get_json still works
-    ok, err = _verify_signature(raw)
-    if not ok:
-        return jsonify({"ok": False, "error": err}), 401
+    # Signature check (optional/controlled by env)
+    sig_err = _verify_signature_or_401(request)
+    if sig_err is not None:
+        code, payload = sig_err
+        return jsonify(payload), code
 
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         raise BadRequest("JSON body must be an object")
 
-    # Lazy import so a missing jobs module doesn't prevent the BP from registering
     try:
         from src.services.queue import enqueue  # rq wrapper
         try:
-            from src.jobs.orders import place_supplier_order  # your real job
+            from src.jobs.orders import place_supplier_order  # your job
         except Exception as e:
             current_app.logger.warning(
                 f"[inbound] couldn't import place_supplier_order, using echo fallback: {e}"
             )
-
-            # fallback job that just echoes the payload (so enqueue still works)
             def place_supplier_order(data: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[no-redef]
                 return {"echo": data}
 
         job = enqueue(place_supplier_order, payload)
-        job_id = getattr(job, "id", None)
-        return jsonify({"queued": True, "job_id": job_id}), 202
+        return jsonify({"queued": True, "job_id": getattr(job, "id", None)}), 202
 
     except Exception as e:
         current_app.logger.exception("[inbound] enqueue failed")
@@ -134,34 +142,27 @@ def inbound_order():
 
 @inbound_bp.get("/status/<job_id>")
 def inbound_job_status(job_id: str):
-    """Inspect an RQ job by id. Handy to verify the worker is pulling/finishing jobs."""
     from rq.job import Job
     from rq.exceptions import NoSuchJobError
     try:
-        from src.services.queue import _redis  # use same connection as the queue
+        from src.services.queue import _redis
         job: Job = Job.fetch(job_id, connection=_redis)
     except NoSuchJobError:
         return jsonify({"error": "job_not_found_in_redis", "job_id": job_id}), 404
     except Exception as e:
         return jsonify({"error": "redis_error", "detail": str(e)}), 500
 
-    def _iso(dt: Optional[datetime]) -> Optional[str]:
-        try:
-            return dt.isoformat() if dt else None
-        except Exception:
-            return None
-
-    return jsonify({
+    info = {
         "id": job.id,
         "status": job.get_status(),
         "enqueued_at": _iso(getattr(job, "enqueued_at", None)),
         "started_at": _iso(getattr(job, "started_at", None)),
         "ended_at": _iso(getattr(job, "ended_at", None)),
         "meta": getattr(job, "meta", {}) or {},
-        # Only include result if finished (avoid huge payloads/errors mid-run)
         "result": job.result if job.is_finished else None,
-        "exc_info": job.exc_info,  # stack if failed
-    }), 200
+        "exc_info": job.exc_info,
+    }
+    return jsonify(info), 200
 
 
 @inbound_bp.get("/_redis_info")
@@ -171,7 +172,6 @@ def inbound_redis_info():
         from src.services.queue import _redis, REDIS_URL, queue
         pong = _redis.ping()
         info = _redis.connection_pool.connection_kwargs.copy()
-        # Strip password if present
         if "password" in info:
             info["password"] = "***"
         return jsonify({
@@ -182,3 +182,15 @@ def inbound_redis_info():
         }), 200
     except Exception as e:
         return jsonify({"error": "redis_info_error", "detail": str(e)}), 500
+
+
+@inbound_bp.get("/_queue_depth")
+def inbound_queue_depth():
+    """Small inspector to see how many jobs are waiting."""
+    try:
+        from rq import Queue
+        from src.services.queue import _redis, queue as default_queue
+        q = Queue(default_queue.name, connection=_redis)
+        return jsonify({"queue": q.name, "count": q.count}), 200
+    except Exception as e:
+        return jsonify({"error": "queue_depth_error", "detail": str(e)}), 500
