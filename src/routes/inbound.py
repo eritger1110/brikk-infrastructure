@@ -85,3 +85,51 @@ def inbound_job_status(job_id: str):
         "exc_info": job.exc_info,  # stack if failed
     }
     return jsonify(info), 200
+@inbound_bp.get("/status/<job_id>")
+def inbound_job_status(job_id: str):
+    from rq.job import Job
+    from rq.exceptions import NoSuchJobError
+    try:
+        from src.services.queue import _redis
+        job = Job.fetch(job_id, connection=_redis)
+    except NoSuchJobError:
+        return jsonify({"error": "job_not_found_in_redis", "job_id": job_id}), 404
+    except Exception as e:
+        return jsonify({"error": "redis_error", "detail": str(e)}), 500
+
+    def _iso(dt):
+        try:
+            return dt.isoformat() if dt else None
+        except Exception:
+            return None
+
+    return jsonify({
+        "id": job.id,
+        "status": job.get_status(),
+        "enqueued_at": _iso(getattr(job, "enqueued_at", None)),
+        "started_at": _iso(getattr(job, "started_at", None)),
+        "ended_at": _iso(getattr(job, "ended_at", None)),
+        "meta": getattr(job, "meta", {}) or {},
+        "result": job.result if job.is_finished else None,
+        "exc_info": job.exc_info,
+    }), 200
+
+
+@inbound_bp.get("/_redis_info")
+def inbound_redis_info():
+    """Quick visibility into which Redis the web is using."""
+    try:
+        from src.services.queue import _redis, REDIS_URL, queue
+        pong = _redis.ping()
+        info = _redis.connection_pool.connection_kwargs.copy()
+        # Strip password if present
+        if "password" in info:
+            info["password"] = "***"
+        return jsonify({
+            "redis_url_env": REDIS_URL,
+            "connection": info,
+            "queue_name": queue.name,
+            "ping": pong,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": "redis_info_error", "detail": str(e)}), 500
