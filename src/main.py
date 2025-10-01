@@ -1,7 +1,10 @@
 # src/main.py
 import os
 import sys
-from flask import Flask, jsonify
+import importlib
+from typing import List
+
+from flask import Flask, jsonify, request, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
@@ -88,10 +91,11 @@ def create_app() -> Flask:
         },
     )
 
-    # --- Security headers / CSP (allow Stripe + jsdelivr for sourcemaps/etc.) ---
+    # --- Security headers / CSP ---
     if ENABLE_TALISMAN:
         try:
             from flask_talisman import Talisman
+
             csp = {
                 "default-src": "'self'",
                 "img-src": "'self' data:",
@@ -106,7 +110,9 @@ def create_app() -> Flask:
             Talisman(app, force_https=True, content_security_policy=csp)
             app.logger.info("Talisman enabled")
         except Exception as e:
-            app.logger.warning(f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or add flask-talisman.")
+            app.logger.warning(
+                f"Talisman not active ({e}). Set ENABLE_TALISMAN=0 or add flask-talisman."
+            )
 
     # --- Health & root ---
     @app.route("/health", methods=["GET", "HEAD"])
@@ -120,6 +126,7 @@ def create_app() -> Flask:
     # --- Mount blueprints (register routes) ---
     try:
         from src.routes.auth import auth_bp
+
         app.register_blueprint(auth_bp, url_prefix="/api")
         app.logger.info("Registered auth_bp at /api")
     except Exception as e:
@@ -127,6 +134,7 @@ def create_app() -> Flask:
 
     try:
         from src.routes.app import app_bp
+
         app.register_blueprint(app_bp, url_prefix="/api")
         app.logger.info("Registered app_bp at /api")
     except Exception as e:
@@ -135,6 +143,7 @@ def create_app() -> Flask:
     try:
         # agents_bp already defines url_prefix="/api/v1/agents"
         from src.routes.agents import agents_bp, limiter as agents_limiter
+
         app.register_blueprint(agents_bp)
         try:
             agents_limiter.init_app(app)  # uses RATELIMIT_STORAGE_URI
@@ -146,51 +155,99 @@ def create_app() -> Flask:
 
     try:
         from src.routes.billing import billing_bp
+
         app.register_blueprint(billing_bp, url_prefix="/api")
         app.logger.info("Registered billing_bp at /api")
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
-       # --- Inbound (debug: verify blueprint contents) ---
+    # --- Inbound: inline sanity ping so we know the app is alive at this prefix ---
     @app.get("/api/inbound/_ping_inline")
     def _inbound_inline():
         return jsonify({"ok": True, "where": "inline"}), 200
 
-    import importlib, inspect
+    # --- Inbound: try blueprint first, then fall back to direct routes if missing ---
     print(">>> inbound: attempting import", flush=True)
     try:
         mod = importlib.import_module("src.routes.inbound")
-        print(f">>> inbound: module file = {getattr(mod, '__file__', '<no file>')}", flush=True)
-
         inbound_bp = getattr(mod, "inbound_bp")
-        # BEFORE registration: blueprints store handlers as deferred functions
+        print(f">>> inbound: module file = {getattr(mod, '__file__', '<?>')}", flush=True)
         df = getattr(inbound_bp, "deferred_functions", None)
-        print(f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}", flush=True)
+        print(
+            f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}",
+            flush=True,
+        )
 
         app.register_blueprint(inbound_bp, url_prefix="/api/inbound")
-        app.logger.info("Registered inbound_bp at /api")
 
-        # AFTER registration: count app routes that start with /api/inbound/
-        routes_now = [str(r.rule) for r in app.url_map.iter_rules() if str(r.rule).startswith("/api/inbound/")]
-        print(f">>> inbound: routes after register = {routes_now}", flush=True)
+        def _mounted() -> List[str]:
+            return sorted(
+                [str(r.rule) for r in app.url_map.iter_rules() if str(r.rule).startswith("/api/inbound/")]
+            )
+
+        mounted = _mounted()
+        print(f">>> inbound: routes after register = {mounted}", flush=True)
+
+        # Fallback: if either endpoint is missing, mount it directly
+        need_ping = "/api/inbound/_ping" not in mounted
+        need_order = "/api/inbound/order" not in mounted
+        if need_ping or need_order:
+            print(">>> inbound: BP did not expose both routes — applying direct mount fallback", flush=True)
+
+            if need_ping:
+                @app.get("/api/inbound/_ping")
+                def _inbound_ping_fallback():
+                    return jsonify({"ok": True, "bp": "inbound(fallback)"}), 200
+
+            if need_order:
+                try:
+                    from src.services.queue import enqueue
+                    try:
+                        from src.jobs.orders import place_supplier_order  # real job
+                    except Exception as e:
+                        current_app.logger.warning(
+                            f"[inbound-fallback] place_supplier_order import failed, using echo: {e}"
+                        )
+
+                        def place_supplier_order(data):  # type: ignore[no-redef]
+                            return {"echo": data}
+
+                    @app.route("/api/inbound/order", methods=["POST", "OPTIONS"])
+                    def _inbound_order_fallback():
+                        if request.method == "OPTIONS":
+                            return ("", 204)
+                        payload = request.get_json(silent=True) or {}
+                        try:
+                            job = enqueue(place_supplier_order, payload)
+                            return jsonify({"queued": True, "job_id": getattr(job, "id", None)}), 202
+                        except Exception as err:
+                            current_app.logger.exception("[inbound-fallback] enqueue failed")
+                            return jsonify({"queued": False, "error": str(err)}), 500
+                except Exception as err:
+                    current_app.logger.exception("[inbound-fallback] fatal wiring issue: %s", err)
+
+            mounted = _mounted()
+            print(f">>> inbound: routes after fallback = {mounted}", flush=True)
+
         print(">>> inbound: registered OK", flush=True)
 
     except Exception as e:
         app.logger.exception(f"inbound_bp import/registration failed: {e}")
         print(f">>> inbound: FAILED -> {e}", flush=True)
 
-    # Optional: Zendesk connector. If you’re not using it yet, this will just no-op.
+    # Optional: Zendesk connector
     try:
         from src.routes.connectors_zendesk import zendesk_bp
+
         app.register_blueprint(zendesk_bp, url_prefix="/api")
         app.logger.info("Registered zendesk_bp at /api")
     except Exception as e:
         app.logger.exception(f"zendesk_bp import/registration failed: {e}")
-        # no raise – it's optional
-        
+
     if ENABLE_DEV_LOGIN:
         try:
             from src.routes.dev_login import dev_bp
+
             app.register_blueprint(dev_bp, url_prefix="/api")
             app.logger.info("Registered dev_login at /api")
         except Exception as e:
@@ -199,6 +256,7 @@ def create_app() -> Flask:
     if ENABLE_SECURITY_ROUTES:
         try:
             from src.routes.security import security_bp
+
             app.register_blueprint(security_bp, url_prefix="/api")
             app.logger.info("Registered security_bp at /api (ENABLE_SECURITY_ROUTES=1)")
         except Exception as e:
@@ -226,6 +284,7 @@ def create_app() -> Flask:
         db.create_all()
 
         from sqlalchemy import inspect, text
+
         try:
             insp = inspect(db.engine)
 
@@ -250,7 +309,7 @@ def create_app() -> Flask:
             app.logger.warning(f"Skipped column migration: {mig_err}")
 
         # Minimal/log-safe visibility of the configured driver
-        driver = app.config["SQLALCHEMY_DATABASE_URI"].split('://', 1)[0]
+        driver = app.config["SQLALCHEMY_DATABASE_URI"].split("://", 1)[0]
         app.logger.info(f"DB ready (driver={driver})")
 
     return app
