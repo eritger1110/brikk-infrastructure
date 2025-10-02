@@ -9,9 +9,11 @@ on:
     types: [ published ]
 
 jobs:
-  generate-sbom:
+  sbom-python:
+    # Guard to avoid failing on repos that don't yet contain this stack
+    if: ${{ hashFiles('server/**', 'sdks/python/**', 'src/**', 'requirements.txt', 'pyproject.toml') != '' }}
     runs-on: ubuntu-latest
-    name: Generate Software Bill of Materials
+    name: Generate Python SBOM
     steps:
     - uses: actions/checkout@v4
 
@@ -20,22 +22,20 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
         pip install cyclonedx-bom
-
-    - name: Install Node.js dependencies (if package.json exists)
-      run: |
-        if [ -f package.json ]; then
-          npm ci || npm install
-          npm install -g @cyclonedx/cyclonedx-npm
+        
+        # Install project dependencies if they exist
+        if [ -f requirements.txt ]; then
+          echo "Installing from requirements.txt"
+          pip install -r requirements.txt
+        elif [ -f pyproject.toml ]; then
+          echo "Installing from pyproject.toml"
+          pip install -e .
+        else
+          echo "No requirements.txt or pyproject.toml found"
         fi
 
     - name: Generate Python SBOM
@@ -44,22 +44,10 @@ jobs:
         cyclonedx-py -r --format json --output python-sbom.json
         cyclonedx-py -r --format xml --output python-sbom.xml
 
-    - name: Generate Node.js SBOM (if applicable)
+    - name: Generate Python SBOM metadata
       run: |
-        if [ -f package.json ]; then
-          echo "Generating Node.js SBOM..."
-          cyclonedx-npm --output-format JSON --output-file nodejs-sbom.json
-          cyclonedx-npm --output-format XML --output-file nodejs-sbom.xml
-        else
-          echo "No package.json found, skipping Node.js SBOM generation"
-          echo '{"bomFormat": "CycloneDX", "specVersion": "1.4", "version": 1, "components": []}' > nodejs-sbom.json
-          echo '<?xml version="1.0" encoding="UTF-8"?><bom xmlns="http://cyclonedx.org/schema/bom/1.4" version="1"><components></components></bom>' > nodejs-sbom.xml
-        fi
-
-    - name: Generate combined SBOM
-      run: |
-        echo "Creating combined SBOM metadata..."
-        cat > combined-sbom-metadata.json << EOF
+        echo "Creating Python SBOM metadata..."
+        cat > python-sbom-metadata.json << EOF
         {
           "bomFormat": "CycloneDX",
           "specVersion": "1.4",
@@ -70,86 +58,71 @@ jobs:
             "tools": [
               {
                 "vendor": "Brikk Infrastructure",
-                "name": "CI/CD Pipeline",
+                "name": "Python CI Pipeline",
                 "version": "1.0.0"
               }
             ],
             "component": {
               "type": "application",
-              "bom-ref": "brikk-infrastructure",
-              "name": "brikk-infrastructure",
+              "bom-ref": "brikk-infrastructure-python",
+              "name": "brikk-infrastructure-python",
               "version": "${GITHUB_SHA:-unknown}",
-              "description": "Brikk AI Agent Coordination Infrastructure"
+              "description": "Brikk AI Agent Coordination Infrastructure - Python Components"
             }
-          },
-          "components": [],
-          "dependencies": []
+          }
         }
         EOF
 
-    - name: Validate SBOMs
+    - name: Validate Python SBOMs
       run: |
-        echo "Validating generated SBOMs..."
+        echo "Validating generated Python SBOMs..."
         
         # Check if files exist and are valid JSON/XML
-        for file in python-sbom.json nodejs-sbom.json combined-sbom-metadata.json; do
+        for file in python-sbom.json python-sbom-metadata.json; do
           if [ -f "$file" ]; then
             echo "Validating $file..."
             python -m json.tool "$file" > /dev/null && echo "✅ $file is valid JSON" || echo "❌ $file is invalid JSON"
           fi
         done
         
-        for file in python-sbom.xml nodejs-sbom.xml; do
-          if [ -f "$file" ]; then
-            echo "Validating $file..."
-            xmllint --noout "$file" 2>/dev/null && echo "✅ $file is valid XML" || echo "❌ $file is invalid XML"
-          fi
-        done
+        if [ -f python-sbom.xml ]; then
+          echo "Validating python-sbom.xml..."
+          xmllint --noout python-sbom.xml 2>/dev/null && echo "✅ python-sbom.xml is valid XML" || echo "❌ python-sbom.xml is invalid XML"
+        fi
 
-    - name: Generate SBOM summary
+    - name: Generate Python SBOM summary
       run: |
-        echo "# SBOM Generation Summary" > sbom-summary.md
-        echo "" >> sbom-summary.md
-        echo "Generated on: $(date -u)" >> sbom-summary.md
-        echo "Commit: ${GITHUB_SHA:-unknown}" >> sbom-summary.md
-        echo "Branch: ${GITHUB_REF_NAME:-unknown}" >> sbom-summary.md
-        echo "" >> sbom-summary.md
+        echo "# Python SBOM Generation Summary" > python-sbom-summary.md
+        echo "" >> python-sbom-summary.md
+        echo "Generated on: $(date -u)" >> python-sbom-summary.md
+        echo "Commit: ${GITHUB_SHA:-unknown}" >> python-sbom-summary.md
+        echo "Branch: ${GITHUB_REF_NAME:-unknown}" >> python-sbom-summary.md
+        echo "" >> python-sbom-summary.md
         
-        echo "## Python Dependencies" >> sbom-summary.md
+        echo "## Python Dependencies" >> python-sbom-summary.md
         if [ -f python-sbom.json ]; then
           python_count=$(jq '.components | length' python-sbom.json 2>/dev/null || echo "0")
-          echo "- Components: $python_count" >> sbom-summary.md
+          echo "- Components: $python_count" >> python-sbom-summary.md
         fi
         
-        echo "" >> sbom-summary.md
-        echo "## Node.js Dependencies" >> sbom-summary.md
-        if [ -f nodejs-sbom.json ]; then
-          nodejs_count=$(jq '.components | length' nodejs-sbom.json 2>/dev/null || echo "0")
-          echo "- Components: $nodejs_count" >> sbom-summary.md
-        fi
-        
-        echo "" >> sbom-summary.md
-        echo "## Files Generated" >> sbom-summary.md
-        echo "- python-sbom.json" >> sbom-summary.md
-        echo "- python-sbom.xml" >> sbom-summary.md
-        echo "- nodejs-sbom.json" >> sbom-summary.md
-        echo "- nodejs-sbom.xml" >> sbom-summary.md
-        echo "- combined-sbom-metadata.json" >> sbom-summary.md
+        echo "" >> python-sbom-summary.md
+        echo "## Files Generated" >> python-sbom-summary.md
+        echo "- python-sbom.json" >> python-sbom-summary.md
+        echo "- python-sbom.xml" >> python-sbom-summary.md
+        echo "- python-sbom-metadata.json" >> python-sbom-summary.md
 
-    - name: Upload SBOM artifacts
+    - name: Upload Python SBOM artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: sbom-${{ github.sha }}
+        name: python-sbom-${{ github.sha }}
         path: |
           python-sbom.json
           python-sbom.xml
-          nodejs-sbom.json
-          nodejs-sbom.xml
-          combined-sbom-metadata.json
-          sbom-summary.md
+          python-sbom-metadata.json
+          python-sbom-summary.md
         retention-days: 90
 
-    - name: Upload SBOM to release (on release)
+    - name: Upload Python SBOM to release (on release)
       if: github.event_name == 'release'
       uses: actions/upload-release-asset@v1
       env:
@@ -157,5 +130,123 @@ jobs:
       with:
         upload_url: ${{ github.event.release.upload_url }}
         asset_path: ./python-sbom.json
-        asset_name: brikk-infrastructure-sbom-${{ github.event.release.tag_name }}.json
+        asset_name: brikk-infrastructure-python-sbom-${{ github.event.release.tag_name }}.json
+        asset_content_type: application/json
+
+  sbom-node:
+    # Guard to avoid failing on repos that don't yet contain this stack
+    if: ${{ hashFiles('sdks/node/**', 'package.json') != '' }}
+    runs-on: ubuntu-latest
+    name: Generate Node.js SBOM
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Install Node.js dependencies
+      run: |
+        if [ -f package.json ]; then
+          npm ci || npm install
+          npm install -g @cyclonedx/cyclonedx-npm
+        else
+          echo "No package.json found"
+          exit 1
+        fi
+
+    - name: Generate Node.js SBOM
+      run: |
+        echo "Generating Node.js SBOM..."
+        cyclonedx-npm --output-format JSON --output-file nodejs-sbom.json
+        cyclonedx-npm --output-format XML --output-file nodejs-sbom.xml
+
+    - name: Generate Node.js SBOM metadata
+      run: |
+        echo "Creating Node.js SBOM metadata..."
+        cat > nodejs-sbom-metadata.json << EOF
+        {
+          "bomFormat": "CycloneDX",
+          "specVersion": "1.4",
+          "serialNumber": "urn:uuid:$(uuidgen)",
+          "version": 1,
+          "metadata": {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "tools": [
+              {
+                "vendor": "Brikk Infrastructure",
+                "name": "Node.js CI Pipeline",
+                "version": "1.0.0"
+              }
+            ],
+            "component": {
+              "type": "application",
+              "bom-ref": "brikk-infrastructure-nodejs",
+              "name": "brikk-infrastructure-nodejs",
+              "version": "${GITHUB_SHA:-unknown}",
+              "description": "Brikk AI Agent Coordination Infrastructure - Node.js Components"
+            }
+          }
+        }
+        EOF
+
+    - name: Validate Node.js SBOMs
+      run: |
+        echo "Validating generated Node.js SBOMs..."
+        
+        # Check if files exist and are valid JSON/XML
+        for file in nodejs-sbom.json nodejs-sbom-metadata.json; do
+          if [ -f "$file" ]; then
+            echo "Validating $file..."
+            node -e "JSON.parse(require('fs').readFileSync('$file', 'utf8'))" && echo "✅ $file is valid JSON" || echo "❌ $file is invalid JSON"
+          fi
+        done
+        
+        if [ -f nodejs-sbom.xml ]; then
+          echo "Validating nodejs-sbom.xml..."
+          xmllint --noout nodejs-sbom.xml 2>/dev/null && echo "✅ nodejs-sbom.xml is valid XML" || echo "❌ nodejs-sbom.xml is invalid XML"
+        fi
+
+    - name: Generate Node.js SBOM summary
+      run: |
+        echo "# Node.js SBOM Generation Summary" > nodejs-sbom-summary.md
+        echo "" >> nodejs-sbom-summary.md
+        echo "Generated on: $(date -u)" >> nodejs-sbom-summary.md
+        echo "Commit: ${GITHUB_SHA:-unknown}" >> nodejs-sbom-summary.md
+        echo "Branch: ${GITHUB_REF_NAME:-unknown}" >> nodejs-sbom-summary.md
+        echo "" >> nodejs-sbom-summary.md
+        
+        echo "## Node.js Dependencies" >> nodejs-sbom-summary.md
+        if [ -f nodejs-sbom.json ]; then
+          nodejs_count=$(node -e "console.log(JSON.parse(require('fs').readFileSync('nodejs-sbom.json', 'utf8')).components.length)" 2>/dev/null || echo "0")
+          echo "- Components: $nodejs_count" >> nodejs-sbom-summary.md
+        fi
+        
+        echo "" >> nodejs-sbom-summary.md
+        echo "## Files Generated" >> nodejs-sbom-summary.md
+        echo "- nodejs-sbom.json" >> nodejs-sbom-summary.md
+        echo "- nodejs-sbom.xml" >> nodejs-sbom-summary.md
+        echo "- nodejs-sbom-metadata.json" >> nodejs-sbom-summary.md
+
+    - name: Upload Node.js SBOM artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: nodejs-sbom-${{ github.sha }}
+        path: |
+          nodejs-sbom.json
+          nodejs-sbom.xml
+          nodejs-sbom-metadata.json
+          nodejs-sbom-summary.md
+        retention-days: 90
+
+    - name: Upload Node.js SBOM to release (on release)
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./nodejs-sbom.json
+        asset_name: brikk-infrastructure-nodejs-sbom-${{ github.event.release.tag_name }}.json
         asset_content_type: application/json

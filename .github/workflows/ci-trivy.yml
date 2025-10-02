@@ -38,69 +38,28 @@ jobs:
         exit-code: '1'
 
   trivy-docker-scan:
+    # Guard to avoid failing on repos that don't yet contain Docker infrastructure
+    if: ${{ hashFiles('Dockerfile', 'server/Dockerfile', 'infra/**') != '' }}
     runs-on: ubuntu-latest
     name: Trivy Docker Image Scan
     steps:
     - uses: actions/checkout@v4
 
-    - name: Create Dockerfile if it doesn't exist
+    - name: Find Dockerfile
       run: |
-        if [ ! -f Dockerfile ]; then
-          cat > Dockerfile << 'EOF'
-        # Multi-stage build for security and size optimization
-        FROM python:3.11-slim as builder
-
-        # Create non-root user
-        RUN groupadd -r brikk && useradd -r -g brikk brikk
-
-        # Set working directory
-        WORKDIR /app
-
-        # Install system dependencies
-        RUN apt-get update && apt-get install -y --no-install-recommends \
-            gcc \
-            && rm -rf /var/lib/apt/lists/*
-
-        # Copy requirements and install Python dependencies
-        COPY requirements.txt .
-        RUN pip install --no-cache-dir --user -r requirements.txt
-
-        # Production stage
-        FROM python:3.11-slim
-
-        # Create non-root user
-        RUN groupadd -r brikk && useradd -r -g brikk brikk
-
-        # Set working directory
-        WORKDIR /app
-
-        # Copy Python packages from builder stage
-        COPY --from=builder /root/.local /home/brikk/.local
-
-        # Copy application code
-        COPY --chown=brikk:brikk . .
-
-        # Update PATH to include user packages
-        ENV PATH=/home/brikk/.local/bin:$PATH
-
-        # Switch to non-root user
-        USER brikk
-
-        # Expose port
-        EXPOSE 8000
-
-        # Health check
-        HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-          CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
-
-        # Run application
-        CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "src.main:app"]
-        EOF
+        # Find the Dockerfile to use
+        if [ -f Dockerfile ]; then
+          echo "DOCKERFILE_PATH=Dockerfile" >> $GITHUB_ENV
+        elif [ -f server/Dockerfile ]; then
+          echo "DOCKERFILE_PATH=server/Dockerfile" >> $GITHUB_ENV
+        else
+          echo "No Dockerfile found"
+          exit 1
         fi
 
     - name: Build Docker image
       run: |
-        docker build -t brikk-infrastructure:${{ github.sha }} .
+        docker build -f ${{ env.DOCKERFILE_PATH }} -t brikk-infrastructure:${{ github.sha }} .
 
     - name: Run Trivy vulnerability scanner on Docker image
       uses: aquasecurity/trivy-action@master
