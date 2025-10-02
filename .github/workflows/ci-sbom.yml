@@ -112,7 +112,7 @@ jobs:
         echo "- python-sbom-metadata.json" >> python-sbom-summary.md
 
     - name: Upload Python SBOM artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: python-sbom-${{ github.sha }}
         path: |
@@ -230,7 +230,7 @@ jobs:
         echo "- nodejs-sbom-metadata.json" >> nodejs-sbom-summary.md
 
     - name: Upload Node.js SBOM artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nodejs-sbom-${{ github.sha }}
         path: |

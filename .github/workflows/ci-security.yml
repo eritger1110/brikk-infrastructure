@@ -102,7 +102,7 @@ jobs:
 
     - name: Upload Dependency Check results
       if: always() && steps.dependency-check.outcome != 'skipped'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-check-report
         path: reports/
