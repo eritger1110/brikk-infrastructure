@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     name: OWASP Dependency Check
     # Guard to avoid failing on repos that don't yet contain dependency manifests
-    if: ${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/requirements.txt', '**/poetry.lock', '**/Pipfile.lock', '**/composer.lock', '**/Gemfile.lock') != '' }}
+    if: hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/requirements.txt', '**/poetry.lock', '**/Pipfile.lock', '**/composer.lock', '**/Gemfile.lock') != ''
     steps:
     - uses: actions/checkout@v4
 
