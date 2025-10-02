@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Generate Python SBOM
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -139,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Generate Node.js SBOM
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4

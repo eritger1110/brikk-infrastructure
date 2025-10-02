@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Trivy Repository Scan
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Run Trivy vulnerability scanner in repo mode
       uses: aquasecurity/trivy-action@master
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Trivy Docker Image Scan
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Find Dockerfile
       run: |
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Trivy Configuration Scan
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Run Trivy configuration scanner
       uses: aquasecurity/trivy-action@master
