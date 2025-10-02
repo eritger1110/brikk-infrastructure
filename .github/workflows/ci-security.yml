@@ -1,0 +1,135 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    name: Semgrep Security Scan
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Semgrep
+      uses: semgrep/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/owasp-top-ten
+          p/python
+          p/flask
+        generateSarif: "1"
+      env:
+        SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+    - name: Upload Semgrep SARIF
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: semgrep.sarif
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: Secret Pattern Detection
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Scan for secrets
+      run: |
+        echo "Scanning for secret patterns..."
+        
+        # Define secret patterns to detect
+        SECRET_PATTERNS=(
+          "sk_[a-zA-Z0-9]{24,}"                    # Stripe secret keys
+          "pk_[a-zA-Z0-9]{24,}"                    # Stripe publishable keys
+          "-----BEGIN [A-Z ]+-----"                # Private keys
+          "-----BEGIN PRIVATE KEY-----"            # Private keys
+          "-----BEGIN RSA PRIVATE KEY-----"        # RSA private keys
+          "-----BEGIN OPENSSH PRIVATE KEY-----"    # SSH private keys
+          "AKIA[0-9A-Z]{16}"                       # AWS Access Key ID
+          "[0-9a-zA-Z/+]{40}"                      # AWS Secret Access Key pattern
+          "AIza[0-9A-Za-z\\-_]{35}"               # Google API Key
+          "ya29\\.[0-9A-Za-z\\-_]+"               # Google OAuth Access Token
+          "ghp_[a-zA-Z0-9]{36}"                    # GitHub Personal Access Token
+          "gho_[a-zA-Z0-9]{36}"                    # GitHub OAuth Token
+          "ghu_[a-zA-Z0-9]{36}"                    # GitHub User Token
+          "ghs_[a-zA-Z0-9]{36}"                    # GitHub Server Token
+          "ghr_[a-zA-Z0-9]{36}"                    # GitHub Refresh Token
+          "github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}" # GitHub Fine-grained PAT
+          "xoxb-[0-9]{11,12}-[0-9]{11,12}-[a-zA-Z0-9]{24}" # Slack Bot Token
+          "xoxp-[0-9]{11,12}-[0-9]{11,12}-[a-zA-Z0-9]{24}" # Slack User Token
+          "password\\s*[=:]\\s*['\"][^'\"]{8,}['\"]" # Password assignments
+          "secret\\s*[=:]\\s*['\"][^'\"]{8,}['\"]"   # Secret assignments
+          "token\\s*[=:]\\s*['\"][^'\"]{16,}['\"]"   # Token assignments
+        )
+        
+        FOUND_SECRETS=false
+        
+        # Scan all files except .git directory
+        for pattern in "${SECRET_PATTERNS[@]}"; do
+          echo "Checking pattern: $pattern"
+          if grep -r -E "$pattern" . --exclude-dir=.git --exclude-dir=node_modules --exclude="*.log" --exclude="*.json" --exclude="*.yml" --exclude="*.yaml" | grep -v "SECRET_PATTERNS" | grep -v "# GitHub" | grep -v "# Stripe" | grep -v "# AWS" | grep -v "# Google" | grep -v "# Slack"; then
+            echo "❌ SECURITY ALERT: Potential secret found matching pattern: $pattern"
+            FOUND_SECRETS=true
+          fi
+        done
+        
+        # Additional check for common secret file names
+        SECRET_FILES=(
+          ".env"
+          ".env.local"
+          ".env.production"
+          "id_rsa"
+          "id_dsa"
+          "id_ecdsa"
+          "id_ed25519"
+          "*.pem"
+          "*.key"
+          "*.p12"
+          "*.pfx"
+        )
+        
+        for file_pattern in "${SECRET_FILES[@]}"; do
+          if find . -name "$file_pattern" -not -path "./.git/*" | grep -q .; then
+            echo "❌ SECURITY ALERT: Potential secret file found: $file_pattern"
+            find . -name "$file_pattern" -not -path "./.git/*"
+            FOUND_SECRETS=true
+          fi
+        done
+        
+        if [ "$FOUND_SECRETS" = true ]; then
+          echo "❌ Secret scan failed: Potential secrets detected!"
+          echo "Please remove any secrets from the codebase and use environment variables or secure secret management."
+          exit 1
+        else
+          echo "✅ Secret scan passed: No secrets detected."
+        fi
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: OWASP Dependency Check
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run OWASP Dependency Check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'brikk-infrastructure'
+        path: '.'
+        format: 'ALL'
+        args: >
+          --enableRetired
+          --enableExperimental
+          --failOnCVSS 7
+
+    - name: Upload Dependency Check results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-check-report
+        path: reports/
