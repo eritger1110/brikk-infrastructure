@@ -14,7 +14,7 @@ import uuid
 import pytest
 from flask import Flask
 
-from src.api.routes.coordination_stub import coordination_v1_bp
+from src.routes.coordination import coordination_bp
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def app():
     """Create Flask app with coordination blueprint for testing."""
     app = Flask(__name__)
     app.config['TESTING'] = True
-    app.register_blueprint(coordination_v1_bp)
+    app.register_blueprint(coordination_bp)
     return app
 
 

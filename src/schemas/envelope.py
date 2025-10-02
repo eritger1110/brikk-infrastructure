@@ -9,6 +9,7 @@ Defines the message envelope structure with strict validation:
 - Extra fields forbidden
 """
 
+import os
 import re
 import uuid
 from datetime import datetime
@@ -118,11 +119,23 @@ class Envelope(BaseModel):
                 raise ValueError("Invalid UUID format")
             
             # UUIDv7 validation: version should be 7
-            # For now, accept UUID4 as approximation until proper UUIDv7 implementation
             # UUIDv7 has version bits in the 13th hex digit (bits 48-51)
             version = (parsed_uuid.int >> 76) & 0xF
-            if version not in [4, 7]:  # Accept both UUID4 and UUID7 for now
-                raise ValueError("UUID must be version 4 or 7")
+            
+            # Check environment flag for UUID4 compatibility
+            allow_uuid4 = os.getenv("BRIKK_ALLOW_UUID4", "false").lower() == "true"
+            
+            if version == 7:
+                # UUIDv7 is always accepted
+                pass
+            elif version == 4 and allow_uuid4:
+                # UUID4 only accepted if explicitly enabled
+                pass
+            else:
+                if allow_uuid4:
+                    raise ValueError("UUID must be version 4 or 7")
+                else:
+                    raise ValueError("UUID must be version 7 (UUIDv7). Set BRIKK_ALLOW_UUID4=true to allow UUID4 for testing.")
                 
             return v.lower()  # Normalize to lowercase
             

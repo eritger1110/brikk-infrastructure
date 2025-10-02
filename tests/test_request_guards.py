@@ -12,12 +12,12 @@ import json
 import pytest
 from flask import Flask, jsonify, Blueprint
 
-from src.api.middleware.request_guards import (
+from src.services.request_guards import (
     request_guards,
     apply_request_guards_to_blueprint,
     MAX_BODY_SIZE
 )
-from src.api.middleware.security_headers import apply_security_headers_to_blueprint
+from src.services.security_headers import apply_security_headers_to_blueprint
 
 
 @pytest.fixture

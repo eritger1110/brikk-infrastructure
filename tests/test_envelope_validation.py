@@ -15,7 +15,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from src.api.models.envelope import Envelope, Sender, Recipient, create_sample_envelope
+from src.schemas.envelope import Envelope, Sender, Recipient, create_sample_envelope
 
 
 class TestEnvelopeValidation:
