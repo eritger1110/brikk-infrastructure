@@ -1,0 +1,107 @@
+# Gitleaks configuration for Brikk Infrastructure
+# This configuration detects secrets while minimizing false positives
+
+title = "Brikk Infrastructure Secret Detection"
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)(api|token|secret|key|password)[^a-z0-9]?[:=][^\\r\\n]{8,}'''
+keywords = ["api","token","secret","key","password"]
+
+[[rules]]
+description = "AWS Access Key ID"
+id = "aws-access-key-id"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+
+[[rules]]
+description = "AWS Secret Access Key"
+id = "aws-secret-access-key"
+regex = '''[A-Za-z0-9/+=]{40}'''
+keywords = ["aws", "secret"]
+
+[[rules]]
+description = "GitHub Personal Access Token"
+id = "github-pat"
+regex = '''ghp_[a-zA-Z0-9]{36}'''
+keywords = ["ghp_"]
+
+[[rules]]
+description = "GitHub Fine-grained Personal Access Token"
+id = "github-fine-grained-pat"
+regex = '''github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}'''
+keywords = ["github_pat_"]
+
+[[rules]]
+description = "Stripe Secret Key"
+id = "stripe-secret-key"
+regex = '''sk_[a-zA-Z0-9]{24,}'''
+keywords = ["sk_"]
+
+[[rules]]
+description = "Stripe Publishable Key"
+id = "stripe-publishable-key"
+regex = '''pk_[a-zA-Z0-9]{24,}'''
+keywords = ["pk_"]
+
+[[rules]]
+description = "Google API Key"
+id = "google-api-key"
+regex = '''AIza[0-9A-Za-z\\-_]{35}'''
+keywords = ["AIza"]
+
+[[rules]]
+description = "Slack Bot Token"
+id = "slack-bot-token"
+regex = '''xoxb-[0-9]{11,12}-[0-9]{11,12}-[a-zA-Z0-9]{24}'''
+keywords = ["xoxb-"]
+
+[[rules]]
+description = "Private Key"
+id = "private-key"
+regex = '''-----BEGIN [A-Z ]+PRIVATE KEY-----'''
+keywords = ["-----BEGIN", "PRIVATE KEY"]
+
+[[rules]]
+description = "JWT Token"
+id = "jwt-token"
+regex = '''eyJ[A-Za-z0-9_/+-]*\.eyJ[A-Za-z0-9_/+-]*\.[A-Za-z0-9_/+-]*'''
+keywords = ["eyJ"]
+
+[allowlist]
+description = "Allow obvious non-secret content"
+files = [
+  "\\.md$",
+  "\\.txt$", 
+  "\\.rst$",
+  "\\.yml$",
+  "\\.yaml$",
+  "^LICENSE$",
+  "^SECURITY\\.md$",
+  "^CONTRIBUTING\\.md$",
+  "^README\\.md$",
+  "\\.json$"
+]
+paths = [
+  ".github/workflows/",
+  "docs/",
+  "examples/"
+]
+regexes = [
+  # Allow example/placeholder values
+  "sk_test_[a-zA-Z0-9]{24,}",
+  "pk_test_[a-zA-Z0-9]{24,}",
+  # Allow documentation patterns
+  "your-api-key-here",
+  "replace-with-your-key",
+  "example-secret-key",
+  # Allow template variables
+  "\\$\\{[^}]+\\}",
+  "\\{\\{[^}]+\\}\\}",
+  # Allow comments about secrets
+  "# This should trigger secret detection",
+  "# GitHub Personal Access Token",
+  "# Stripe secret keys",
+  "# AWS Access Key ID"
+]

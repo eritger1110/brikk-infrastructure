@@ -1,0 +1,109 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual run'
+        required: false
+        default: 'Manual security scan'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    name: Semgrep Security Scan
+    # Always run Semgrep to catch security issues across all file types
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Semgrep (scan)
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: |
+          p/owasp-top-ten
+          p/secrets
+          p/security-audit
+          p/python
+          p/flask
+          p/javascript
+        generateSarif: true
+      env:
+        SEMGREP_TIMEOUT: 180
+
+    - name: Upload Semgrep SARIF (best-effort)
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: semgrep.sarif
+      continue-on-error: true
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: Secret Pattern Detection
+    # Always run secret scanning to prevent credential leaks
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Gitleaks (scan)
+      id: gitleaks
+      uses: zricethezav/gitleaks-action@v2
+      with:
+        config-path: .gitleaks.toml
+        args: "--redact --no-banner --report-format sarif --report-path gitleaks.sarif --staged"
+      # IMPORTANT: keep this strict - fail on real secrets
+      continue-on-error: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Gitleaks SARIF (best-effort)
+      if: always()  # run even if previous succeeded/failed
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: gitleaks.sarif
+      # Do not block the job on billing/permissions errors
+      continue-on-error: true
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    name: OWASP Dependency Check
+    # Always run dependency check - it will handle missing manifests gracefully
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: OWASP DC (scan if manifests present)
+      id: dependency-check
+      if: ${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/requirements.txt', '**/poetry.lock', '**/Pipfile.lock', '**/composer.lock', '**/Gemfile.lock') != '' }}
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'brikk-infrastructure'
+        path: '.'
+        format: 'ALL'
+        args: >
+          --enableRetired
+          --enableExperimental
+          --failOnCVSS 7
+
+    - name: Upload OWASP DC SARIF (best-effort)
+      if: always() && steps.dependency-check.outcome != 'skipped'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: reports/dependency-check-report.sarif
+      continue-on-error: true
+
+    - name: Upload Dependency Check results
+      if: always() && steps.dependency-check.outcome != 'skipped'
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-check-report
+        path: reports/
+      continue-on-error: true
