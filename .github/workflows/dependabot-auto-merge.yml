@@ -1,0 +1,104 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    
+    steps:
+      - name: Check PR details
+        id: pr-details
+        run: |
+          echo "PR title: ${{ github.event.pull_request.title }}"
+          echo "PR author: ${{ github.actor }}"
+          echo "PR labels: ${{ join(github.event.pull_request.labels.*.name, ', ') }}"
+          
+          # Check if this is a grouped update (safer to auto-merge)
+          if [[ "${{ github.event.pull_request.title }}" == *"python-runtime"* ]] || \
+             [[ "${{ github.event.pull_request.title }}" == *"python-tooling"* ]] || \
+             [[ "${{ github.event.pull_request.title }}" == *"ghactions-minor-patch"* ]] || \
+             [[ "${{ github.event.pull_request.title }}" == *"npm-runtime"* ]] || \
+             [[ "${{ github.event.pull_request.title }}" == *"npm-tooling"* ]]; then
+            echo "is-grouped=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-grouped=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if this is a patch/minor update (safer to auto-merge)
+          if [[ "${{ github.event.pull_request.title }}" == *"patch"* ]] || \
+             [[ "${{ github.event.pull_request.title }}" == *"minor"* ]]; then
+            echo "is-safe-update=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-safe-update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for CI checks
+        if: steps.pr-details.outputs.is-grouped == 'true' && steps.pr-details.outputs.is-safe-update == 'true'
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        id: wait-for-checks
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: "Security Scanning / Semgrep Security Scan"
+          ref: ${{ github.event.pull_request.head.sha }}
+          timeoutSeconds: 600
+          intervalSeconds: 30
+
+      - name: Wait for Python CI
+        if: steps.pr-details.outputs.is-grouped == 'true' && steps.pr-details.outputs.is-safe-update == 'true'
+        uses: fountainhead/action-wait-for-check@v1.2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: "Python CI / python-tests (3.11)"
+          ref: ${{ github.event.pull_request.head.sha }}
+          timeoutSeconds: 600
+          intervalSeconds: 30
+
+      - name: Auto-approve PR
+        if: steps.pr-details.outputs.is-grouped == 'true' && steps.pr-details.outputs.is-safe-update == 'true' && steps.wait-for-checks.outputs.conclusion == 'success'
+        uses: juliangruber/approve-pull-request-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.pull_request.number }}
+
+      - name: Enable auto-merge
+        if: steps.pr-details.outputs.is-grouped == 'true' && steps.pr-details.outputs.is-safe-update == 'true' && steps.wait-for-checks.outputs.conclusion == 'success'
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add comment for manual review
+        if: steps.pr-details.outputs.is-grouped == 'false' || steps.pr-details.outputs.is-safe-update == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🤖 **Dependabot PR requires manual review**\n\nThis PR was not auto-merged because:\n- Not a grouped update: ${{ steps.pr-details.outputs.is-grouped }}\n- Not a safe update (patch/minor): ${{ steps.pr-details.outputs.is-safe-update }}\n\nPlease review manually for major version updates or individual dependency changes.'
+            })
+
+      - name: Log auto-merge decision
+        run: |
+          echo "Auto-merge decision:"
+          echo "  Is grouped update: ${{ steps.pr-details.outputs.is-grouped }}"
+          echo "  Is safe update: ${{ steps.pr-details.outputs.is-safe-update }}"
+          echo "  CI checks passed: ${{ steps.wait-for-checks.outputs.conclusion == 'success' }}"
+          
+          if [[ "${{ steps.pr-details.outputs.is-grouped }}" == "true" ]] && \
+             [[ "${{ steps.pr-details.outputs.is-safe-update }}" == "true" ]] && \
+             [[ "${{ steps.wait-for-checks.outputs.conclusion }}" == "success" ]]; then
+            echo "✅ PR will be auto-merged"
+          else
+            echo "⏸️ PR requires manual review"
+          fi
