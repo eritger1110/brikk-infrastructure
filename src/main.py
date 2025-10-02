@@ -162,6 +162,15 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"billing_bp import/registration failed: {e}")
 
+    try:
+        from src.routes.coordination import coordination_bp
+        app.register_blueprint(coordination_bp)
+        app.logger.info("Registered coordination_bp (includes existing /api/coordination/* and new /api/v1/coordination)")
+    except Exception as e:
+        app.logger.exception(f"coordination_bp import/registration failed: {e}")
+
+
+
     # --- Inbound: inline sanity ping so we know the app is alive at this prefix ---
     @app.get("/api/inbound/_ping_inline")
     def _inbound_inline():

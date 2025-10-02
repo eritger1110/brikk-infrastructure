@@ -11,6 +11,7 @@ PyJWT==2.9.0
 sendgrid==6.11.0
 stripe~=12.5.1
 marshmallow>=3.21.1
+pydantic>=2.0.0,<3.0.0
 Flask-Limiter>=3.6.0
 flask-talisman>=1.1.0
 flask-jwt-extended>=4.6.0
