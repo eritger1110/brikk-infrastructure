@@ -2,10 +2,12 @@
 """
 Coordination routes for Brikk API.
 
-Contains both existing coordination endpoints and new v1 API with envelope validation.
+Contains both existing coordination endpoints and new v1 API with envelope validation,
+HMAC v1 authentication, and Redis idempotency.
 """
 
 import os
+import hashlib
 from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt
 from pydantic import ValidationError
@@ -99,22 +101,40 @@ def generate_request_id() -> str:
     return str(uuid.uuid4())
 
 
+def get_feature_flag(flag_name: str, default: str = "false") -> bool:
+    """Get feature flag value from environment."""
+    return os.environ.get(flag_name, default).lower() == "true"
+
+
+def create_error_response(code: str, message: str, status_code: int = 400, details: list = None) -> tuple:
+    """Create standardized error response."""
+    error_data = {
+        "code": code,
+        "message": message,
+        "request_id": generate_request_id()
+    }
+    if details:
+        error_data["details"] = details
+    
+    return jsonify(error_data), status_code
+
+
 @coordination_v1_bp.route("/api/v1/coordination", methods=["POST"])
 def coordination_endpoint():
     """
-    Coordination API endpoint v1 with optional HMAC authentication.
+    Coordination API endpoint v1 with layered security.
+    
+    Security layers (in order):
+    1. Request guards: Content-Type, body size, required headers (via middleware)
+    2. HMAC v1 authentication: X-Brikk-Key, X-Brikk-Timestamp, X-Brikk-Signature
+    3. Timestamp drift check: ±300 seconds
+    4. Redis idempotency: Duplicate request detection
+    5. Envelope validation: Pydantic schema validation
     
     Feature flags:
     - BRIKK_FEATURE_PER_ORG_KEYS=true: Enable HMAC v1 authentication
     - BRIKK_IDEM_ENABLED=true: Enable Redis idempotency checking
     - BRIKK_ALLOW_UUID4=false: Enforce UUIDv7 in envelope validation
-    
-    Validates:
-    - Request guards (via middleware): Content-Type, body size, required headers
-    - HMAC authentication (if enabled): X-Brikk-Key, X-Brikk-Timestamp, X-Brikk-Signature
-    - Timestamp drift: ±300 seconds
-    - Idempotency: Redis-based duplicate request detection
-    - Envelope schema: Pydantic validation of message structure
     
     Returns:
     - 202: Accepted with echo of message_id
@@ -126,58 +146,68 @@ def coordination_endpoint():
     - 422: Envelope validation error
     - 429: Rate limit exceeded
     """
-    # Import auth middleware
-    from src.services.auth_middleware import AuthMiddleware
+    from src.services.coordination_auth import CoordinationAuthService
+    
+    auth_service = CoordinationAuthService()
+    request_id = auth_service.generate_request_id()
     
     try:
-        # Initialize authentication middleware
-        auth_middleware = AuthMiddleware()
+        # Get raw request body for HMAC verification and idempotency
+        raw_body = request.get_data()
+        body_hash = hashlib.sha256(raw_body).hexdigest()
         
-        # Step 1: Authenticate request (if per-org keys enabled)
-        auth_success, auth_error, auth_status = auth_middleware.authenticate_request()
-        if not auth_success:
-            return jsonify(auth_error), auth_status
+        # Step 1: HMAC Authentication (if enabled)
+        if auth_service.get_feature_flag("BRIKK_FEATURE_PER_ORG_KEYS"):
+            auth_success, auth_error, auth_status = auth_service.authenticate_request(raw_body, request_id)
+            if not auth_success:
+                return jsonify(auth_error), auth_status
         
-        # Step 2: Check idempotency (if enabled)
-        idem_success, idem_response, idem_status = auth_middleware.check_idempotency()
-        if not idem_success:
-            return jsonify(idem_response), idem_status
+        # Step 2: Idempotency Check (if enabled)
+        if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
+            should_process, idem_response, idem_status = auth_service.check_idempotency(body_hash, request_id)
+            if not should_process:
+                return jsonify(idem_response), idem_status
         
-        # Step 3: Get and validate JSON data
-        json_data = request.get_json()
+        # Step 3: Parse and validate JSON
+        try:
+            json_data = request.get_json()
+            if json_data is None:
+                error_response = auth_service.create_error_response(
+                    "protocol_error",
+                    "Request body must contain valid JSON",
+                    400,
+                    request_id=request_id
+                )
+                return jsonify(error_response), 400
+        except Exception as e:
+            error_response = auth_service.create_error_response(
+                "protocol_error",
+                f"Invalid JSON in request body: {str(e)}",
+                400,
+                request_id=request_id
+            )
+            return jsonify(error_response), 400
         
-        if json_data is None:
-            return jsonify({
-                "code": "protocol_error",
-                "message": "Request body must contain valid JSON",
-                "request_id": generate_request_id()
-            }), 400
-        
-        # Step 4: Validate envelope schema with Pydantic
+        # Step 4: Validate envelope schema
         try:
             envelope = Envelope(**json_data)
         except ValidationError as e:
-            # Format Pydantic validation errors for API response
+            # Format Pydantic validation errors
             error_details = []
             for error in e.errors():
                 field_path = " -> ".join(str(loc) for loc in error["loc"])
                 error_details.append(f"{field_path}: {error['msg']}")
             
-            return jsonify({
-                "code": "validation_error",
-                "message": "Envelope validation failed",
-                "details": error_details,
-                "request_id": generate_request_id()
-            }), 422
+            error_response = auth_service.create_error_response(
+                "validation_error",
+                "Envelope validation failed",
+                422,
+                error_details,
+                request_id
+            )
+            return jsonify(error_response), 422
         
         # Step 5: Process the validated request
-        # In a real implementation, this would:
-        # 1. Queue the message for processing
-        # 2. Store in database with audit trail
-        # 3. Return job/tracking ID
-        # 4. Trigger async processing
-        
-        # For now, return acceptance with echo
         response_data = {
             "status": "accepted",
             "echo": {
@@ -185,26 +215,31 @@ def coordination_endpoint():
             }
         }
         
-        # Add authentication context to response if available
-        if hasattr(g, 'auth_context'):
-            response_data["auth"] = {
-                "organization_id": g.auth_context["organization_id"],
-                "agent_id": g.auth_context.get("agent_id"),
-                "request_id": g.auth_context["request_id"]
-            }
+        # Add authentication context if available
+        auth_context = auth_service.get_auth_context_for_response()
+        if auth_context:
+            response_data["auth"] = auth_context
         
-        # Step 6: Cache response for idempotency
-        auth_middleware.cache_response(response_data, 202)
+        # Step 6: Cache response for idempotency (if enabled)
+        if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
+            auth_service.cache_response(body_hash, response_data, 202)
         
         return jsonify(response_data), 202
         
     except Exception as e:
-        # Catch any unexpected errors
-        return jsonify({
-            "code": "internal_error",
-            "message": "An unexpected error occurred",
-            "request_id": generate_request_id()
-        }), 500
+        # Log the error for debugging (in production, use proper logging)
+        print(f"Coordination endpoint error: {str(e)}")
+        
+        error_response = auth_service.create_error_response(
+            "internal_error",
+            "An unexpected error occurred",
+            500,
+            request_id=request_id
+        )
+        return jsonify(error_response), 500
+
+
+
 
 
 @coordination_v1_bp.route("/api/v1/coordination/health", methods=["GET"])
@@ -215,10 +250,16 @@ def health_check():
     Returns basic status information without requiring authentication
     or request validation.
     """
+    from src.services.coordination_auth import CoordinationAuthService
+    
+    auth_service = CoordinationAuthService()
+    feature_flags = auth_service.validate_feature_flags()
+    
     return jsonify({
         "status": "healthy",
         "service": "coordination-api",
-        "version": "1.0-stub"
+        "version": "1.0",
+        "features": feature_flags
     }), 200
 
 
