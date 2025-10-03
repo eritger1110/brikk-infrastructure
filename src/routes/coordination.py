@@ -162,7 +162,22 @@ def coordination_endpoint():
             if not auth_success:
                 return jsonify(auth_error), auth_status
         
-        # Step 2: Idempotency Check (if enabled)
+        # Step 2: Rate Limiting (if enabled)
+        rate_limit_result = auth_service.check_rate_limit(request_id)
+        if not rate_limit_result.allowed:
+            error_response = auth_service.create_error_response(
+                "rate_limited",
+                "Rate limit exceeded",
+                429,
+                request_id=request_id
+            )
+            response = jsonify(error_response)
+            # Add rate limit headers to 429 response
+            for header, value in rate_limit_result.to_headers().items():
+                response.headers[header] = value
+            return response, 429
+        
+        # Step 3: Idempotency Check (if enabled)
         if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
             should_process, idem_response, idem_status = auth_service.check_idempotency(body_hash, request_id)
             if not should_process:
@@ -224,7 +239,14 @@ def coordination_endpoint():
         if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
             auth_service.cache_response(body_hash, response_data, 202)
         
-        return jsonify(response_data), 202
+        # Create response with rate limit headers
+        response = jsonify(response_data)
+        
+        # Add rate limit headers to success response
+        for header, value in rate_limit_result.to_headers().items():
+            response.headers[header] = value
+        
+        return response, 202
         
     except Exception as e:
         # Log the error for debugging (in production, use proper logging)
