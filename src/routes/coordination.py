@@ -19,10 +19,16 @@ import random
 from src.services.request_guards import apply_request_guards_to_blueprint
 from src.services.security_headers import apply_security_headers_to_blueprint
 from src.schemas.envelope import Envelope
+from src.services.structured_logging import get_logger, log_auth_success, log_auth_failure, log_rate_limit_hit, log_idempotency_replay
+from src.services.metrics import record_rate_limit_hit, record_idempotency_replay
+from src.services.request_context import set_auth_context
 
 
 # Single coordination blueprint for all coordination endpoints
 coordination_bp = Blueprint("coordination_bp", __name__)
+
+# Initialize logger for coordination module
+logger = get_logger('brikk.coordination')
 
 # Apply security headers to all coordination routes
 apply_security_headers_to_blueprint(coordination_bp)
@@ -160,11 +166,46 @@ def coordination_endpoint():
         if auth_service.get_feature_flag("BRIKK_FEATURE_PER_ORG_KEYS"):
             auth_success, auth_error, auth_status = auth_service.authenticate_request(raw_body, request_id)
             if not auth_success:
+                # Log authentication failure
+                log_auth_failure(
+                    reason=auth_error.get('code', 'unknown'),
+                    request_id=request_id,
+                    status_code=auth_status
+                )
+                logger.log_auth_event('hmac_verification', success=False, 
+                                    failure_reason=auth_error.get('code', 'unknown'),
+                                    request_id=request_id)
                 return jsonify(auth_error), auth_status
+            else:
+                # Log successful authentication and set auth context
+                if hasattr(g, 'auth_context') and g.auth_context:
+                    log_auth_success(
+                        api_key_id=g.auth_context.get('key_id'),
+                        organization_id=g.auth_context.get('org_id'),
+                        request_id=request_id
+                    )
+                    logger.log_auth_event('hmac_verification', success=True,
+                                        api_key_id=g.auth_context.get('key_id'),
+                                        organization_id=g.auth_context.get('org_id'),
+                                        request_id=request_id)
         
         # Step 2: Rate Limiting (if enabled)
         rate_limit_result = auth_service.check_rate_limit(request_id)
         if not rate_limit_result.allowed:
+            # Log rate limit hit
+            scope = getattr(g, 'organization_id', 'anonymous') if hasattr(g, 'organization_id') else 'anonymous'
+            log_rate_limit_hit(
+                scope=scope,
+                limit=rate_limit_result.limit,
+                remaining=rate_limit_result.remaining,
+                request_id=request_id
+            )
+            record_rate_limit_hit(scope)
+            logger.log_rate_limit_event(scope=scope, limit_exceeded=True,
+                                      limit=rate_limit_result.limit,
+                                      remaining=rate_limit_result.remaining,
+                                      request_id=request_id)
+            
             error_response = auth_service.create_error_response(
                 "rate_limited",
                 "Rate limit exceeded",
@@ -181,6 +222,12 @@ def coordination_endpoint():
         if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
             should_process, idem_response, idem_status = auth_service.check_idempotency(body_hash, request_id)
             if not should_process:
+                # Log idempotency replay
+                idempotency_key = request.headers.get('Idempotency-Key', body_hash[:16])
+                log_idempotency_replay(idempotency_key=idempotency_key, request_id=request_id)
+                record_idempotency_replay()
+                logger.log_idempotency_event('replay', idempotency_key=idempotency_key,
+                                           request_id=request_id, status_code=idem_status)
                 return jsonify(idem_response), idem_status
         
         # Step 3: Parse and validate JSON
@@ -235,9 +282,24 @@ def coordination_endpoint():
         if auth_context:
             response_data["auth"] = auth_context
         
+        # Log successful request processing
+        logger.info(
+            f"Coordination request processed successfully",
+            event_type='coordination_success',
+            message_id=envelope.message_id,
+            message_type=envelope.type,
+            sender_agent_id=envelope.sender.agent_id,
+            recipient_agent_id=envelope.recipient.agent_id,
+            ttl_ms=envelope.ttl_ms,
+            request_id=request_id
+        )
+        
         # Step 6: Cache response for idempotency (if enabled)
         if auth_service.get_feature_flag("BRIKK_IDEM_ENABLED"):
             auth_service.cache_response(body_hash, response_data, 202)
+            logger.log_idempotency_event('cache_stored', 
+                                       idempotency_key=request.headers.get('Idempotency-Key', body_hash[:16]),
+                                       request_id=request_id)
         
         # Create response with rate limit headers
         response = jsonify(response_data)

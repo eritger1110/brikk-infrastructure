@@ -13,6 +13,11 @@ from src.database.db import db  # global SQLAlchemy() instance
 # Make relative imports work when launched by gunicorn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Observability imports
+from src.services.metrics import init_metrics
+from src.services.request_context import init_request_context
+from src.services.structured_logging import init_logging
+
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
 ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
@@ -95,6 +100,16 @@ def create_app() -> Flask:
             }
         },
     )
+
+    # --- Initialize observability ---
+    # Initialize logging first (before other middleware)
+    init_logging(app)
+    
+    # Initialize request context middleware
+    init_request_context(app)
+    
+    # Initialize metrics and health endpoints
+    init_metrics(app)
 
     # --- Security headers / CSP ---
     if ENABLE_TALISMAN:
