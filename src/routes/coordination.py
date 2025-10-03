@@ -6,7 +6,7 @@ Contains both existing coordination endpoints and new v1 API with envelope valid
 """
 
 import os
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt
 from pydantic import ValidationError
 from src.models.agent import Agent, Coordination, db
@@ -102,21 +102,48 @@ def generate_request_id() -> str:
 @coordination_v1_bp.route("/api/v1/coordination", methods=["POST"])
 def coordination_endpoint():
     """
-    Coordination API endpoint v1 (stub implementation).
+    Coordination API endpoint v1 with optional HMAC authentication.
+    
+    Feature flags:
+    - BRIKK_FEATURE_PER_ORG_KEYS=true: Enable HMAC v1 authentication
+    - BRIKK_IDEM_ENABLED=true: Enable Redis idempotency checking
+    - BRIKK_ALLOW_UUID4=false: Enforce UUIDv7 in envelope validation
     
     Validates:
     - Request guards (via middleware): Content-Type, body size, required headers
+    - HMAC authentication (if enabled): X-Brikk-Key, X-Brikk-Timestamp, X-Brikk-Signature
+    - Timestamp drift: ±300 seconds
+    - Idempotency: Redis-based duplicate request detection
     - Envelope schema: Pydantic validation of message structure
     
     Returns:
     - 202: Accepted with echo of message_id
     - 400: Protocol error (missing headers, wrong content-type, etc.)
+    - 401: Authentication failed (invalid key, signature, timestamp drift)
+    - 409: Idempotency conflict (same key, different body)
     - 413: Request body too large
     - 415: Wrong content-type
     - 422: Envelope validation error
+    - 429: Rate limit exceeded
     """
+    # Import auth middleware
+    from src.services.auth_middleware import AuthMiddleware
+    
     try:
-        # Get JSON data from request
+        # Initialize authentication middleware
+        auth_middleware = AuthMiddleware()
+        
+        # Step 1: Authenticate request (if per-org keys enabled)
+        auth_success, auth_error, auth_status = auth_middleware.authenticate_request()
+        if not auth_success:
+            return jsonify(auth_error), auth_status
+        
+        # Step 2: Check idempotency (if enabled)
+        idem_success, idem_response, idem_status = auth_middleware.check_idempotency()
+        if not idem_success:
+            return jsonify(idem_response), idem_status
+        
+        # Step 3: Get and validate JSON data
         json_data = request.get_json()
         
         if json_data is None:
@@ -126,7 +153,7 @@ def coordination_endpoint():
                 "request_id": generate_request_id()
             }), 400
         
-        # Validate envelope schema with Pydantic
+        # Step 4: Validate envelope schema with Pydantic
         try:
             envelope = Envelope(**json_data)
         except ValidationError as e:
@@ -143,21 +170,33 @@ def coordination_endpoint():
                 "request_id": generate_request_id()
             }), 422
         
-        # Envelope validation successful
+        # Step 5: Process the validated request
         # In a real implementation, this would:
-        # 1. Verify HMAC signature
-        # 2. Check timestamp drift
-        # 3. Queue the message for processing
-        # 4. Store in database
-        # 5. Return job/tracking ID
+        # 1. Queue the message for processing
+        # 2. Store in database with audit trail
+        # 3. Return job/tracking ID
+        # 4. Trigger async processing
         
-        # For now, just return acceptance with echo
-        return jsonify({
+        # For now, return acceptance with echo
+        response_data = {
             "status": "accepted",
             "echo": {
                 "message_id": envelope.message_id
             }
-        }), 202
+        }
+        
+        # Add authentication context to response if available
+        if hasattr(g, 'auth_context'):
+            response_data["auth"] = {
+                "organization_id": g.auth_context["organization_id"],
+                "agent_id": g.auth_context.get("agent_id"),
+                "request_id": g.auth_context["request_id"]
+            }
+        
+        # Step 6: Cache response for idempotency
+        auth_middleware.cache_response(response_data, 202)
+        
+        return jsonify(response_data), 202
         
     except Exception as e:
         # Catch any unexpected errors

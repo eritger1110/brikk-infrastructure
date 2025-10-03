@@ -169,6 +169,13 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"coordination_bp import/registration failed: {e}")
 
+    try:
+        from src.routes.auth_admin import auth_admin_bp
+        app.register_blueprint(auth_admin_bp)
+        app.logger.info("Registered auth_admin_bp at /internal (protected by BRIKK_ADMIN_TOKEN)")
+    except Exception as e:
+        app.logger.exception(f"auth_admin_bp import/registration failed: {e}")
+
 
 
     # --- Inbound: inline sanity ping so we know the app is alive at this prefix ---
