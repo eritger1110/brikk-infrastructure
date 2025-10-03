@@ -302,6 +302,29 @@ class CoordinationAuthService:
             metrics["authenticated"] = False
         
         return metrics
+    
+    def check_rate_limit(self, request_id: str):
+        """
+        Check rate limit for the current request.
+        
+        Args:
+            request_id: Request ID for error tracking
+            
+        Returns:
+            RateLimitResult with limit status and headers
+        """
+        from src.services.rate_limit import get_rate_limiter
+        
+        rate_limiter = get_rate_limiter()
+        
+        # Get scope key based on auth context
+        organization_id = getattr(g, 'organization_id', None)
+        api_key_id = getattr(g, 'api_key_id', None)
+        
+        scope_key = rate_limiter.get_scope_key(organization_id, api_key_id)
+        
+        # Check rate limit
+        return rate_limiter.check_rate_limit(scope_key)
 
 
 class CoordinationAuthError(Exception):
