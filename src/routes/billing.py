@@ -24,11 +24,13 @@ billing_bp = Blueprint("billing", __name__)  # mounted at /api in main.py
 
 
 def _json() -> Dict[str, Any]:
+    """Safely parse JSON body or return empty dict."""
     return (request.get_json(silent=True) or {}) if request.data else {}
 
 
 @billing_bp.route("/billing/portal", methods=["POST", "OPTIONS"])
 def billing_portal():
+    """Creates a Stripe billing portal session for the current user."""
     if request.method == "OPTIONS":
         return ("", 204)
 
@@ -52,6 +54,7 @@ def billing_portal():
     email: Optional[str] = None
     if not customer_id and HAVE_JWT:
         try:
+            # ✅ Flask-JWT-Extended v4 syntax
             verify_jwt_in_request(optional=True)
             ident = get_jwt_identity()
             if isinstance(ident, str) and "@" in ident:
