@@ -54,7 +54,7 @@ def billing_portal():
     email: Optional[str] = None
     if not customer_id and HAVE_JWT:
         try:
-            # ✅ Flask-JWT-Extended v4 syntax
+            # v4 syntax: pass optional=True (no exception if no JWT)
             verify_jwt_in_request(optional=True)
             ident = get_jwt_identity()
             if isinstance(ident, str) and "@" in ident:
@@ -89,6 +89,6 @@ def billing_portal():
         msg = getattr(e, "user_message", None) or str(e)
         current_app.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
-    except Exception as e:
+    except Exception:
         current_app.logger.exception("Unexpected error creating portal session")
         return jsonify({"error": "Unexpected server error"}), 500
