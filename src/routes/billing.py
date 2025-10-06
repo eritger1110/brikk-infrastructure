@@ -1,4 +1,3 @@
-# src/routes/billing.py
 from __future__ import annotations
 
 import os
@@ -92,3 +91,4 @@ def billing_portal():
     except Exception:
         current_app.logger.exception("Unexpected error creating portal session")
         return jsonify({"error": "Unexpected server error"}), 500
+'@ | Set-Content -NoNewline -Path .\src\routes\billing.py
