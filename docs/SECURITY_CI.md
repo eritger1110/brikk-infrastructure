@@ -283,6 +283,10 @@ if: false  # Emergency bypass - remove after fix
 - [SARIF Specification](https://sarifweb.azurewebsites.net/)
 - [GitHub Security Features](https://docs.github.com/en/code-security)
 
+## 📝 Recent Changes
+
+- **December 2024**: Stripe pinned to ~=12.5.1 temporarily; upgrade to 13.x coming in follow-up PR with billing portal compatibility tests
+
 ---
 
 **Last Updated**: December 2024  
