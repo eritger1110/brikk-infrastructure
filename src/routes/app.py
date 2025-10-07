@@ -139,7 +139,7 @@ def billing_portal():
         )
         return jsonify({"url": sess.url}), 200
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         # Surface Stripe’s message for fast diagnosis
         msg = getattr(e, "user_message", None) or str(e)
         log.logger.error(f"Stripe error: {msg}")

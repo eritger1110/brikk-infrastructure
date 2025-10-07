@@ -84,11 +84,10 @@ def billing_portal():
         current_app.logger.info(f"[billing] portal for customer={customer_id}")
         return jsonify({"url": sess.url}), 200
 
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         msg = getattr(e, "user_message", None) or str(e)
         current_app.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
     except Exception:
         current_app.logger.exception("Unexpected error creating portal session")
         return jsonify({"error": "Unexpected server error"}), 500
-'@ | Set-Content -NoNewline -Path .\src\routes\billing.py
