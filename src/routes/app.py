@@ -139,17 +139,26 @@ def billing_portal():
         )
         return jsonify({"url": sess.url}), 200
 
+    except stripe.InvalidRequestError as e:
+        # Handle invalid customer ID or request parameters
+        log.logger.warning(f"Invalid Stripe request: {str(e)}")
+        return jsonify({"error": "Invalid customer or request parameters"}), 400
+    except stripe.AuthenticationError as e:
+        # Handle authentication errors
+        log.logger.error(f"Stripe authentication error: {str(e)}")
+        return jsonify({"error": "Billing service authentication failed"}), 500
+    except stripe.APIConnectionError as e:
+        # Handle network/connection errors
+        log.logger.error(f"Stripe API connection error: {str(e)}")
+        return jsonify({"error": "Billing service temporarily unavailable"}), 503
+    except stripe.StripeError as e:
+        # Handle other Stripe-specific errors (Stripe 13.x compatible)
+        log.logger.error(f"Stripe error: {str(e)}")
+        return jsonify({"error": f"Billing service error: {str(e)}"}), 502
     except Exception as e:
-        # Handle all errors (including Stripe errors in 13.x)
-        if 'stripe' in str(type(e)).lower():
-            # Handle Stripe-specific errors
-            msg = getattr(e, "user_message", None) or str(e)
-            log.logger.error(f"Stripe error: {msg}")
-            return jsonify({"error": f"Stripe error: {msg}"}), 502
-        else:
-            # Handle general errors
-            log.logger.exception("Unexpected error creating portal session")
-            return jsonify({"error": "Unexpected server error"}), 500
+        # Handle general errors
+        log.logger.exception("Unexpected error creating portal session")
+        return jsonify({"error": "Unexpected server error"}), 500
 
 
 # --------------------------------------------------------------------------- #
