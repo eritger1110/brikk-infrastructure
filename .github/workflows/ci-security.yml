@@ -35,76 +35,105 @@ jobs:
       env:
         SEMGREP_TIMEOUT: 180
 
-  secret-scan:
+  gitleaks:
     runs-on: ubuntu-latest
-    name: Secret Pattern Detection
+    name: Secret Detection (Gitleaks)
     permissions:
       contents: read
     # Always run secret scanning to prevent credential leaks
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout with full history
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Gitleaks (download binary)
+    - name: Download Gitleaks binary
       run: |
         set -euo pipefail
-        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-        curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_${OS}_x64.tar.gz -o gl.tgz
+        OS=$(uname -s)
+        ARCH=$(uname -m)
+        echo "Detected OS: $OS, Architecture: $ARCH"
+        
+        # Download Gitleaks binary for current platform
+        curl -sSL "https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_${OS}_${ARCH}.tar.gz" -o gl.tgz
         tar -xzf gl.tgz gitleaks
+        chmod +x gitleaks
+        
+        # Verify installation
         ./gitleaks version
 
-    - name: Gitleaks (scan workspace, capture result)
-      id: gitleaks
+    - name: Scan workspace for secrets
       run: |
         set -euo pipefail
-        # Run detect but don't fail the step yet; we'll inspect the report explicitly
+        
+        # Run Gitleaks against current workspace only (deterministic)
         ./gitleaks detect \
           --no-banner \
           --redact \
-          --report-path gitleaks.json \
           --report-format json \
-          --log-opts="--no-merges" || true
-
-        # If report exists, fail only when leaks > 0
-        if [ -f gitleaks.json ]; then
-          python - <<'PY'
-import json,sys
-data=json.load(open('gitleaks.json'))
-leaks = data.get('leaks', [])
-print(f"gitleaks: {len(leaks)} leaks")
-sys.exit(1 if leaks else 0)
-PY
-        else
-          echo "No report produced (likely infra/billing hiccup) → mark neutral"
-          exit 0
-        fi
+          --report-path gitleaks.json \
+          --source .
+        
+        echo "✅ Gitleaks scan completed successfully - no secrets found"
 
   dependency-check:
     runs-on: ubuntu-latest
     name: OWASP Dependency Check
     permissions:
       contents: read
-    # Skip for now - will re-enable when manifests exist
-    if: false
+    # Only run when dependency manifests exist
+    if: ${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/requirements.txt', '**/poetry.lock', '**/Pipfile.lock', '**/Gemfile.lock', '**/composer.lock') != '' }}
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-    - name: OWASP DC (scan)
+    - name: Set up Java (required for OWASP Dependency Check)
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Run OWASP Dependency Check
       uses: dependency-check/Dependency-Check_Action@main
       with:
         project: 'brikk-infrastructure'
         path: '.'
-        format: 'ALL'
+        format: 'JSON,HTML'
         args: >
           --enableRetired
           --enableExperimental
-          --failOnCVSS 7
+          --failOnCVSS 7.0
+          --suppression suppression.xml
+      continue-on-error: false
 
-    - name: Upload Dependency Check results
+    - name: Validate dependency check results
       if: always()
-      uses: actions/upload-artifact@v3
+      run: |
+        if [ -f reports/dependency-check-report.json ]; then
+          echo "✅ OWASP Dependency Check completed"
+          
+          # Check for high/critical vulnerabilities
+          CRITICAL_COUNT=$(jq '.dependencies[] | select(.vulnerabilities[]?.severity == "CRITICAL") | length' reports/dependency-check-report.json 2>/dev/null | wc -l || echo "0")
+          HIGH_COUNT=$(jq '.dependencies[] | select(.vulnerabilities[]?.severity == "HIGH") | length' reports/dependency-check-report.json 2>/dev/null | wc -l || echo "0")
+          
+          echo "Critical vulnerabilities: $CRITICAL_COUNT"
+          echo "High vulnerabilities: $HIGH_COUNT"
+          
+          if [ "$CRITICAL_COUNT" -gt 0 ] || [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "❌ High or critical vulnerabilities found"
+            exit 1
+          else
+            echo "✅ No high or critical vulnerabilities found"
+          fi
+        else
+          echo "⚠️ No dependency check report generated"
+        fi
+
+    - name: Store dependency check artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-check-report
         path: reports/
+        retention-days: 30
       continue-on-error: true
