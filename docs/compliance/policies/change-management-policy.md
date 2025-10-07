@@ -1,5 +1,13 @@
 # Change Management Policy
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Operations Team | Quarterly |
+| **Approver** | Chief Technology Officer | Annual |
+| **Reviewer** | Development Team | Quarterly |
+
 ## 1. Introduction
 
 This policy establishes the requirements for managing changes to Brikk's production systems and infrastructure. The goal of this policy is to ensure that all changes are properly planned, tested, and approved before being implemented, in order to minimize the risk of service disruptions, security vulnerabilities, and other negative impacts.

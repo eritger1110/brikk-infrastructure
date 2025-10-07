@@ -1,6 +1,14 @@
 
 # Vendor Management Policy
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Procurement Team | Quarterly |
+| **Approver** | Chief Operating Officer | Annual |
+| **Reviewer** | Security Team | Quarterly |
+
 ## 1. Introduction
 
 This policy outlines the requirements for managing third-party vendors that provide services or products to Brikk. The purpose of this policy is to ensure that all vendors meet Brikk's security and compliance standards, in order to protect our data and our customers.

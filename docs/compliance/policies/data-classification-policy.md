@@ -1,5 +1,13 @@
 # Data Classification Policy
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Security Team | Quarterly |
+| **Approver** | Chief Privacy Officer | Annual |
+| **Reviewer** | Legal Team | Semi-Annual |
+
 ## 1. Introduction
 
 This policy establishes a framework for classifying Brikk's data based on its sensitivity, value, and criticality. Proper data classification is essential for ensuring that data is protected with the appropriate level of security controls and for complying with legal and regulatory requirements.

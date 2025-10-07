@@ -1,5 +1,13 @@
 # Access Control Policy
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Security Team | Quarterly |
+| **Approver** | Chief Technology Officer | Annual |
+| **Reviewer** | IT Department | Quarterly |
+
 ## 1. Introduction
 
 This policy defines the requirements for controlling access to Brikk's information systems and data. The purpose of this policy is to protect the confidentiality, integrity, and availability of our data and to ensure that access is granted on a need-to-know basis, consistent with the principle of least privilege.

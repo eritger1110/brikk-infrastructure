@@ -1,6 +1,14 @@
 
 # Incident Response Plan
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Security Team | Quarterly |
+| **Approver** | Chief Information Security Officer | Annual |
+| **Reviewer** | Incident Response Team | Monthly |
+
 ## 1. Introduction
 
 This document outlines the plan for responding to security incidents at Brikk. The purpose of this plan is to ensure that all incidents are handled in a timely and effective manner, in order to minimize the impact on our customers and our business.

@@ -1,5 +1,13 @@
 # Security Training Policy
 
+## Policy Ownership and Review
+
+| Role | Responsibility | Review Cadence |
+| --- | --- | --- |
+| **Owner** | Human Resources | Quarterly |
+| **Approver** | Chief Human Resources Officer | Annual |
+| **Reviewer** | Security Team | Quarterly |
+
 ## 1. Introduction
 
 This policy establishes the requirements for security awareness training at Brikk. The purpose of this policy is to ensure that all employees are aware of their security responsibilities and are equipped to identify and respond to security threats.
