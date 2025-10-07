@@ -417,3 +417,20 @@ def record_redis_status(is_up: bool):
 def update_redis_status(is_up: bool):
     """Update Redis status."""
     get_metrics_service().update_redis_status(is_up)
+
+
+
+def record_http_request(route: str, method: str, status_code: int, duration: float):
+    """Record HTTP request metrics."""
+    get_metrics_service().record_http_request(route, method, status_code, duration)
+
+
+def record_redis_status(is_up: bool):
+    """Record Redis status."""
+    get_metrics_service().update_redis_status(is_up)
+
+
+def record_feature_flag(flag_name: str, enabled: bool):
+    """Record feature flag usage."""
+    # This is a placeholder - implement if needed
+    pass
