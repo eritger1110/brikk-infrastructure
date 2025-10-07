@@ -1,0 +1,4 @@
+"Review ID","Review Date","System/Application","User ID","Access Rights Reviewed","Approved By","Notes"
+"AR-001","2025-09-30","Production Database","user@example.com","Read-only access to customer data","Security Team","Access rights confirmed as appropriate for role."
+"AR-002","2025-09-30","AWS Console","admin@example.com","Administrator access","Security Team","Access rights confirmed as appropriate for role."
+

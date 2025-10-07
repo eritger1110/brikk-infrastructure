@@ -1,0 +1,4 @@
+"Risk ID","Date Identified","Risk Description","Risk Owner","Impact","Likelihood","Risk Score","Mitigation Plan","Status"
+"R-001","2025-10-01","Unauthorized access to production database due to weak credentials","Security Team","High","Medium","High","Enforce strong password policy and MFA for all database access","In Progress"
+"R-002","2025-10-02","Denial-of-service attack against the public API","Operations Team","High","Low","Medium","Implement rate limiting and IP blacklisting","Completedg","Completed"
+

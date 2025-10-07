@@ -1,137 +1,24 @@
-# Security Policy
+# Security at Brikk
 
-## Supported Versions
+## Our Commitment
 
-We actively maintain security updates for the following versions of Brikk Infrastructure:
-
-| Version | Supported          |
-| ------- | ------------------ |
-| main    | :white_check_mark: |
-| develop | :white_check_mark: |
-
-## Security Standards
-
-Brikk Infrastructure follows industry-standard security practices and is designed to meet compliance requirements including:
-
-- **SOC 2 Type II** readiness
-- **HIPAA** compliance for healthcare data
-- **OWASP Top 10** protection
-- **Zero-trust security model**
-
-### Security Controls
-
-Our security baseline includes:
-
-- **Dependency Scanning**: Automated vulnerability detection in dependencies
-- **Static Code Analysis**: Semgrep security rules and pattern detection
-- **Secret Scanning**: Prevention of hardcoded credentials and keys
-- **Container Security**: Trivy scanning for container vulnerabilities
-- **SBOM Generation**: Software Bill of Materials for supply chain security
-- **Automated Updates**: Dependabot for security patches
+At Brikk, we are committed to the security of our systems and the protection of our customers' data. We follow industry best practices and have implemented a comprehensive security program to ensure that our platform is secure and compliant with relevant regulations.
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a security issue, please follow responsible disclosure:
+We value the contributions of security researchers and welcome responsible disclosure of any security vulnerabilities you may find. If you believe you have discovered a security issue, please report it to us by emailing [security@getbrikk.com](mailto:security@getbrikk.com).
 
-### How to Report
-
-1. **Email**: Send details to `security@getbrikk.com`
-2. **Subject**: Include "SECURITY" in the subject line
-3. **Details**: Provide a clear description of the vulnerability
-4. **Impact**: Describe the potential impact and affected components
-5. **Reproduction**: Include steps to reproduce the issue (if applicable)
-
-### What to Include
-
-- Description of the vulnerability
-- Steps to reproduce the issue
-- Potential impact assessment
-- Suggested remediation (if known)
-- Your contact information for follow-up
-
-### Response Timeline
-
-- **Initial Response**: Within 24 hours
-- **Assessment**: Within 72 hours
-- **Resolution**: Based on severity (Critical: 7 days, High: 14 days, Medium: 30 days)
-- **Disclosure**: Coordinated disclosure after fix is deployed
-
-### Severity Levels
-
-| Severity | Description | Response Time |
-|----------|-------------|---------------|
-| Critical | Remote code execution, data breach | 24-48 hours |
-| High | Privilege escalation, authentication bypass | 3-7 days |
-| Medium | Information disclosure, DoS | 14-30 days |
-| Low | Minor security improvements | Next release cycle |
-
-## Security Best Practices
-
-### For Contributors
-
-- Never commit secrets, API keys, or credentials
-- Use environment variables for sensitive configuration
-- Follow secure coding practices
-- Run security scans before submitting PRs
-- Keep dependencies updated
-
-### For Deployments
-
-- Use HTTPS/TLS for all communications
-- Implement proper authentication and authorization
-- Enable security headers (HSTS, CSP, etc.)
-- Monitor for security events
-- Regular security assessments
+We will make every effort to respond to your report in a timely manner and will work with you to ensure that the issue is resolved as quickly as possible. For more details on our triage and remediation process, please see our [Security Issue Intake and Triage procedure](./docs/compliance/procedures/security-issue-intake-and-triage.md).
 
 ## Security Features
 
-### Authentication & Authorization
+We have implemented a number of security features to protect our systems and data, including:
 
-- JWT-based authentication
-- Role-based access control (RBAC)
-- Multi-factor authentication support
-- Session management
+-   **Rate Limiting**: To protect against denial-of-service attacks and brute-force authentication attempts.
+-   **HMAC Authentication**: To ensure the integrity and authenticity of all API requests.
+-   **Idempotency**: To prevent duplicate transactions and ensure data integrity.
+-   **Observability**: Comprehensive logging and monitoring to detect and respond to security incidents.
+-   **CI/CD Security Scans**: Automated security scanning in our CI/CD pipeline to identify and remediate vulnerabilities before they are deployed to production.
 
-### Data Protection
+For a more detailed mapping of our security controls to industry standards, please see our [Controls Matrix](./docs/compliance/controls-matrix.md).
 
-- Encryption at rest and in transit
-- PII data handling compliance
-- Secure key management
-- Data retention policies
-
-### Infrastructure Security
-
-- Container security hardening
-- Network segmentation
-- Intrusion detection
-- Audit logging
-
-### API Security
-
-- HMAC signature verification
-- Rate limiting
-- Input validation
-- CORS configuration
-
-## Compliance
-
-Brikk Infrastructure is designed to support:
-
-- **HIPAA**: Healthcare data protection
-- **SOC 2**: Security and availability controls
-- **GDPR**: Data privacy and protection
-- **ISO 27001**: Information security management
-
-## Security Contacts
-
-- **Security Team**: security@getbrikk.com
-- **General Contact**: support@getbrikk.com
-- **Emergency**: For critical security issues requiring immediate attention
-
-## Acknowledgments
-
-We appreciate the security research community and will acknowledge researchers who responsibly disclose vulnerabilities (with their permission).
-
----
-
-*This security policy is reviewed and updated regularly to reflect current best practices and threat landscape.*

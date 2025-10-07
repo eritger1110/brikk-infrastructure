@@ -1,0 +1,4 @@
+"Incident ID","Date Reported","Incident Description","Severity","Status","Resolution"
+"I-001","2025-10-05","Phishing email reported by user","Low","Closed","User was advised to delete the email and not click on any links."
+"I-002","2025-10-06","Unusual login activity detected on a production server","Medium","In Progress","The affected server has been isolated and is being investigated."
+

@@ -1,0 +1,4 @@
+"Change ID","Date Implemented","Change Description","Implemented By","Approved By","Rollback Plan"
+"C-001","2025-10-04","Deployed new version of the public API","Operations Team","Management","Revert to the previous version of the API."
+"C-002","2025-10-03","Updated the SSL certificate for the corporate website","Operations Team","Management","Revert to the previous SSL certificate."
+
