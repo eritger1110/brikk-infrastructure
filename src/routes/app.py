@@ -139,14 +139,17 @@ def billing_portal():
         )
         return jsonify({"url": sess.url}), 200
 
-    except stripe.error.StripeError as e:
-        # Surface Stripe’s message for fast diagnosis
-        msg = getattr(e, "user_message", None) or str(e)
-        log.logger.error(f"Stripe error: {msg}")
-        return jsonify({"error": f"Stripe error: {msg}"}), 502
     except Exception as e:
-        log.logger.exception("Unexpected error creating portal session")
-        return jsonify({"error": "Unexpected server error"}), 500
+        # Handle all errors (including Stripe errors in 13.x)
+        if 'stripe' in str(type(e)).lower():
+            # Handle Stripe-specific errors
+            msg = getattr(e, "user_message", None) or str(e)
+            log.logger.error(f"Stripe error: {msg}")
+            return jsonify({"error": f"Stripe error: {msg}"}), 502
+        else:
+            # Handle general errors
+            log.logger.exception("Unexpected error creating portal session")
+            return jsonify({"error": "Unexpected server error"}), 500
 
 
 # --------------------------------------------------------------------------- #
