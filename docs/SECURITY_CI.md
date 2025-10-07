@@ -285,7 +285,8 @@ if: false  # Emergency bypass - remove after fix
 
 ## 📝 Recent Changes
 
-- **December 2024**: Stripe upgraded to ~=13.0.1 with comprehensive billing portal compatibility tests
+- **December 2024**: Stripe temporarily pinned to ~=12.5.1 for stability during upgrade preparation
+- **Upcoming**: Stripe 13.x upgrade planned with comprehensive billing portal compatibility tests
 
 ---
 
