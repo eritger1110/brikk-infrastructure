@@ -9,7 +9,7 @@ python-dotenv==1.1.1
 requests==2.32.5
 PyJWT==2.10.1
 sendgrid==6.12.5
-stripe~=13.0.1
+stripe~=12.5.1
 marshmallow>=3.21.1
 pydantic>=2.0.0,<3.0.0
 Flask-Limiter>=3.6.0
