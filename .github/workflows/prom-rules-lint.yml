@@ -1,0 +1,31 @@
+name: Prometheus Rules Lint
+
+on:
+  pull_request:
+    paths:
+      - 'ops/prometheus/**'
+  push:
+    paths:
+      - 'ops/prometheus/**'
+
+jobs:
+  validate-rules:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download Prometheus
+        run: |
+          wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
+          tar xzf prometheus-2.45.0.linux-amd64.tar.gz
+          sudo mv prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
+      
+      - name: Validate alert rules
+        run: |
+          promtool check rules ops/prometheus/alerts.yml
+      
+      - name: Check rule syntax
+        run: |
+          echo "✅ Prometheus alert rules validation passed"
