@@ -15,7 +15,7 @@ Brikk's coordination API includes Redis-based sliding window rate limiting with 
 
 ### Total Limit Calculation
 
-```
+```text
 Total Limit = BRIKK_RLIMIT_PER_MIN + BRIKK_RLIMIT_BURST
 ```
 
@@ -24,11 +24,13 @@ Total Limit = BRIKK_RLIMIT_PER_MIN + BRIKK_RLIMIT_BURST
 ## Scoping Options
 
 ### Organization Scoping (`BRIKK_RLIMIT_SCOPE=org`)
+
 - Rate limits apply per organization
 - All API keys within an organization share the same limit
 - Useful for tenant-based limiting
 
 ### API Key Scoping (`BRIKK_RLIMIT_SCOPE=key`)
+
 - Rate limits apply per individual API key
 - Each API key has its own independent limit
 - Useful for fine-grained control
@@ -78,6 +80,7 @@ The rate limiter uses a Redis-based sliding window:
 ## Graceful Degradation
 
 When Redis is unavailable:
+
 - Rate limiting is automatically disabled
 - All requests are allowed through
 - No 429 errors are returned
@@ -87,11 +90,12 @@ When Redis is unavailable:
 
 Rate limiting is applied **after** HMAC authentication:
 
-```
+```text
 Request → Guards → HMAC Auth → Rate Limit → Idempotency → Validation
 ```
 
 This ensures:
+
 - Only authenticated requests consume rate limit quota
 - Rate limits are scoped to authenticated entities
 - Invalid requests don't affect rate limits
