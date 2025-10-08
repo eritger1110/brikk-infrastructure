@@ -4,11 +4,13 @@ This document describes the Dependabot configuration for the Brikk Infrastructur
 
 ## Overview
 
-Dependabot is configured to automatically manage dependency updates with intelligent grouping and auto-merge capabilities for safe updates.
+Dependabot is configured to automatically manage dependency updates with intelligent grouping and auto-merge
+capabilities for safe updates.
 
 ## Configuration
 
 ### Update Schedule
+
 - **Python dependencies**: Daily at 06:00 UTC
 - **GitHub Actions**: Weekly at 06:00 UTC  
 - **Node.js dependencies**: Daily at 06:00 UTC (when applicable)
@@ -16,13 +18,16 @@ Dependabot is configured to automatically manage dependency updates with intelli
 ### Grouping Strategy
 
 #### Python Dependencies
+
 - **python-runtime**: Core application dependencies (Flask, Pydantic, SQLAlchemy, etc.)
 - **python-tooling**: Development and testing tools (pytest, bandit, etc.)
 
 #### GitHub Actions
+
 - **ghactions-minor-patch**: All GitHub Actions grouped together
 
 #### Node.js Dependencies
+
 - **npm-runtime**: Core Node.js dependencies (Express, React, TypeScript, etc.)
 - **npm-tooling**: Development tools (ESLint, Jest, Webpack, etc.)
 
@@ -40,6 +45,7 @@ Dependabot PRs are automatically merged when **ALL** conditions are met:
 ### Manual Review Required
 
 PRs require manual review in these cases:
+
 - Major version updates
 - Individual (non-grouped) dependency updates
 - Security vulnerabilities requiring immediate attention
@@ -48,6 +54,7 @@ PRs require manual review in these cases:
 ## Ignored Updates
 
 Major version updates are ignored for critical dependencies to prevent breaking changes:
+
 - Flask
 - Pydantic  
 - SQLAlchemy
@@ -61,6 +68,7 @@ Security updates are always allowed, even for major versions, and will bypass no
 ## Branch Protection
 
 The main branch is protected with these requirements:
+
 - At least 1 PR review required
 - Branches must be up to date before merging
 - Required status checks:
@@ -78,16 +86,21 @@ The main branch is protected with these requirements:
 ## Troubleshooting
 
 ### Auto-merge not working
+
 1. Check if PR is part of a defined group
 2. Verify it's a patch/minor update
 3. Ensure all CI checks are passing
 4. Check branch protection rules are met
 
 ### Too many open PRs
-Dependabot will automatically limit the number of open PRs per ecosystem. Merge or close existing PRs to allow new ones.
+
+Dependabot will automatically limit the number of open PRs per ecosystem. Merge or close existing PRs to allow
+new ones.
 
 ### Major version updates needed
+
 Major version updates require manual review:
+
 1. Create a separate branch for testing
 2. Update dependencies manually
 3. Run full test suite

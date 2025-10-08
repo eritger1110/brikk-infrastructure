@@ -2,14 +2,21 @@
 
 ## Overview
 
-This starter pack provides a lightweight, practical documentation set to accelerate HIPAA and SOC 2 readiness. It is designed to be a starting point for building a comprehensive compliance program and includes policies, procedures, evidence templates, and a controls matrix. All documents are in Markdown for easy version control and collaboration.
+This starter pack provides a lightweight, practical documentation set to accelerate HIPAA and SOC 2 readiness.
+It is designed to be a starting point for building a comprehensive compliance program and includes policies,
+procedures, evidence templates, and a controls matrix. All documents are in Markdown for easy version control
+and collaboration.
 
 ### How to Use This Pack
 
-1.  **Review and Customize Policies**: The documents in the `policies` directory are high-level statements of intent. They should be reviewed, customized, and formally adopted by management.
-2.  **Implement Procedures**: The `procedures` directory contains actionable checklists and workflows that implement the policies. These should be integrated into your daily operations.
-3.  **Maintain Evidence**: The `evidence-templates` directory provides templates for logging critical compliance activities. These logs are essential for demonstrating compliance during an audit.
-4.  **Map Controls**: The `controls-matrix.md` file maps the implemented controls to specific HIPAA and SOC 2 requirements. This is a living document that should be updated as new controls are added.
+1. **Review and Customize Policies**: The documents in the `policies` directory are high-level statements of
+   intent. They should be reviewed, customized, and formally adopted by management.
+2. **Implement Procedures**: The `procedures` directory contains actionable checklists and workflows that
+   implement the policies. These should be integrated into your daily operations.
+3. **Maintain Evidence**: The `evidence-templates` directory provides templates for logging critical compliance
+   activities. These logs are essential for demonstrating compliance during an audit.
+4. **Map Controls**: The `controls-matrix.md` file maps the implemented controls to specific HIPAA and SOC 2
+   requirements. This is a living document that should be updated as new controls are added.
 
 ## Document Index
 
@@ -47,4 +54,3 @@ This starter pack provides a lightweight, practical documentation set to acceler
 | Document | Description |
 | --- | --- |
 | [Controls Matrix](./controls-matrix.md) | Maps implemented controls to HIPAA and SOC 2 requirements. |
-
