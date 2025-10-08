@@ -1,4 +1,4 @@
-.PHONY: help up down logs test clean
+.PHONY: help up down logs test clean venv install install-dev lint format run check-python dev-run
 
 # Default target
 help: ## Show this help message
@@ -6,15 +6,22 @@ help: ## Show this help message
 	@echo ""
 	@echo "Usage: make [target]"
 	@echo ""
-	@echo "Targets:"
+	@echo "Development Setup (New):"
+	@echo "  venv         Create Python virtual environment (.venv)"
+	@echo "  install-dev  Install all dependencies (prod + dev)"
+	@echo "  lint         Run code linting (flake8)"
+	@echo "  format       Format code (black, isort)"
+	@echo "  dev-run      Start Flask development server"
+	@echo ""
+	@echo "Docker Environment (Legacy):"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-12s %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Prerequisites:"
-	@echo "  - Docker and Docker Compose installed"
-	@echo "  - Python 3.11+ with pip"
-	@echo "  - Redis running (via 'make up')"
+	@echo "Quick Start (New Python Workflow):"
+	@echo "  1. make venv && make install-dev"
+	@echo "  2. source .venv/bin/activate"
+	@echo "  3. make dev-run"
 	@echo ""
-	@echo "Quick Start:"
+	@echo "Quick Start (Legacy Docker Workflow):"
 	@echo "  1. make up          # Start Redis container"
 	@echo "  2. ./scripts/dev.sh # Start Flask app (Unix/Linux/macOS)"
 	@echo "  3. make test        # Run smoke tests"
@@ -85,3 +92,59 @@ _check-docker:
 _check-python:
 	@python3 --version >/dev/null 2>&1 || (echo "❌ Python 3 not found. Please install Python 3.11+." && exit 1)
 	@pip --version >/dev/null 2>&1 || (echo "❌ pip not found. Please install pip." && exit 1)
+
+
+# New Development Setup Targets
+# =============================
+
+# Check if Python 3.11 is available
+check-python:
+	@python3.11 --version >/dev/null 2>&1 || python3 --version >/dev/null 2>&1 || (echo "❌ Python 3.11+ is required but not found. Please install Python 3.11+." && exit 1)
+
+# Create virtual environment
+venv: check-python
+	@echo "📦 Creating Python virtual environment..."
+	python3.11 -m venv .venv 2>/dev/null || python3 -m venv .venv
+	@echo "✅ Virtual environment created at .venv"
+	@echo "💡 Activate with: source .venv/bin/activate (Linux/Mac) or .venv\\Scripts\\activate (Windows)"
+
+# Install all dependencies (production + development)
+install-dev: check-python
+	@echo "📦 Installing all dependencies..."
+	pip install --upgrade pip
+	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
+	@echo "✅ All dependencies installed successfully"
+
+# Run linting
+lint:
+	@echo "🔍 Running code linting..."
+	flake8 src/ --select=E9,F63,F7,F82 --max-line-length=88 --exclude=__pycache__
+	@echo "✅ Linting completed"
+
+# Format code
+format:
+	@echo "🎨 Formatting code..."
+	black . --exclude="__pycache__|\.git|\.pytest_cache"
+	isort . --profile black
+	@echo "✅ Code formatting completed"
+
+# Run development server (new Python workflow)
+dev-run:
+	@echo "🚀 Starting Flask development server on http://localhost:5000"
+	@echo "💡 Press Ctrl+C to stop"
+	FLASK_APP=src.main:create_app FLASK_ENV=development python -m flask run --host=0.0.0.0 --port=5000
+
+# Run all checks
+check: lint test
+	@echo "✅ All checks passed!"
+
+# Complete development setup from scratch
+dev-setup-new: venv install-dev
+	@echo ""
+	@echo "🎯 New development setup completed!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "1. Activate virtual environment: source .venv/bin/activate"
+	@echo "2. Run tests: make test"
+	@echo "3. Start development server: make dev-run"
