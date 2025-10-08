@@ -22,11 +22,11 @@ This policy applies to all Brikk employees, contractors, and other personnel who
 
 All new hires must complete security awareness training as part of the onboarding process. The training will cover a range of topics, including:
 
--   Brikk's security policies and procedures
--   Data classification and handling
--   Phishing and social engineering
--   Password security
--   Acceptable use of company resources
+- Brikk's security policies and procedures
+- Data classification and handling
+- Phishing and social engineering
+- Password security
+- Acceptable use of company resources
 
 ### 3.2. Annual Refresher Training
 
@@ -54,12 +54,11 @@ Failure to complete required security awareness training may result in disciplin
 
 ## 6. References
 
--   [NIST Special Publication 800-50 (Building an Information Technology Security Awareness and Training Program)](https://csrc.nist.gov/publications/detail/sp/800-50/final)
--   [HIPAA Security Rule (45 CFR 164.308(a)(5))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
+- [NIST Special Publication 800-50 (Building an Information Technology Security Awareness and Training Program)](https://csrc.nist.gov/publications/detail/sp/800-50/final)
+- [HIPAA Security Rule (45 CFR 164.308(a)(5))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
 
 ## 7. Revision History
 
 | Version | Date | Author | Changes |
 | --- | --- | --- | --- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

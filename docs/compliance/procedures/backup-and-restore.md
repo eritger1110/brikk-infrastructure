@@ -8,10 +8,10 @@ This document outlines the procedure for backing up and restoring Brikk's critic
 
 This procedure applies to all critical data and systems, including but not limited to:
 
--   Production databases
--   Application servers
--   Customer data
--   Source code repositories
+- Production databases
+- Application servers
+- Customer data
+- Source code repositories
 
 ## 3. Backup Procedure
 
@@ -44,10 +44,10 @@ Restore procedures will be tested on a quarterly basis to ensure that we can suc
 
 In the event of a data loss event, the following steps will be taken to restore the affected systems and data:
 
-1.  The Incident Response Team (IRT) will be activated.
-2.  The IRT will assess the extent of the data loss and determine the appropriate recovery strategy.
-3.  The affected systems and data will be restored from the most recent backup.
-4.  The restored systems and data will be tested to ensure that they are functioning correctly.
+1. The Incident Response Team (IRT) will be activated.
+2. The IRT will assess the extent of the data loss and determine the appropriate recovery strategy.
+3. The affected systems and data will be restored from the most recent backup.
+4. The restored systems and data will be tested to ensure that they are functioning correctly.
 
 ## 5. Responsibilities
 
@@ -58,12 +58,11 @@ In the event of a data loss event, the following steps will be taken to restore 
 
 ## 6. References
 
--   [NIST Special Publication 800-34 (Contingency Planning Guide for Federal Information Systems)](https://csrc.nist.gov/publications/detail/sp/800-34/rev-1/final)
--   [HIPAA Security Rule (45 CFR 164.310(d))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
+- [NIST Special Publication 800-34 (Contingency Planning Guide for Federal Information Systems)](https://csrc.nist.gov/publications/detail/sp/800-34/rev-1/final)
+- [HIPAA Security Rule (45 CFR 164.310(d))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
 
 ## 7. Revision History
 
 | Version | Date | Author | Changes |
 | :--- | :--- | :--- | :--- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

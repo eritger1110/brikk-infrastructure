@@ -8,8 +8,8 @@ This document outlines the procedure for intaking, triaging, and managing securi
 
 Security issues can be reported through two primary channels:
 
-*   **Internal Reporting**: Employees and contractors must report any suspected security issue immediately to the Security Team via the internal ticketing system or a designated security email alias.
-*   **External Reporting**: External parties, such as security researchers, should report vulnerabilities as described in our root `SECURITY.md` file. This ensures reports are routed directly to the appropriate team.
+* **Internal Reporting**: Employees and contractors must report any suspected security issue immediately to the Security Team via the internal ticketing system or a designated security email alias.
+* **External Reporting**: External parties, such as security researchers, should report vulnerabilities as described in our root `SECURITY.md` file. This ensures reports are routed directly to the appropriate team.
 
 ## 3. Triage Process
 
@@ -19,9 +19,9 @@ All reported security issues are managed by the Incident Response Team (IRT), wh
 
 Upon receipt of a security issue report, the IRT will perform an initial assessment to:
 
-1.  **Validate the Issue**: Confirm that the report describes a legitimate security concern.
-2.  **Assess the Impact**: Determine the potential business and customer impact.
-3.  **Determine the Scope**: Identify the systems, data, and services that are affected.
+1. **Validate the Issue**: Confirm that the report describes a legitimate security concern.
+2. **Assess the Impact**: Determine the potential business and customer impact.
+3. **Determine the Scope**: Identify the systems, data, and services that are affected.
 
 ### 3.2. Prioritization
 
@@ -44,20 +44,19 @@ For **High** and **Critical** severity issues, the IRT will immediately escalate
 
 Once an issue is triaged and prioritized, it is assigned to the appropriate engineering team for remediation. After a fix is developed, it must be:
 
-1.  **Tested**: The fix is deployed to a non-production environment for validation.
-2.  **Verified**: The Security Team confirms that the vulnerability is no longer present.
-3.  **Deployed**: The fix is deployed to production following the [Production Deployment Checklist](./production-deployment-checklist.md).
+1. **Tested**: The fix is deployed to a non-production environment for validation.
+2. **Verified**: The Security Team confirms that the vulnerability is no longer present.
+3. **Deployed**: The fix is deployed to production following the [Production Deployment Checklist](./production-deployment-checklist.md).
 
 All actions taken are documented in the [Incident Log](../evidence-templates/incident-log.csv).
 
 ## 6. References
 
-*   [SECURITY.md](../../../SECURITY.md)
-*   [Incident Response Plan](../policies/incident-response-plan.md)
+* [SECURITY.md](../../../SECURITY.md)
+* [Incident Response Plan](../policies/incident-response-plan.md)
 
 ## 7. Revision History
 
 | Version | Date | Author | Changes |
 | :--- | :--- | :--- | :--- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

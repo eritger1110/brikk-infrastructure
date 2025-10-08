@@ -16,10 +16,10 @@ This policy establishes the requirements for managing changes to Brikk's product
 
 This policy applies to all changes to production systems, including but not limited to:
 
--   Software deployments and updates
--   Infrastructure changes (e.g., servers, networks, databases)
--   Configuration changes
--   Third-party service integrations
+- Software deployments and updates
+- Infrastructure changes (e.g., servers, networks, databases)
+- Configuration changes
+- Third-party service integrations
 
 ## 3. Policy Statements
 
@@ -57,12 +57,11 @@ Failure to comply with this policy may result in disciplinary action, up to and 
 
 ## 6. References
 
--   [ITIL Change Management](https://www.axelos.com/best-practice-solutions/itil)
--   [NIST Special Publication 800-53 (CM-3)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
+- [ITIL Change Management](https://www.axelos.com/best-practice-solutions/itil)
+- [NIST Special Publication 800-53 (CM-3)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
 
 ## 7. Revision History
 
 | Version | Date       | Author     | Changes         |
 | ------- | ---------- | ---------- | --------------- |
 | 1.0     | 2025-10-07 | Manus AI   | Initial draft.  |
-
