@@ -2,31 +2,36 @@
 
 ## Overview
 
-This document describes the baseline Prometheus alert rules for monitoring the Brikk platform and provides instructions for setting up Alertmanager with Slack notifications.
+This document describes the baseline Prometheus alert rules for monitoring the Brikk platform and provides
+instructions for setting up Alertmanager with Slack notifications.
 
 ## Alert Rules
 
 The alert rules are defined in `ops/prometheus/alerts.yml` and cover critical operational metrics:
 
 ### High Error Rate
+
 - **Metric**: `http_requests_total{status_code=~"5.."}`
 - **Threshold**: > 1% error rate for 5 minutes
 - **Severity**: Critical
 - **Description**: Triggers when the API experiences more than 1% 5xx errors
 
 ### High Request Latency
+
 - **Metric**: `http_request_latency_seconds{quantile="0.95"}`
 - **Threshold**: > 100ms for 5 minutes
 - **Severity**: Warning
 - **Description**: Triggers when 95th percentile latency exceeds 100ms
 
 ### Authentication Failures Spike
+
 - **Metric**: `auth_failures_total`
 - **Threshold**: > 25 failures in 5 minutes
 - **Severity**: Warning
 - **Description**: Detects potential security issues or misconfigurations
 
 ### High Queue Depth
+
 - **Metric**: `rq_queue_depth`
 - **Threshold**: > 100 jobs for 5 minutes
 - **Severity**: Critical
@@ -41,7 +46,8 @@ The following metrics must be exposed by the application:
 from prometheus_client import Counter, Histogram, Gauge
 
 # Request metrics
-requests_total = Counter('http_requests_total', 'Total HTTP requests', ['method', 'route', 'status_code'])
+requests_total = Counter('http_requests_total', 'Total HTTP requests', 
+                        ['method', 'route', 'status_code'])
 request_latency = Histogram('http_request_latency_seconds', 'HTTP request latency')
 
 # Auth metrics
@@ -169,7 +175,8 @@ Force an alert by temporarily lowering thresholds:
 ```yaml
 # In alerts.yml - for testing only
 - alert: HighErrorRate
-  expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.001  # 0.1% instead of 1%
+  expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / 
+        sum(rate(http_requests_total[5m])) > 0.001  # 0.1% instead of 1%
 ```
 
 ## Production Deployment
