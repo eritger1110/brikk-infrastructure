@@ -1,0 +1,39 @@
+groups:
+  - name: brikk_api_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.route }}"
+          description: "The API endpoint {{ $labels.route }} is experiencing a 5xx error rate greater than 1% for the last 5 minutes."
+
+      - alert: HighRequestLatency
+        expr: http_request_latency_seconds{quantile="0.95"} > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency on {{ $labels.route }}"
+          description: "The 95th percentile request latency for {{ $labels.route }} is over 100ms for the last 5 minutes."
+
+      - alert: AuthFailuresSpike
+        expr: sum(increase(auth_failures_total[5m])) > 25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spike in authentication failures"
+          description: "More than 25 authentication failures have been detected in the last 5 minutes."
+
+      - alert: HighQueueDepth
+        expr: rq_queue_depth > 100
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High RQ queue depth"
+          description: "The Redis Queue depth is over 100 jobs, indicating a potential processing bottleneck."
+
