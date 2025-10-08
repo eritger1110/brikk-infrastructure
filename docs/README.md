@@ -48,3 +48,14 @@ After implementing the starter pack:
 4. **Audit Preparation**: Use the framework to prepare for formal compliance audits
 
 For questions about specific compliance requirements or implementation guidance, consult with your legal and security teams.
+
+
+## Continuous Integration (CI) and Security
+
+Our CI pipeline includes automated security checks to ensure the integrity and security of our codebase. For a detailed breakdown of these checks, see the **CI Truth Table** in our [SECURITY_CI.md](./SECURITY_CI.md#ci-truth-table) documentation.
+
+### Evidence Locations
+
+- **CI Run Logs**: Detailed logs for each CI run are available in the **Actions** tab of the GitHub repository.
+- **Test Artifacts**: Test reports and other artifacts are available for download from the summary page of each CI run.
+

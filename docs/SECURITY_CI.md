@@ -285,8 +285,23 @@ if: false  # Emergency bypass - remove after fix
 
 ## 📝 Recent Changes
 
-- **December 2024**: Stripe pinned to `~=12.5.1` temporarily; 13.x upgrade coming in a follow-up PR with billing portal compatibility tests.  
-- **December 2024**: Prepared Stripe 13.x (`~=13.0.1`) upgrade with enhanced billing portal tests. *This will be merged after staging validation; until then the pin remains on `main`.*
+- **December 2024**: Stripe upgraded to `~=13.0.1`, validated in staging, and merged to main.
+
+## CI Truth Table
+
+This table documents the automated checks enforced by our CI pipeline on every pull request.
+
+| Check | Where Enforced | Fails PR? | Evidence Location |
+|---|---|---|---|
+| **Python 3.11 Setup** | `.github/workflows/ci.yaml` | ✅ Yes | CI run logs |
+| **Dependency Cache** | `.github/workflows/ci.yaml` | ❌ No | CI run logs |
+| **`pytest` Smoke Tests** | `.github/workflows/ci.yaml` | ✅ Yes | CI run logs, test artifacts |
+| **`flake8` Syntax Lint** | `.github/workflows/ci.yaml` | ❌ No | CI run logs (informational) |
+| **`black --check`** | `.github/workflows/ci.yaml` | ❌ No | CI run logs (informational) |
+| **`markdownlint`** | `.github/workflows/docs-lint.yml` | ✅ Yes | CI run logs |
+| **Semgrep (SAST)** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs |
+| **Gitleaks (Secrets)** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs |
+| **OWASP Dependency Check** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs, test artifacts |
 
 ---
 
