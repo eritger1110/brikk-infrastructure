@@ -1,0 +1,16 @@
+{
+  "name": "brikk-node-agent-demo",
+  "version": "1.0.0",
+  "description": "Brikk Node.js Agent Demo",
+  "main": "client.js",
+  "scripts": {
+    "demo": "node demo.js",
+    "demo:dry": "node demo.js --dry-run"
+  },
+  "keywords": ["brikk", "agent", "coordination", "demo"],
+  "author": "Brikk",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
