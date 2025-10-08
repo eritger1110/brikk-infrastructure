@@ -2,7 +2,8 @@
 
 ## Overview
 
-The Brikk coordination protocol enables AI agents to communicate across different programming languages and frameworks. This guide shows you how to get started with the Python and Node.js demo agents.
+The Brikk coordination protocol enables AI agents to communicate across different programming languages and
+frameworks. This guide shows you how to get started with the Python and Node.js demo agents.
 
 ## Prerequisites
 
@@ -22,14 +23,14 @@ export BRIKK_SECRET="your-agent-secret"
 
 ## Python Agent
 
-### Setup
+### Setup (Python)
 
 ```bash
 cd examples/python_agent
 pip install -r requirements.txt
 ```
 
-### Run Demo
+### Run Demo (Python)
 
 ```bash
 # Full demo (requires network access)
@@ -48,7 +49,8 @@ python demo.py --dry-run
 🔑 Agent ID: demo-python-agent
 
 📤 Sending echo job to: demo-echo-agent
-📦 Payload: {'job_type': 'echo', 'message': 'Hello from Python agent!', 'data': {'test': True, 'timestamp': 1234567890}}
+📦 Payload: {'job_type': 'echo', 'message': 'Hello from Python agent!', 
+            'data': {'test': True, 'timestamp': 1234567890}}
 
 ✅ Response received:
 📨 Status: accepted
@@ -57,14 +59,14 @@ python demo.py --dry-run
 
 ## Node.js Agent
 
-### Setup
+### Setup (Node.js)
 
 ```bash
 cd examples/node_agent
 # No additional dependencies required
 ```
 
-### Run Demo
+### Run Demo (Node.js)
 
 ```bash
 # Full demo (requires network access)

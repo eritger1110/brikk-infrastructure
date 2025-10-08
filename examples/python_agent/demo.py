@@ -6,6 +6,8 @@ Demonstrates sending an echo job via the coordination protocol.
 
 import os
 import sys
+import json
+import time
 from client import BrikkClient
 
 
@@ -15,17 +17,42 @@ def main():
     print("=" * 40)
     
     # Check for dry run mode
-    dry_run = "--dry-run" in sys.argv
+    dry_run = "--dry-run" in sys.argv or os.getenv("NO_NETWORK") == "1"
     
     try:
+        if dry_run:
+            # Use dummy credentials for dry run
+            os.environ.setdefault("BRIKK_API_KEY", "demo-python-agent")
+            os.environ.setdefault("BRIKK_SECRET", "demo-secret-key")
+            os.environ.setdefault("BRIKK_BASE_URL", "http://localhost:5000")
+        
         # Initialize client
         client = BrikkClient()
         print(f"✅ Connected to: {client.base_url}")
         print(f"🔑 Agent ID: {client.api_key}")
         
         if dry_run:
-            print("🧪 Dry run mode - skipping network calls")
-            print("✅ Demo would send echo job successfully")
+            print("🧪 Dry run mode - building envelope without network calls")
+            
+            # Build the coordination envelope
+            recipient = "demo-echo-agent"
+            payload = {
+                "job_type": "echo",
+                "message": "Hello from Python agent!",
+                "data": {"test": True, "timestamp": 1234567890}
+            }
+            
+            envelope = {
+                "version": "1.0",
+                "sender": client.api_key,
+                "recipient": recipient,
+                "payload": payload,
+                "timestamp": int(time.time())
+            }
+            
+            print(f"\n📦 Coordination envelope:")
+            print(json.dumps(envelope, indent=2))
+            print("✅ Demo envelope built successfully")
             return
         
         # Send echo job to a demo recipient
