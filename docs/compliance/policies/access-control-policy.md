@@ -10,11 +10,15 @@
 
 ## 1. Introduction
 
-This policy defines the requirements for controlling access to Brikk's information systems and data. The purpose of this policy is to protect the confidentiality, integrity, and availability of our data and to ensure that access is granted on a need-to-know basis, consistent with the principle of least privilege.
+This policy defines the requirements for controlling access to Brikk's information systems and data. The purpose of
+this policy is to protect the confidentiality, integrity, and availability of our data and to ensure that access is
+granted on a need-to-know basis, consistent with the principle of least privilege.
 
 ## 2. Scope
 
-This policy applies to all Brikk employees, contractors, and other personnel who have access to Brikk's information systems and data. It covers all company-owned and managed systems, including servers, applications, databases, and network devices.
+This policy applies to all Brikk employees, contractors, and other personnel who have access to Brikk's information
+systems and data. It covers all company-owned and managed systems, including servers, applications, databases, and
+network devices.
 
 ## 3. Policy Statements
 
@@ -64,4 +68,3 @@ Violation of this policy may result in disciplinary action, up to and including 
 | Version | Date | Author | Changes |
 | --- | --- | --- | --- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

@@ -17,11 +17,11 @@ This document outlines the plan for responding to security incidents at Brikk. T
 
 This plan applies to all security incidents, including but not limited to:
 
--   Unauthorized access to systems or data
--   Malware infections
--   Denial-of-service attacks
--   Data breaches
--   Lost or stolen equipment
+- Unauthorized access to systems or data
+- Malware infections
+- Denial-of-service attacks
+- Data breaches
+- Lost or stolen equipment
 
 ## 3. Roles and Responsibilities
 
@@ -59,10 +59,10 @@ All security incidents will be classified based on their severity, using the fol
 
 In the event of a security incident, Brikk will communicate with the following stakeholders, as appropriate:
 
--   Affected customers
--   Regulatory agencies
--   Law enforcement
--   The public
+- Affected customers
+- Regulatory agencies
+- Law enforcement
+- The public
 
 All communications will be managed by the Communications Team, in consultation with the Legal Team.
 
@@ -72,12 +72,11 @@ All employees are required to comply with this incident response plan. Failure t
 
 ## 8. References
 
--   [NIST Special Publication 800-61 (Computer Security Incident Handling Guide)](https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final)
--   [HIPAA Security Rule (45 CFR 164.308(a)(6))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
+- [NIST Special Publication 800-61 (Computer Security Incident Handling Guide)](https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final)
+- [HIPAA Security Rule (45 CFR 164.308(a)(6))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
 
 ## 9. Revision History
 
 | Version | Date | Author | Changes |
 | --- | --- | --- | --- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

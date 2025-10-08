@@ -5,11 +5,13 @@ This document describes how to set up and use the local development environment 
 ## 🚀 Quick Start
 
 1. **Start Redis container:**
+
    ```bash
    make up
    ```
 
 2. **Start Flask application:**
+
    ```bash
    # Unix/Linux/macOS
    ./scripts/dev.sh
@@ -19,14 +21,15 @@ This document describes how to set up and use the local development environment 
    ```
 
 3. **Run smoke tests:**
+
    ```bash
    make test
    ```
 
 4. **Access the application:**
-   - Health check: http://localhost:8000/healthz
-   - Metrics: http://localhost:8000/metrics
-   - Coordination API: http://localhost:8000/api/v1/coordination
+   - Health check: <http://localhost:8000/healthz>
+   - Metrics: <http://localhost:8000/metrics>
+   - Coordination API: <http://localhost:8000/api/v1/coordination>
 
 ## 📋 Prerequisites
 
@@ -54,20 +57,23 @@ make dev-setup   # Complete development setup
 ### Development Scripts
 
 #### Unix/Linux/macOS
+
 ```bash
 ./scripts/dev.sh
 ```
 
 #### Windows PowerShell
+
 ```powershell
 .\scripts\dev.ps1
 ```
 
 Both scripts:
+
 - Check prerequisites (Python, pip, Redis)
 - Set environment variables for local development
 - Install dependencies if needed
-- Start Flask development server on http://localhost:8000
+- Start Flask development server on <http://localhost:8000>
 
 ## 🏗️ Architecture
 
@@ -144,6 +150,7 @@ pytest tests/smoke/ -v -s
 ### Common Issues
 
 #### Redis Connection Failed
+
 ```bash
 # Check if Redis container is running
 docker ps --filter "name=brikk-redis"
@@ -156,6 +163,7 @@ make logs
 ```
 
 #### Flask App Won't Start
+
 ```bash
 # Check Python version
 python3 --version  # Should be 3.11+
@@ -169,6 +177,7 @@ netstat -an | findstr :8000  # Windows
 ```
 
 #### Dependencies Missing
+
 ```bash
 # Install all dependencies
 pip install -r requirements.txt
@@ -178,6 +187,7 @@ make install
 ```
 
 #### Permission Denied (Unix/Linux/macOS)
+
 ```bash
 # Make script executable
 chmod +x scripts/dev.sh
@@ -206,16 +216,19 @@ FLASK_DEBUG=1
 ### Logs and Debugging
 
 #### Flask Application Logs
+
 - Structured JSON logs when `BRIKK_LOG_JSON=true`
 - Request IDs for correlation
 - Performance and security event logging
 
 #### Redis Container Logs
+
 ```bash
 make logs
 ```
 
 #### Application Health Checks
+
 ```bash
 # Basic health
 curl http://localhost:8000/healthz
@@ -248,7 +261,7 @@ curl http://localhost:8000/metrics
 
 ## 📁 File Structure
 
-```
+```text
 brikk-infrastructure/
 ├── docker-compose.local.yml    # Local Redis container
 ├── Makefile                    # Development commands

@@ -10,7 +10,8 @@ The security CI pipeline consists of three main components:
 2. **Gitleaks** - Secret Detection and Credential Scanning
 3. **OWASP Dependency Check** - Software Composition Analysis (SCA)
 
-All security scans are designed to be **deterministic**, **reliable**, and **fail-fast** on real security issues while avoiding false positives and infrastructure-related failures.
+All security scans are designed to be **deterministic**, **reliable**, and **fail-fast** on real security
+issues while avoiding false positives and infrastructure-related failures.
 
 ## 🔍 Security Scans
 
@@ -19,12 +20,14 @@ All security scans are designed to be **deterministic**, **reliable**, and **fai
 **Purpose**: Detect security vulnerabilities, code quality issues, and anti-patterns in source code.
 
 **Configuration**:
+
 - **Rulesets**: OWASP Top 10, secrets, Python, Flask, security-audit
 - **Timeout**: 180 seconds
 - **SARIF Generation**: Disabled (to avoid billing issues)
 - **Execution**: Always runs on all file types
 
 **What it catches**:
+
 - SQL injection vulnerabilities
 - Cross-site scripting (XSS) patterns
 - Insecure cryptographic usage
@@ -37,12 +40,14 @@ All security scans are designed to be **deterministic**, **reliable**, and **fai
 **Purpose**: Prevent accidental commit of secrets, API keys, passwords, and other sensitive credentials.
 
 **Configuration**:
+
 - **Scan Target**: Current workspace only (deterministic)
 - **History**: Full checkout (`fetch-depth: 0`) for comprehensive scanning
 - **Output**: JSON format with redacted secrets
 - **Execution**: Always runs on all commits and PRs
 
 **What it catches**:
+
 - API keys (AWS, GitHub, Stripe, etc.)
 - Database connection strings
 - Private keys and certificates
@@ -51,6 +56,7 @@ All security scans are designed to be **deterministic**, **reliable**, and **fai
 - Cloud service credentials
 
 **Deterministic Scanning**:
+
 ```bash
 # Downloads latest Gitleaks binary
 curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(uname -s)_$(uname -m).tar.gz -o gl.tgz
@@ -65,12 +71,14 @@ tar -xzf gl.tgz gitleaks
 **Purpose**: Identify known vulnerabilities in third-party dependencies and libraries.
 
 **Configuration**:
+
 - **Trigger**: Only when dependency manifests exist
 - **CVSS Threshold**: 7.0 (High and Critical vulnerabilities)
 - **Formats**: JSON and HTML reports
 - **Suppression**: Uses `suppression.xml` for false positive management
 
 **Supported Manifests**:
+
 - `package-lock.json` (Node.js)
 - `yarn.lock` (Node.js/Yarn)
 - `pnpm-lock.yaml` (Node.js/pnpm)
@@ -81,6 +89,7 @@ tar -xzf gl.tgz gitleaks
 - `composer.lock` (PHP)
 
 **Guard Condition**:
+
 ```yaml
 if: ${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml', '**/requirements.txt', '**/poetry.lock', '**/Pipfile.lock', '**/Gemfile.lock', '**/composer.lock') != '' }}
 ```
@@ -239,6 +248,7 @@ if: false  # Emergency bypass - remove after fix
 ```
 
 **⚠️ Warning**: Emergency bypasses must be:
+
 - Documented with justification
 - Approved by security team
 - Removed as soon as possible
@@ -285,8 +295,23 @@ if: false  # Emergency bypass - remove after fix
 
 ## 📝 Recent Changes
 
-- **December 2024**: Stripe pinned to `~=12.5.1` temporarily; 13.x upgrade coming in a follow-up PR with billing portal compatibility tests.  
-- **December 2024**: Prepared Stripe 13.x (`~=13.0.1`) upgrade with enhanced billing portal tests. *This will be merged after staging validation; until then the pin remains on `main`.*
+- **December 2024**: Stripe upgraded to `~=13.0.1`, validated in staging, and merged to main.
+
+## CI Truth Table
+
+This table documents the automated checks enforced by our CI pipeline on every pull request.
+
+| Check | Where Enforced | Fails PR? | Evidence Location |
+|---|---|---|---|
+| **Python 3.11 Setup** | `.github/workflows/ci.yaml` | ✅ Yes | CI run logs |
+| **Dependency Cache** | `.github/workflows/ci.yaml` | ❌ No | CI run logs |
+| **`pytest` Smoke Tests** | `.github/workflows/ci.yaml` | ✅ Yes | CI run logs, test artifacts |
+| **`flake8` Syntax Lint** | `.github/workflows/ci.yaml` | ❌ No | CI run logs (informational) |
+| **`black --check`** | `.github/workflows/ci.yaml` | ❌ No | CI run logs (informational) |
+| **`markdownlint`** | `.github/workflows/docs-lint.yml` | ✅ Yes | CI run logs |
+| **Semgrep (SAST)** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs |
+| **Gitleaks (Secrets)** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs |
+| **OWASP Dependency Check** | `.github/workflows/ci-security.yml` | ✅ Yes | CI run logs, test artifacts |
 
 ---
 

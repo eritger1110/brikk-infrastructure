@@ -27,10 +27,10 @@ All potential vendors must undergo a risk assessment before being onboarded. The
 
 All vendor contracts must include a security addendum that outlines the vendor's security and compliance obligations. The security addendum must include provisions for:
 
--   Data confidentiality
--   Security incident notification
--   Right to audit
--   Compliance with applicable laws and regulations
+- Data confidentiality
+- Security incident notification
+- Right to audit
+- Compliance with applicable laws and regulations
 
 ### 3.3. Ongoing Monitoring
 
@@ -54,12 +54,11 @@ Failure to comply with this policy may result in disciplinary action, up to and 
 
 ## 6. References
 
--   [NIST Special Publication 800-53 (SA-9)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
--   [HIPAA Security Rule (45 CFR 164.308(b)(1))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
+- [NIST Special Publication 800-53 (SA-9)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
+- [HIPAA Security Rule (45 CFR 164.308(b)(1))](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
 
 ## 7. Revision History
 
 | Version | Date | Author | Changes |
 | --- | --- | --- | --- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-

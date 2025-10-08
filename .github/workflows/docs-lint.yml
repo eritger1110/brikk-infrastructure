@@ -19,7 +19,7 @@ jobs:
         uses: DavidAnson/markdownlint-cli2-action@v16
         with:
           globs: 'docs/**/*.md'
-          config: '.markdownlint.json'
+          config: '.markdownlint-cli2.jsonc'
           
       - name: Check for broken links
         uses: gaurav-nelson/github-action-markdown-link-check@v1
