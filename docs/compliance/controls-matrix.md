@@ -2,7 +2,9 @@
 
 ## 1. Introduction
 
-This document maps Brikk's implemented security controls to the relevant requirements of the HIPAA Security Rule and the SOC 2 Trust Services Criteria. This matrix is a living document that will be updated as new controls are implemented.
+This document maps Brikk's implemented security controls to the relevant requirements of the HIPAA Security Rule and
+the SOC 2 Trust Services Criteria. This matrix is a living document that will be updated as new controls are
+implemented.
 
 ## 2. Controls Mapping
 
@@ -19,4 +21,3 @@ This document maps Brikk's implemented security controls to the relevant require
 | Version | Date | Author | Changes |
 | :--- | :--- | :--- | :--- |
 | 1.0 | 2025-10-07 | Manus AI | Initial draft. |
-
