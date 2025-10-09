@@ -1,0 +1,5 @@
+# Assign ownership for different parts of the codebase
+
+/docs/** @eritger1110
+/examples/** @eritger1110
+.github/** @eritger1110
