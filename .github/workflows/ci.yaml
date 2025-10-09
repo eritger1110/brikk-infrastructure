@@ -71,12 +71,17 @@ jobs:
         cd examples/python_agent
         pip install -r requirements.txt
         
-    - name: Test Python agent (dry run)
+    - name: Test Python agent (offline mode)
       run: |
         cd examples/python_agent
-        python demo.py --dry-run
+        NO_NETWORK=1 python demo.py --dry-run
         
-    - name: Test Node.js agent (dry run)
+    - name: Test Node.js agent (offline mode)
       run: |
         cd examples/node_agent
-        node demo.js --dry-run
+        NO_NETWORK=1 node demo.js --dry-run
+        
+    - name: Run Node.js envelope unit test
+      run: |
+        cd examples/node_agent
+        npm test

@@ -5,7 +5,8 @@
   "main": "client.js",
   "scripts": {
     "demo": "node demo.js",
-    "demo:dry": "node demo.js --dry-run"
+    "demo:dry": "node demo.js --dry-run",
+    "test": "node --test test/envelope.test.js"
   },
   "keywords": ["brikk", "agent", "coordination", "demo"],
   "author": "Brikk",
