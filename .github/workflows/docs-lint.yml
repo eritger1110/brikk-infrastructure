@@ -26,3 +26,4 @@ jobs:
         with:
           use-quiet-mode: 'yes'
           folder-path: 'docs/'
+          config-file: 'mlc_config.json'
