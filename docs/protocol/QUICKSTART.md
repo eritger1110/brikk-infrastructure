@@ -53,7 +53,7 @@ curl -X POST "$BRIKK_BASE_URL/api/v1/coordination" \
   }'
 ```
 
-### Expected JSON Response
+### Python Response Format
 
 ```json
 {
@@ -85,7 +85,7 @@ node examples/node_agent/demo.js --dry-run
 
 The Node.js agent builds the same envelope and computes the HMAC signature in `client.js`.
 
-### Expected JSON Response
+### Node.js Response Format
 
 ```json
 {
@@ -99,7 +99,7 @@ The Node.js agent builds the same envelope and computes the HMAC signature in `c
 {method}\n{path}\n{body}\n{timestamp}
 ```
 
-### Response Format
+### Successful Response Format
 
 Successful responses return:
 
