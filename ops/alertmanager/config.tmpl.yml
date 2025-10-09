@@ -1,0 +1,55 @@
+# Alertmanager Configuration Template
+# Copy to config.yml and set environment variables for production use
+
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@brikk.com'
+
+# Slack webhook configuration (uncomment and set SLACK_WEBHOOK_URL)
+# route:
+#   group_by: ['alertname']
+#   group_wait: 10s
+#   group_interval: 10s
+#   repeat_interval: 1h
+#   receiver: 'slack-notifications'
+#   routes:
+#     - match:
+#         severity: critical
+#       receiver: 'slack-critical'
+
+# receivers:
+#   - name: 'slack-notifications'
+#     slack_configs:
+#       - api_url: '${SLACK_WEBHOOK_URL}'
+#         channel: '#alerts'
+#         title: 'Brikk Alert'
+#         text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+#         
+#   - name: 'slack-critical'
+#     slack_configs:
+#       - api_url: '${SLACK_WEBHOOK_URL}'
+#         channel: '#critical-alerts'
+#         title: 'CRITICAL: Brikk Alert'
+#         text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+#         send_resolved: true
+
+# Default configuration (no external dependencies)
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+
+receivers:
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']

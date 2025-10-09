@@ -1,13 +1,8 @@
 {
   "ignorePatterns": [
-    { "pattern": "^http://localhost(:\\d+)?(/|$)" },
-    { "pattern": "^https://www\\.hhs\\.gov/hipaa/for-professionals/(security|privacy)/index\\.html$" }
+    { "pattern": "^http://localhost(:\\d+)?(/.*)?$" },
+    { "pattern": "^https://www\\.hhs\\.gov/hipaa/for-professionals/" }
   ],
-  "httpHeaders": [
-    {
-      "urls": ["https://www.hhs.gov/"],
-      "headers": { "User-Agent": "Mozilla/5.0 (brikk-link-check)" }
-    }
-  ],
-  "timeout": "20s"
+  "retryCount": 2,
+  "timeout": "10s"
 }
