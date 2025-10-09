@@ -39,18 +39,41 @@ python examples/python_agent/demo.py --dry-run
 
 ### Signed Request Example (Python)
 
-```bash
-# Request (example)
-curl -X POST "$BRIKK_BASE_URL/api/v1/coordination" \
-  -H "X-Brikk-Key: $BRIKK_API_KEY" \
-  -H "X-Brikk-Signature: <HMAC_SHA256_HEX>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "version":"1.0",
-    "sender":"demo-python-agent",
-    "recipient":"demo-echo-agent",
-    "payload":{"job_type":"echo","message":"Hello!"}
-  }'
+```python
+import requests
+import hmac
+import hashlib
+import json
+import time
+
+# Build the coordination envelope
+envelope = {
+    "version": "1.0",
+    "sender": "demo-python-agent",
+    "recipient": "demo-echo-agent",
+    "payload": {"job_type": "echo", "message": "Hello!"}
+}
+
+# Calculate HMAC signature
+timestamp = int(time.time())
+body = json.dumps(envelope)
+message = f"POST\n/api/v1/coordination\n{body}\n{timestamp}"
+signature = hmac.new(
+    "your-secret-key".encode(),
+    message.encode(),
+    hashlib.sha256
+).hexdigest()
+
+# Send request
+response = requests.post(
+    "http://localhost:5000/api/v1/coordination",
+    headers={
+        "X-Brikk-Key": "your-api-key",
+        "X-Brikk-Signature": signature,
+        "Content-Type": "application/json"
+    },
+    json=envelope
+)
 ```
 
 ### Python Response Format
@@ -83,7 +106,37 @@ node examples/node_agent/demo.js --dry-run
 
 ### Signed Request Example (Node.js)
 
-The Node.js agent builds the same envelope and computes the HMAC signature in `client.js`.
+```javascript
+const crypto = require('crypto');
+
+// Build the coordination envelope
+const envelope = {
+    version: '1.0',
+    sender: 'demo-node-agent',
+    recipient: 'demo-echo-agent',
+    payload: { job_type: 'echo', message: 'Hello!' }
+};
+
+// Calculate HMAC signature
+const timestamp = Math.floor(Date.now() / 1000);
+const body = JSON.stringify(envelope);
+const message = `POST\n/api/v1/coordination\n${body}\n${timestamp}`;
+const signature = crypto
+    .createHmac('sha256', 'your-secret-key')
+    .update(message)
+    .digest('hex');
+
+// Send request using fetch
+const response = await fetch('http://localhost:5000/api/v1/coordination', {
+    method: 'POST',
+    headers: {
+        'X-Brikk-Key': 'your-api-key',
+        'X-Brikk-Signature': signature,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(envelope)
+});
+```
 
 ### Node.js Response Format
 
@@ -93,7 +146,32 @@ The Node.js agent builds the same envelope and computes the HMAC signature in `c
   "message_id": "...",
   "receipt_ts": 1700000000
 }
+```
 
+## Run Locally (Dry-Run)
+
+Execute the demo agents locally in dry-run mode using the `NO_NETWORK=1` environment variable:
+
+```bash
+# Python agent dry-run
+cd examples/python_agent
+NO_NETWORK=1 python demo.py --dry-run
+
+# Node.js agent dry-run  
+cd examples/node_agent
+NO_NETWORK=1 node demo.js --dry-run
+```
+
+This mode builds and displays the coordination envelope without making network calls, perfect for:
+
+- Testing HMAC signature generation
+- Validating envelope structure
+- CI/CD environments without network access
+- Development and debugging
+
+## HMAC Signature Calculation
+
+The signature is calculated over the following message format:
 
 ```text
 {method}\n{path}\n{body}\n{timestamp}
@@ -143,6 +221,8 @@ export BRIKK_DEBUG=1
 
 ## Next Steps
 
-- Explore the client source code in `examples/python_agent/client.py` and `examples/node_agent/client.js`
+- Explore the client source code in [examples/python_agent/](../../examples/python_agent/) and
+  [examples/node_agent/](../../examples/node_agent/)
 - Implement your own agent using the coordination protocol
 - Review the full API documentation for advanced features
+- Run the unit tests to validate HMAC signature generation
