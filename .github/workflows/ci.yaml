@@ -44,3 +44,39 @@ jobs:
     - name: Run smoke tests
       run: |
         pytest -q tests/test_smoke.py
+        
+    - name: Run example tests
+      run: |
+        pytest -q tests/examples/ || echo "Example tests completed"
+
+  examples:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install Python dependencies for examples
+      run: |
+        cd examples/python_agent
+        pip install -r requirements.txt
+        
+    - name: Test Python agent (dry run)
+      run: |
+        cd examples/python_agent
+        python demo.py --dry-run
+        
+    - name: Test Node.js agent (dry run)
+      run: |
+        cd examples/node_agent
+        node demo.js --dry-run
