@@ -69,11 +69,13 @@ rq_queue_depth = Gauge('rq_queue_depth', 'Current Redis Queue depth')
 ### Configure Alertmanager
 
 1. Copy the template configuration:
+
    ```bash
    cp ops/alertmanager/config.tmpl.yml ops/alertmanager/config.yml
    ```
 
 2. Set your Slack webhook URL:
+
    ```bash
    export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
    ```
