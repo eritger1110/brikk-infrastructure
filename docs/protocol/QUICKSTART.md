@@ -19,9 +19,7 @@ Set these environment variables before running the demo agents:
 export BRIKK_BASE_URL="http://localhost:5000"  # or your Brikk instance
 export BRIKK_API_KEY="your-agent-api-key"
 export BRIKK_SECRET="your-agent-secret"
-```
-
-## Python Agent
+```## Python Agent
 
 ### Setup (Python)
 
@@ -32,29 +30,37 @@ pip install -r requirements.txt
 
 ### Run Demo (Python)
 
-```bash
-# Full demo (requires network access)
-python demo.py
+Run locally with dry-run to see the signed request envelope:
 
-# Dry run (offline testing)
-python demo.py --dry-run
+```bash
+# Dry run (no network, prints envelope)
+python examples/python_agent/demo.py --dry-run
 ```
 
-### Example Output
+### Signed Request Example (Python)
 
-```text
-🤖 Brikk Python Agent Demo
-========================================
-✅ Connected to: http://localhost:5000
-🔑 Agent ID: demo-python-agent
+```bash
+# Request (example)
+curl -X POST "$BRIKK_BASE_URL/api/v1/coordination" \
+  -H "X-Brikk-Key: $BRIKK_API_KEY" \
+  -H "X-Brikk-Signature: <HMAC_SHA256_HEX>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version":"1.0",
+    "sender":"demo-python-agent",
+    "recipient":"demo-echo-agent",
+    "payload":{"job_type":"echo","message":"Hello!"}
+  }'
+```
 
-📤 Sending echo job to: demo-echo-agent
-📦 Payload: {'job_type': 'echo', 'message': 'Hello from Python agent!', 
-            'data': {'test': True, 'timestamp': 1234567890}}
+### Expected JSON Response
 
-✅ Response received:
-📨 Status: accepted
-🆔 Message ID: msg_abc123def456
+```json
+{
+  "status": "accepted",
+  "message_id": "...",
+  "receipt_ts": 1700000000
+}
 ```
 
 ## Node.js Agent
@@ -68,43 +74,26 @@ cd examples/node_agent
 
 ### Run Demo (Node.js)
 
-```bash
-# Full demo (requires network access)
-node demo.js
+Run locally with dry-run to see the signed request envelope:
 
-# Dry run (offline testing)
-node demo.js --dry-run
+```bash
+# Dry run (no network, prints envelope)
+node examples/node_agent/demo.js --dry-run
 ```
 
-## Protocol Details
+### Signed Request Example (Node.js)
 
-### Request Format
+The Node.js agent builds the same envelope and computes the HMAC signature in `client.js`.
 
-The coordination endpoint expects a signed JSON envelope:
+### Expected JSON Response
 
 ```json
 {
-  "version": "1.0",
-  "sender": "your-agent-id",
-  "recipient": "target-agent-id",
-  "payload": {
-    "job_type": "echo",
-    "message": "Hello world",
-    "data": {}
-  },
-  "timestamp": 1234567890
+  "status": "accepted",
+  "message_id": "...",
+  "receipt_ts": 1700000000
 }
-```
 
-### Authentication
-
-Requests are authenticated using HMAC-SHA256 signatures:
-
-```text
-Authorization: HMAC {api_key}:{timestamp}:{signature}
-```
-
-The signature is calculated over:
 
 ```text
 {method}\n{path}\n{body}\n{timestamp}
