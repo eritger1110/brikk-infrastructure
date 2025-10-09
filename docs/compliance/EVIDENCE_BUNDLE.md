@@ -41,4 +41,3 @@ The `build_evidence_bundle.py` script is designed to exclude sensitive informati
 - It **explicitly excludes** `**/node_modules/**` and other temporary build directories.
 - The bundle is uploaded directly to GitHub Actions artifacts, which are secured and only accessible to users
   with appropriate repository permissions.
-
