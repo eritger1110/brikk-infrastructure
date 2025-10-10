@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 
 from flask import Blueprint, jsonify, request, current_app
 
-# JWT is optional; we’ll read email if present
+# JWT is optional; we'll read email if present
 try:
     from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
     HAVE_JWT = True
