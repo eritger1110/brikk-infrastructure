@@ -27,18 +27,16 @@ os.environ.setdefault(
     os.getenv("RATELIMIT_STORAGE_URI", "memory://"),
 )
 
-
 def _normalize_db_url(url: str) -> str:
     """
     Normalize DATABASE_URL so SQLAlchemy loads the right DBAPI.
-    We standardize on psycopg v3 driver ('+psycopg'), which supports Python 3.13.
+    We standardize on psycopg v3 driver (‘+psycopg’), which supports Python 3.13.
     """
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg://", 1)
     if url.startswith("postgresql://") and "+psycopg://" not in url:
         return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
-
 
 def create_app() -> Flask:
     app = Flask(
@@ -116,12 +114,12 @@ def create_app() -> Flask:
             from flask_talisman import Talisman
 
             csp = {
-                "default-src": "'self'",
-                "img-src": "'self' data:",
-                "script-src": "'self'",
-                "style-src": "'self' 'unsafe-inline'",
+                "default-src": "‘self’",
+                "img-src": "‘self’ data:",
+                "script-src": "‘self’",
+                "style-src": "‘self’ ‘unsafe-inline’",
                 "connect-src": (
-                    "'self' https://api.getbrikk.com "
+                    "‘self’ https://api.getbrikk.com "
                     "https://js.stripe.com https://hooks.stripe.com "
                     "https://cdn.jsdelivr.net"
                 ),
@@ -224,6 +222,27 @@ def create_app() -> Flask:
         app.logger.info("Registered discovery_bp")
     except Exception as e:
         app.logger.exception(f"discovery_bp import/registration failed: {e}")
+        
+    try:
+        from src.routes.ai_coordination import ai_coordination_bp
+        app.register_blueprint(ai_coordination_bp)
+        app.logger.info("Registered ai_coordination_bp")
+    except Exception as e:
+        app.logger.exception(f"ai_coordination_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.billing import billing_bp
+        app.register_blueprint(billing_bp)
+        app.logger.info("Registered billing_bp")
+    except Exception as e:
+        app.logger.exception(f"billing_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.reputation import reputation_bp
+        app.register_blueprint(reputation_bp)
+        app.logger.info("Registered reputation_bp")
+    except Exception as e:
+        app.logger.exception(f"reputation_bp import/registration failed: {e}")
 
     # --- Inbound: inline sanity ping so we know the app is alive at this prefix ---
     @app.get("/api/inbound/_ping_inline")
@@ -235,10 +254,10 @@ def create_app() -> Flask:
     try:
         mod = importlib.import_module("src.routes.inbound")
         inbound_bp = getattr(mod, "inbound_bp")
-        print(f">>> inbound: module file = {getattr(mod, '__file__', '<?>')}", flush=True)
+        print(f">>> inbound: module file = {getattr(mod, ‘__file__’, ‘<?>’)}", flush=True)
         df = getattr(inbound_bp, "deferred_functions", None)
         print(
-            f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}",
+            f">>> inbound: deferred_functions count = {len(df) if df is not None else ‘n/a’}",
             flush=True,
         )
 
@@ -301,6 +320,8 @@ def create_app() -> Flask:
     # --- DB init & gentle SQLite migration ---
     with app.app_context():
         db.create_all()
+        from src.database.seed import seed_system_accounts
+        seed_system_accounts()
 
         from sqlalchemy import inspect, text
 
