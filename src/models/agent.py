@@ -106,6 +106,10 @@ class Agent(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    
+    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False, index=True)
+    organization = db.relationship("Organization", back_populates="agents")
+    api_keys = db.relationship("ApiKey", back_populates="agent", cascade="all, delete-orphan")
 
     def __init__(self, name: str, language: str, **kwargs):
         self.name = name
@@ -299,3 +303,4 @@ class SecurityEvent(db.Model):
             "event_data": self.event_data or {},
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
+

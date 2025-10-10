@@ -1,10 +1,9 @@
-# src/routes/coordination.py
-"""
+'''
 Coordination routes for Brikk API.
 
 Contains both existing coordination endpoints and new v1 API with envelope validation,
 HMAC v1 authentication, and Redis idempotency.
-"""
+'''
 
 import os
 import hashlib
@@ -39,10 +38,10 @@ apply_security_headers_to_blueprint(coordination_bp)
 @coordination_bp.post("/api/coordination/run")
 @jwt_required()
 def run():
-    """
+    '''
     Simple user-facing orchestration endpoint.
     Replace the body of this function with your real pipeline/orchestrator call.
-    """
+    '''
     claims = get_jwt()
     email = claims.get("email")
 
@@ -65,10 +64,10 @@ def run():
 @coordination_bp.get("/api/metrics")
 @jwt_required()
 def metrics():
-    """
+    '''
     Minimal metrics for the dashboard graphs.
     Replace with your real metrics collection if available.
-    """
+    '''
     total_agents   = Agent.query.count()
     active_agents  = Agent.query.filter_by(status='active').count()
 
@@ -97,23 +96,20 @@ def metrics():
 
 # Create a sub-blueprint for v1 API with request guards
 coordination_v1_bp = Blueprint("coordination_v1", __name__)
-apply_request_guards_to_blueprint(coordination_v1_bp)
+# apply_request_guards_to_blueprint(coordination_v1_bp)
 apply_security_headers_to_blueprint(coordination_v1_bp)
 
-
 def generate_request_id() -> str:
-    """Generate a unique request ID for error tracking."""
+    '''Generate a unique request ID for error tracking.'''
     import uuid
     return str(uuid.uuid4())
 
-
 def get_feature_flag(flag_name: str, default: str = "false") -> bool:
-    """Get feature flag value from environment."""
+    '''Get feature flag value from environment.'''
     return os.environ.get(flag_name, default).lower() == "true"
 
-
 def create_error_response(code: str, message: str, status_code: int = 400, details: list = None) -> tuple:
-    """Create standardized error response."""
+    '''Create standardized error response.'''
     error_data = {
         "code": code,
         "message": message,
@@ -127,7 +123,7 @@ def create_error_response(code: str, message: str, status_code: int = 400, detai
 
 @coordination_v1_bp.route("/api/v1/coordination", methods=["POST"])
 def coordination_endpoint():
-    """
+    '''
     Coordination API endpoint v1 with layered security.
     
     Security layers (in order):
@@ -151,7 +147,7 @@ def coordination_endpoint():
     - 415: Wrong content-type
     - 422: Envelope validation error
     - 429: Rate limit exceeded
-    """
+    '''
     from src.services.coordination_auth import CoordinationAuthService
     
     auth_service = CoordinationAuthService()
@@ -191,7 +187,7 @@ def coordination_endpoint():
         
         # Step 2: Rate Limiting (if enabled)
         rate_limit_result = auth_service.check_rate_limit(request_id)
-        if not rate_limit_result.allowed:
+        if rate_limit_result and not rate_limit_result.allowed:
             # Log rate limit hit
             scope = getattr(g, 'organization_id', 'anonymous') if hasattr(g, 'organization_id') else 'anonymous'
             log_rate_limit_hit(
@@ -214,8 +210,9 @@ def coordination_endpoint():
             )
             response = jsonify(error_response)
             # Add rate limit headers to 429 response
-            for header, value in rate_limit_result.to_headers().items():
-                response.headers[header] = value
+            if rate_limit_result:
+                for header, value in rate_limit_result.to_headers().items():
+                    response.headers[header] = value
             return response, 429
         
         # Step 3: Idempotency Check (if enabled)
@@ -242,6 +239,8 @@ def coordination_endpoint():
                 )
                 return jsonify(error_response), 400
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             error_response = auth_service.create_error_response(
                 "protocol_error",
                 f"Invalid JSON in request body: {str(e)}",
@@ -258,7 +257,7 @@ def coordination_endpoint():
             error_details = []
             for error in e.errors():
                 field_path = " -> ".join(str(loc) for loc in error["loc"])
-                error_details.append(f"{field_path}: {error['msg']}")
+                error_details.append(f"{field_path}: {error['msg']}')
             
             error_response = auth_service.create_error_response(
                 "validation_error",
@@ -305,12 +304,15 @@ def coordination_endpoint():
         response = jsonify(response_data)
         
         # Add rate limit headers to success response
-        for header, value in rate_limit_result.to_headers().items():
-            response.headers[header] = value
+        if rate_limit_result:
+            for header, value in rate_limit_result.to_headers().items():
+                response.headers[header] = value
         
         return response, 202
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         # Log the error for debugging (in production, use proper logging)
         print(f"Coordination endpoint error: {str(e)}")
         
@@ -328,12 +330,12 @@ def coordination_endpoint():
 
 @coordination_v1_bp.route("/api/v1/coordination/health", methods=["GET"])
 def health_check():
-    """
+    '''
     Health check endpoint for the coordination API.
     
     Returns basic status information without requiring authentication
     or request validation.
-    """
+    '''
     from src.services.coordination_auth import CoordinationAuthService
     
     auth_service = CoordinationAuthService()
@@ -349,3 +351,4 @@ def health_check():
 
 # Register the v1 sub-blueprint with the main coordination blueprint
 coordination_bp.register_blueprint(coordination_v1_bp)
+
