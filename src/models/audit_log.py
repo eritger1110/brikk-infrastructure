@@ -1,23 +1,58 @@
 # src/models/audit_log.py
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+from sqlalchemy import Column, String, DateTime
 from sqlalchemy.types import JSON as SA_JSON  # generic JSON that works on SQLite & Postgres
-from ..database.db import db
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Text
+from src.database.db import db
+
 
 class AuditLog(db.Model):
+    """Audit Log Model for Stage 1 - tracks all user actions"""
     __tablename__ = "audit_logs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    org_id = Column(Integer, nullable=True)
-    actor_user_id = Column(Integer, nullable=True)
+    # Use UUID for primary key to match Stage 1 requirements
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    
+    # Actor (user performing the action)
+    actor_id = Column(String(36), nullable=False, index=True)
+    
+    # Action details
+    action = Column(String(120), nullable=False)          # e.g., "agent.created", "echo.sent"
+    resource_type = Column(String(64), nullable=True)     # e.g., "agent", "message"
+    resource_id = Column(String(36), nullable=True)       # UUID of the resource
+    
+    # Metadata - use JSONB for PostgreSQL, fallback to Text for SQLite
+    details = Column(JSONB().with_variant(Text, "sqlite"), nullable=True)
+    
+    # Timestamp with timezone
+    created_at = Column(
+        DateTime, 
+        nullable=False, 
+        default=lambda: datetime.now(timezone.utc),
+        index=True
+    )
 
-    action = Column(String(120), nullable=False)          # e.g., "agent.created"
-    resource_type = Column(String(64), nullable=False)    # e.g., "agent"
-    resource_id = Column(String(64), nullable=True)
-    ip = Column(String(64), nullable=True)
-    user_agent = Column(String(255), nullable=True)
+    def __init__(self, actor_id: str, action: str, **kwargs):
+        self.actor_id = actor_id
+        self.action = action
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
-    # attribute name must NOT be 'metadata' (reserved). Keep column name 'metadata' though.
-    meta = Column("metadata", SA_JSON, nullable=True)
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "actor_id": self.actor_id,
+            "action": self.action,
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "details": self.details,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    def __repr__(self) -> str:
+        return f"<AuditLog {self.id} actor={self.actor_id} action={self.action}>"

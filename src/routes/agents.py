@@ -1,24 +1,22 @@
 # src/routes/agents.py
 """
-Agents endpoints + per-user rate limiting with admin exemption.
+Stage 1 Agents API - Create and list user agents with API key generation.
 
-- List fields (capabilities, tags) are stored as JSON-encoded TEXT.
-- Rate limits (per user if logged-in, else per IP):
-    Default: 10/sec, 60/min
-    GET  /api/v1/agents: 300/min
-    POST /api/v1/agents: 10/min and 100/day
-- Admins/owners are exempt from limits:
-    * g.user.role in {"admin","owner"} OR g.user.is_admin True
-    * OR JWT claim role in {"admin","owner"} OR is_admin True
+Features:
+- Create agents with one-time API key generation
+- List user's agents (filtered by owner_id)
+- Rate limiting with admin exemption
+- Audit logging for all actions
 """
 
 from __future__ import annotations
 
 import json
 import os
+import uuid
 from typing import Any
 
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_limiter.errors import RateLimitExceeded
@@ -165,11 +163,17 @@ def _rate_limited(e: RateLimitExceeded):
 @agents_bp.route("/", methods=["GET"])
 @limiter.limit("300 per minute", exempt_when=is_admin)
 def list_agents():
+    """List user's agents (filtered by owner_id)"""
     db, Agent, require_auth, _, _, _ = _imports_common()
 
     @require_auth
     def _impl():
-        q = db.session.query(Agent)
+        # Filter by owner_id = g.user.id for Stage 1
+        user_id = getattr(g.user, 'id', None)
+        if not user_id:
+            return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
+
+        q = db.session.query(Agent).filter(Agent.owner_id == user_id)
 
         # soft-deletes
         if hasattr(Agent, "deleted_at"):
@@ -181,10 +185,6 @@ def list_agents():
         else:
             q = q.order_by(Agent.id.desc())
 
-        # optional org scoping
-        if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
-            q = q.filter(Agent.org_id == g.user.org_id)
-
         items = []
         for a in q.limit(200).all():
             items.append(
@@ -192,10 +192,7 @@ def list_agents():
                     "id": a.id,
                     "name": a.name,
                     "description": getattr(a, "description", None),
-                    "capabilities": _decode_list(getattr(a, "capabilities", [])),
-                    "tags": _decode_list(getattr(a, "tags", [])),
                     "status": getattr(a, "status", "active"),
-                    "language": getattr(a, "language", None),
                     "created_at": _iso(getattr(a, "created_at", None)),
                 }
             )
@@ -210,85 +207,74 @@ def list_agents():
 @agents_bp.route("", methods=["POST"])
 @agents_bp.route("/", methods=["POST"])
 @limiter.limit("10 per minute", exempt_when=is_admin)
-@limiter.limit("100 per day", exempt_when=is_admin)
 def create_agent():
-    db, Agent, require_auth, require_perm, redact_dict, log_action = _imports_common()
-    AgentCreateSchema, ValidationError = _imports_create()
+    """Create a new agent with one-time API key generation"""
+    from src.database.db import db
+    from src.services.crypto import generate_and_hash_api_key
+    from src.services.audit import log_agent_created
+    
+    # Simple auth check - ensure user is authenticated
+    if not hasattr(g, 'user') or not g.user:
+        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
+    
+    user_id = getattr(g.user, 'id', None)
+    if not user_id:
+        return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
 
-    @require_auth
-    @require_perm("agent:create")
-    def _impl():
-        payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True) or {}
+    
+    # Basic validation
+    name = payload.get('name', '').strip()
+    if not name or len(name) > 128:
+        return jsonify({"error": "validation_error", "message": "Name is required and must be <= 128 chars"}), 400
+    
+    description = payload.get('description', '').strip() or None
 
-        # Validate payload (marshmallow v4)
-        try:
-            data = AgentCreateSchema().load(payload)
-        except ValidationError as e:
-            return jsonify({"error": "validation_error", "details": e.messages}), 400
+    # Check for duplicate name for this user
+    from src.models.agent import Agent
+    existing = db.session.query(Agent).filter(
+        Agent.name == name,
+        Agent.owner_id == user_id
+    ).first()
+    
+    if existing:
+        return jsonify({"error": "duplicate_name", "message": "Agent name already exists"}), 409
 
-        # Unique name (per-org if present)
-        q = db.session.query(Agent).filter(Agent.name == data["name"])
-        if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
-            q = q.filter(Agent.org_id == g.user.org_id)
-        if q.first():
-            return jsonify({"error": "duplicate_name"}), 409
-
-        # Normalize inputs
-        language = (data.get("language") or "en").strip()
-        caps = data.get("capabilities") or []
-        tags = data.get("tags") or []
-
-        # Build model with only columns that exist
-        try:
-            kwargs = {"language": language, "name": data["name"].strip()}
-            if hasattr(Agent, "description"):
-                kwargs["description"] = (data.get("description") or "").strip() or None
-            agent = Agent(**kwargs)
-        except TypeError as te:
-            return (
-                jsonify(
-                    {
-                        "error": "model_constructor_error",
-                        "message": str(te),
-                        "hint": "Align AgentCreateSchema with Agent model required fields.",
-                    }
-                ),
-                400,
-            )
-
-        # Optional columns
-        if hasattr(Agent, "org_id") and hasattr(g, "user") and getattr(g.user, "org_id", None):
-            agent.org_id = g.user.org_id
-        if hasattr(Agent, "owner_id") and hasattr(g, "user") and getattr(g.user, "id", None):
-            agent.owner_id = g.user.id
-        if hasattr(Agent, "capabilities"):
-            agent.capabilities = _encode_list(caps)
-        if hasattr(Agent, "tags"):
-            agent.tags = _encode_list(tags)
-        if hasattr(Agent, "status"):
-            agent.status = "active"
+    try:
+        # Generate API key and hash
+        api_key, api_key_hash = generate_and_hash_api_key()
+        
+        # Create agent with Stage 1 fields
+        agent = Agent(
+            id=str(uuid.uuid4()),
+            name=name,
+            language="en",  # Default language
+            description=description,
+            owner_id=user_id,
+            api_key_hash=api_key_hash,
+            status="active"
+        )
 
         db.session.add(agent)
         db.session.commit()
 
-        # Audit (safely redacted)
+        # Audit log
         try:
-            log_action("agent.created", "agent", resource_id=agent.id, metadata=redact_dict(data))
-        except Exception:
-            pass
+            log_agent_created(user_id, agent.id, agent.name)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to create audit log: {e}")
 
-        return (
-            jsonify(
-                {
-                    "id": agent.id,
-                    "name": agent.name,
-                    "description": getattr(agent, "description", None),
-                    "language": getattr(agent, "language", None),
-                    "capabilities": _decode_list(getattr(agent, "capabilities", [])),
-                    "tags": _decode_list(getattr(agent, "tags", [])),
-                }
-            ),
-            201,
-        )
+        # Return agent details with one-time API key
+        return jsonify({
+            "id": agent.id,
+            "name": agent.name,
+            "description": agent.description,
+            "api_key": api_key,  # One-time return only
+            "status": agent.status,
+            "created_at": agent.created_at.isoformat() if agent.created_at else None
+        }), 201
 
-    return _impl()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to create agent: {e}")
+        return jsonify({"error": "internal_error", "message": "Failed to create agent"}), 500
