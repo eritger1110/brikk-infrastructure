@@ -1,4 +1,3 @@
-# src/main.py
 import os
 import sys
 import importlib
@@ -191,7 +190,40 @@ def create_app() -> Flask:
     except Exception as e:
         app.logger.exception(f"auth_admin_bp import/registration failed: {e}")
 
+    try:
+        from src.routes.workflows import workflows_bp
+        app.register_blueprint(workflows_bp)
+        app.logger.info("Registered workflows_bp")
+    except Exception as e:
+        app.logger.exception(f"workflows_bp import/registration failed: {e}")
 
+    try:
+        from src.routes.monitoring import monitoring_bp
+        app.register_blueprint(monitoring_bp)
+        app.logger.info("Registered monitoring_bp")
+    except Exception as e:
+        app.logger.exception(f"monitoring_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.alerting import alerting_bp
+        app.register_blueprint(alerting_bp)
+        app.logger.info("Registered alerting_bp")
+    except Exception as e:
+        app.logger.exception(f"alerting_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.webhooks import webhooks_bp
+        app.register_blueprint(webhooks_bp)
+        app.logger.info("Registered webhooks_bp")
+    except Exception as e:
+        app.logger.exception(f"webhooks_bp import/registration failed: {e}")
+
+    try:
+        from src.routes.discovery import discovery_bp
+        app.register_blueprint(discovery_bp)
+        app.logger.info("Registered discovery_bp")
+    except Exception as e:
+        app.logger.exception(f"discovery_bp import/registration failed: {e}")
 
     # --- Inbound: inline sanity ping so we know the app is alive at this prefix ---
     @app.get("/api/inbound/_ping_inline")
@@ -304,3 +336,4 @@ def create_app() -> Flask:
 
 # gunicorn entrypoint
 app = create_app()
+
