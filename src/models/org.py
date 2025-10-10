@@ -73,3 +73,8 @@ class Organization(db.Model):
     def is_within_limits(self):
         """Check if organization is within monthly request limits."""
         return self.current_month_requests < self.monthly_request_limit
+
+
+    workflows = relationship("Workflow", back_populates="organization", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="organization", cascade="all, delete-orphan")
+
