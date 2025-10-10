@@ -88,9 +88,9 @@ def _send_verify_email(to_email: str) -> bool:
     html = f"""
     <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
       <h2>Verify your email</h2>
-      <p>We’re confirming <strong>{to_email}</strong> for your Brikk account.</p>
+      <p>We're confirming <strong>{to_email}</strong> for your Brikk account.</p>
       <p>Click to verify: <a href="{verify_link}">Verify your email</a></p>
-      <p style="opacity:.7">If you didn’t request this, you can ignore it.</p>
+      <p style="opacity:.7">If you didn't request this, you can ignore it.</p>
       <p style="opacity:.7">Thanks,<br/>The Brikk Team</p>
     </div>
     """
