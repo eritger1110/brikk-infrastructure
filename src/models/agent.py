@@ -107,10 +107,12 @@ class Agent(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     
-    organization_id = db.Column(db.Integer, db.ForeignKey("organizations.id"), nullable=False, index=True)
+    organization_id = db.Column(db.String(36), db.ForeignKey("organizations.id"), nullable=False, index=True)
     organization = db.relationship("Organization", back_populates="agents")
     api_keys = db.relationship("ApiKey", back_populates="agent", cascade="all, delete-orphan")
     services = db.relationship("AgentService", back_populates="agent", cascade="all, delete-orphan")
+    reputation_scores = db.relationship("ReputationScore", back_populates="agent", cascade="all, delete-orphan")
+    performance_metrics = db.relationship("AgentPerformance", back_populates="agent", cascade="all, delete-orphan")
 
     def __init__(self, name: str, language: str, **kwargs):
         self.name = name

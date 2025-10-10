@@ -1,8 +1,9 @@
 """
 Organization model for multi-tenant support in Brikk infrastructure.
 """
+import uuid
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
+from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer
 from sqlalchemy.orm import relationship
 from src.database.db import db
 
@@ -12,7 +13,7 @@ class Organization(db.Model):
     
     __tablename__ = 'organizations'
     
-    id = Column(Integer, primary_key=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False, index=True)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
@@ -33,6 +34,10 @@ class Organization(db.Model):
     # Relationships
     agents = relationship("Agent", back_populates="organization", cascade="all, delete-orphan")
     api_keys = relationship("ApiKey", back_populates="organization", cascade="all, delete-orphan")
+    workflows = relationship("Workflow", back_populates="organization", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="organization", cascade="all, delete-orphan")
+    balance = relationship("OrgBalance", uselist=False, back_populates="organization", cascade="all, delete-orphan")
+    reputation_scores = relationship("ReputationScore", back_populates="organization", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f'<Organization {self.name} ({self.slug})>'
@@ -73,8 +78,4 @@ class Organization(db.Model):
     def is_within_limits(self):
         """Check if organization is within monthly request limits."""
         return self.current_month_requests < self.monthly_request_limit
-
-
-    workflows = relationship("Workflow", back_populates="organization", cascade="all, delete-orphan")
-    webhooks = relationship("Webhook", back_populates="organization", cascade="all, delete-orphan")
 
