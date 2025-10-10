@@ -179,7 +179,7 @@ def debug_echo():
 
 
 # --------------------------------------------------------------------------- #
-# Signup (used by /checkout/success) â€“ sends verification & sets initial JWT
+# Signup (used by /checkout/success) â€" sends verification & sets initial JWT
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
@@ -460,7 +460,7 @@ def email_test():
     if not to_email:
         return jsonify({"ok": False, "error": "email required"}), 400
 
-    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works âœ…</p>"
+    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works âœ...</p>"
     try:
         ok = bool(send_email(to_email=to_email, subject="Brikk test email", html=html))
         return jsonify({"ok": ok}), (200 if ok else 502)

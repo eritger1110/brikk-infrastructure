@@ -107,7 +107,7 @@ def _persist_order_row(row: JSON) -> None:
                 conn.execute(sql, fields)
 
     except Exception as e:
-        # Don't fail the job if logging is noisyâ€”just stash it in job meta
+        # Don't fail the job if logging is noisyâ€"just stash it in job meta
         _update_job_meta(db_error=str(e))
 
 

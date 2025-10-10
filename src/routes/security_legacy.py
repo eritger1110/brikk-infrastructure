@@ -12,7 +12,7 @@ from sendgrid.helpers.mail import Mail
 import jwt as pyjwt
 import bcrypt
 
-# âœ… Always import the shared db from database module
+# âœ... Always import the shared db from database module
 from src.database.db import db
 from src.models.user import User
 from src.models.purchase import Purchase
@@ -224,7 +224,7 @@ def verify_email():
 
 def _simple_page(title: str, body_html: str):
     html = f"""<!doctype html><meta charset="utf-8">
-    <title>{title} â€“ Brikk</title>
+    <title>{title} â€" Brikk</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <body style="background:#0b0f1a;color:#e7ecff;font:16px/1.5 system-ui;margin:40px">
       <h1 style="margin:0 0 10px">{title}</h1>

@@ -16,7 +16,7 @@ class HMACSecurityService:
     
     # HMAC v1 constants
     HMAC_VERSION = "v1"
-    TIMESTAMP_DRIFT_SECONDS = 300  # Â±5 minutes
+    TIMESTAMP_DRIFT_SECONDS = 300  # Â+/-5 minutes
     
     @staticmethod
     def generate_canonical_string(
@@ -152,7 +152,7 @@ class HMACSecurityService:
     @classmethod
     def validate_timestamp_drift(cls, timestamp_str: str) -> Tuple[bool, Optional[str]]:
         """
-        Validate timestamp is within acceptable drift range (Â±300 seconds).
+        Validate timestamp is within acceptable drift range (Â+/-300 seconds).
         
         Returns (is_valid, error_message)
         """
