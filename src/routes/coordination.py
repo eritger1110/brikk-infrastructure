@@ -257,8 +257,7 @@ def coordination_endpoint():
             error_details = []
             for error in e.errors():
                 field_path = " -> ".join(str(loc) for loc in error["loc"])
-                error_details.append(f"{field_path}: {error['msg']}')
-            
+                error_details.append(f"{field_path}: {error['msg']}")
             error_response = auth_service.create_error_response(
                 "validation_error",
                 "Envelope validation failed",
