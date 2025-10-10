@@ -77,7 +77,7 @@ def me():
         return jsonify({
             "authenticated": True,
             "user": {"id": str(ident)},
-            "claims": get_jwt(),   # whatever’s in the token
+            "claims": get_jwt(),   # whatever's in the token
         }), 200
 
     # include DB-backed fields and current token claims

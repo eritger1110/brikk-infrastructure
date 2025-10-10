@@ -44,7 +44,7 @@ def metrics():
     total_agents   = Agent.query.count()
     active_agents  = Agent.query.filter_by(status='active').count()
 
-    # Fake “today” numbers if you haven’t populated Coordination yet
+    # Fake “today” numbers if you haven't populated Coordination yet
     total_coord = Coordination.query.count()
     completed   = Coordination.query.filter_by(status="completed").count()
     success_rate = round((completed / max(total_coord, 1)) * 100, 2)
