@@ -30,7 +30,7 @@ os.environ.setdefault(
 def _normalize_db_url(url: str) -> str:
     """
     Normalize DATABASE_URL so SQLAlchemy loads the right DBAPI.
-    We standardize on psycopg v3 driver (‘+psycopg’), which supports Python 3.13.
+    We standardize on psycopg v3 driver ('+psycopg'), which supports Python 3.13.
     """
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg://", 1)
@@ -114,12 +114,12 @@ def create_app() -> Flask:
             from flask_talisman import Talisman
 
             csp = {
-                "default-src": "‘self’",
-                "img-src": "‘self’ data:",
-                "script-src": "‘self’",
-                "style-src": "‘self’ ‘unsafe-inline’",
+                "default-src": "'self'",
+                "img-src": "'self' data:",
+                "script-src": "'self'",
+                "style-src": "'self' 'unsafe-inline'",
                 "connect-src": (
-                    "‘self’ https://api.getbrikk.com "
+                    "'self' https://api.getbrikk.com "
                     "https://js.stripe.com https://hooks.stripe.com "
                     "https://cdn.jsdelivr.net"
                 ),
@@ -254,10 +254,10 @@ def create_app() -> Flask:
     try:
         mod = importlib.import_module("src.routes.inbound")
         inbound_bp = getattr(mod, "inbound_bp")
-        print(f">>> inbound: module file = {getattr(mod, ‘__file__’, ‘<?>’)}", flush=True)
+        print(f">>> inbound: module file = {getattr(mod, '__file__', '<?>')}", flush=True)
         df = getattr(inbound_bp, "deferred_functions", None)
         print(
-            f">>> inbound: deferred_functions count = {len(df) if df is not None else ‘n/a’}",
+            f">>> inbound: deferred_functions count = {len(df) if df is not None else 'n/a'}",
             flush=True,
         )
 
