@@ -2,27 +2,10 @@
 
 import pytest
 from flask import Flask
-from src.main import create_app
+from src.factory import create_app
 from src.database import db
 from src.models.economy import OrgBalance, LedgerAccount, LedgerEntry, Transaction, ReputationScore
 from src.models.org import Organization
-
-@pytest.fixture
-def app():
-    app = create_app()
-    app.config.update({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "JWT_SECRET_KEY": "test-secret-key"
-    })
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.drop_all()
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
 
 def test_db_migrations(app):
     # Check if all tables were created

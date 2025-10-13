@@ -1,10 +1,40 @@
-# src/models/__init__.py
-# Make models a regular package so modules load once
-from src.database.db import db  # optional convenience re-export
+from .agent import Agent, Coordination, SecurityEvent
+from .ai_coordination import AgentPerformance, CoordinationStrategy
+from .api_key import ApiKey
+from .audit_log import AuditLog
+from .customer_profile import CustomerProfile
+from .discovery import AgentService, AgentCapability
+from .economy import OrgBalance, Transaction, ReputationScore
+from .message_log import MessageLog
+from .org import Organization
+from .purchase import Purchase
+from .user import User
+from .webhook import Webhook
+from .workflow import Workflow
+from .workflow_execution import WorkflowExecution
+from .workflow_step import WorkflowStep
 
-# Export models here so db.create_all() (or any imports) can see them.
-from .agent import Agent          # noqa: F401
-from .customer_profile import CustomerProfile  # if you have/need it  # noqa: F401
-from .purchase import Purchase     # if you have/need it              # noqa: F401
-from .user import User             # if you have/need it              # noqa: F401
-from .audit_log import AuditLog    # NEW                              # noqa: F401
+__all__ = [
+    "Agent",
+    "Coordination",
+    "SecurityEvent",
+    "AgentPerformance",
+    "CoordinationStrategy",
+    "ApiKey",
+    "AuditLog",
+    "CustomerProfile",
+    "AgentService",
+    "AgentCapability",
+    "OrgBalance",
+    "Transaction",
+    "ReputationScore",
+    "MessageLog",
+    "Organization",
+    "Purchase",
+    "User",
+    "Webhook",
+    "Workflow",
+    "WorkflowExecution",
+    "WorkflowStep",
+]
+

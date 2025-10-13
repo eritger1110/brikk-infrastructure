@@ -10,7 +10,8 @@ import hashlib
 from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt
 from pydantic import ValidationError
-from src.models.agent import Agent, Coordination, db
+from src.models import Agent, Coordination
+from src.database import db
 from datetime import datetime, timezone
 import time
 import random
@@ -24,18 +25,18 @@ from src.services.request_context import set_auth_context
 
 
 # Single coordination blueprint for all coordination endpoints
-coordination_bp = Blueprint("coordination_bp", __name__)
+bp = Blueprint("coordination", __name__)
 
 # Initialize logger for coordination module
 logger = get_logger('brikk.coordination')
 
 # Apply security headers to all coordination routes
-apply_security_headers_to_blueprint(coordination_bp)
+apply_security_headers_to_blueprint(bp)
 
 
 # ===== EXISTING COORDINATION ENDPOINTS =====
 
-@coordination_bp.post("/api/coordination/run")
+@bp.post("/api/coordination/run")
 @jwt_required()
 def run():
     '''
@@ -61,7 +62,7 @@ def run():
     })
 
 
-@coordination_bp.get("/api/metrics")
+@bp.get("/api/metrics")
 @jwt_required()
 def metrics():
     '''
@@ -129,7 +130,7 @@ def coordination_endpoint():
     Security layers (in order):
     1. Request guards: Content-Type, body size, required headers (via middleware)
     2. HMAC v1 authentication: X-Brikk-Key, X-Brikk-Timestamp, X-Brikk-Signature
-    3. Timestamp drift check: ±300 seconds
+    3. Timestamp drift check: +/-300 seconds
     4. Redis idempotency: Duplicate request detection
     5. Envelope validation: Pydantic schema validation
     
@@ -349,5 +350,5 @@ def health_check():
 
 
 # Register the v1 sub-blueprint with the main coordination blueprint
-coordination_bp.register_blueprint(coordination_v1_bp)
+bp.register_blueprint(coordination_v1_bp)
 

@@ -8,7 +8,7 @@ from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateT
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.database.db import db
+from src.database import db
 
 class Webhook(db.Model):
     """Represents a webhook subscription"""

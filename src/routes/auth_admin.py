@@ -22,7 +22,7 @@ from src.schemas.auth import (
     ApiKeyResponse,
     AuthErrorResponse
 )
-from src.database.db import db
+from src.database import db
 from src.services.security_enhanced import HMACSecurityService
 
 # Create blueprint

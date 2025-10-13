@@ -16,7 +16,7 @@ from flask import Blueprint, request, jsonify, g, current_app
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-from src.database.db import db
+from src.database import db
 from src.models.message_log import MessageLog
 from src.services.audit import log_echo_sent
 

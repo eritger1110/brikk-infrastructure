@@ -9,7 +9,7 @@ import os
 import time
 from unittest.mock import patch, MagicMock
 from flask import Flask
-from prometheus_client import REGISTRY, CollectorRegistry
+from prometheus_client import CollectorRegistry
 
 from src.services.metrics import (
     MetricsService, get_metrics_service, init_metrics,
@@ -18,27 +18,14 @@ from src.services.metrics import (
 )
 
 
-@pytest.fixture
-def app():
-    """Create test Flask app."""
-    app = Flask(__name__)
-    app.config['TESTING'] = True
-    app.config['BRIKK_METRICS_ENABLED'] = 'true'
-    return app
-
-
-@pytest.fixture
-def client(app):
-    """Create test client."""
-    return app.test_client()
-
-
-@pytest.fixture
-def metrics_service():
+@pytest.fixture(autouse=True)
+def metrics_service(monkeypatch):
     """Create fresh metrics service for testing."""
     # Use a separate registry for testing to avoid conflicts
     test_registry = CollectorRegistry()
-    service = MetricsService(enabled=True, registry=test_registry)
+    monkeypatch.setattr("src.services.metrics.REGISTRY", test_registry)
+    service = MetricsService(registry=test_registry)
+    service.enabled = True
     return service
 
 
@@ -61,7 +48,8 @@ class TestMetricsService:
     
     def test_metrics_disabled(self):
         """Test metrics service when disabled."""
-        service = MetricsService(enabled=False)
+        service = MetricsService()
+        service.enabled = False
         assert service.enabled is False
         
         # Should not create metrics when disabled
@@ -431,6 +419,3 @@ class TestMetricsConfiguration:
             service = MetricsService()
             assert service.enabled is True
 
-
-if __name__ == '__main__':
-    pytest.main([__file__])

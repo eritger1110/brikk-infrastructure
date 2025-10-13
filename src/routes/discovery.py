@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
 
 from src.services.discovery_service import DiscoveryService
-from src.database.db import db
+from src.database import db
 from src.services.structured_logging import get_logger
 
 logger = get_logger("brikk.discovery.routes")

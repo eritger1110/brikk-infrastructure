@@ -204,14 +204,14 @@ class CoordinationAuthService:
                     request_id=request_id
                 ), 401
             
-            # Verify timestamp drift (±300 seconds)
+            # Verify timestamp drift (+/-300 seconds)
             try:
                 timestamp_valid = self.hmac_service.verify_timestamp_drift(timestamp, max_drift_seconds=300)
                 if not timestamp_valid:
                     api_key_record.update_usage(success=False)
                     return False, self.create_error_response(
                         "unauthorized",
-                        "Request timestamp outside acceptable drift (±300 seconds)",
+                        "Request timestamp outside acceptable drift (+/-300 seconds)",
                         401,
                         request_id=request_id
                     ), 401

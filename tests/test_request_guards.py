@@ -1,4 +1,4 @@
-"""
+'''
 Test suite for request guards middleware.
 
 Tests:
@@ -6,7 +6,7 @@ Tests:
 - Body size limits (413 for >256KB)
 - Required headers validation (400 for missing headers)
 - Security headers presence on success and error responses
-"""
+'''
 
 import json
 import pytest
@@ -21,16 +21,8 @@ from src.services.security_headers import apply_security_headers_to_blueprint
 
 
 @pytest.fixture
-def app():
-    """Create Flask app for testing."""
-    app = Flask(__name__)
-    app.config['TESTING'] = True
-    return app
-
-
-@pytest.fixture
 def test_blueprint():
-    """Create test blueprint with middleware applied."""
+    "Create test blueprint with middleware applied."
     bp = Blueprint('test', __name__)
     
     @bp.route('/test', methods=['POST'])
@@ -46,16 +38,16 @@ def test_blueprint():
 
 @pytest.fixture
 def client(app, test_blueprint):
-    """Create test client with blueprint registered."""
+    "Create test client with blueprint registered."
     app.register_blueprint(test_blueprint)
     return app.test_client()
 
 
 class TestContentTypeValidation:
-    """Test Content-Type header validation."""
+    "Test Content-Type header validation."
     
     def test_valid_content_type(self, client):
-        """Test that application/json content type is accepted."""
+        "Test that application/json content type is accepted."
         response = client.post(
             '/test',
             headers={
@@ -69,7 +61,7 @@ class TestContentTypeValidation:
         assert response.status_code == 200
     
     def test_content_type_with_charset(self, client):
-        """Test that application/json with charset is accepted."""
+        "Test that application/json with charset is accepted."
         response = client.post(
             '/test',
             headers={
@@ -83,7 +75,7 @@ class TestContentTypeValidation:
         assert response.status_code == 200
     
     def test_wrong_content_type_text_plain(self, client):
-        """Test that text/plain content type is rejected with 415."""
+        "Test that text/plain content type is rejected with 415."
         response = client.post(
             '/test',
             headers={
@@ -101,7 +93,7 @@ class TestContentTypeValidation:
         assert 'request_id' in data
     
     def test_wrong_content_type_form_data(self, client):
-        """Test that form data content type is rejected with 415."""
+        "Test that form data content type is rejected with 415."
         response = client.post(
             '/test',
             headers={
@@ -117,7 +109,7 @@ class TestContentTypeValidation:
         assert data['code'] == 'protocol_error'
     
     def test_missing_content_type(self, client):
-        """Test that missing Content-Type header is rejected with 415."""
+        "Test that missing Content-Type header is rejected with 415."
         response = client.post(
             '/test',
             headers={
@@ -131,10 +123,10 @@ class TestContentTypeValidation:
 
 
 class TestBodySizeValidation:
-    """Test request body size limits."""
+    "Test request body size limits."
     
     def test_small_body_accepted(self, client):
-        """Test that small request body is accepted."""
+        "Test that small request body is accepted."
         small_data = {"data": "x" * 1000}  # 1KB
         response = client.post(
             '/test',
@@ -149,7 +141,7 @@ class TestBodySizeValidation:
         assert response.status_code == 200
     
     def test_max_size_body_accepted(self, client):
-        """Test that body at max size limit is accepted."""
+        "Test that body at max size limit is accepted."
         # Create data close to but under the limit
         max_data = {"data": "x" * (MAX_BODY_SIZE - 1000)}
         response = client.post(
@@ -165,7 +157,7 @@ class TestBodySizeValidation:
         assert response.status_code == 200
     
     def test_oversized_body_rejected(self, client):
-        """Test that oversized request body is rejected with 413."""
+        "Test that oversized request body is rejected with 413."
         # Create data larger than the limit
         large_data = "x" * (MAX_BODY_SIZE + 1000)
         response = client.post(
@@ -186,7 +178,7 @@ class TestBodySizeValidation:
         assert f'{MAX_BODY_SIZE} bytes' in data['message']
     
     def test_invalid_content_length_header(self, client):
-        """Test that invalid Content-Length header is rejected with 400."""
+        "Test that invalid Content-Length header is rejected with 400."
         response = client.post(
             '/test',
             headers={
@@ -205,10 +197,10 @@ class TestBodySizeValidation:
 
 
 class TestRequiredHeaders:
-    """Test required Brikk headers validation."""
+    "Test required Brikk headers validation."
     
     def test_all_headers_present(self, client):
-        """Test that request with all required headers is accepted."""
+        "Test that request with all required headers is accepted."
         response = client.post(
             '/test',
             headers={
@@ -222,7 +214,7 @@ class TestRequiredHeaders:
         assert response.status_code == 200
     
     def test_missing_brikk_key(self, client):
-        """Test that missing X-Brikk-Key header is rejected with 400."""
+        "Test that missing X-Brikk-Key header is rejected with 400."
         response = client.post(
             '/test',
             headers={
@@ -239,7 +231,7 @@ class TestRequiredHeaders:
         assert 'X-Brikk-Key' in data['message']
     
     def test_missing_brikk_timestamp(self, client):
-        """Test that missing X-Brikk-Timestamp header is rejected with 400."""
+        "Test that missing X-Brikk-Timestamp header is rejected with 400."
         response = client.post(
             '/test',
             headers={
@@ -255,7 +247,7 @@ class TestRequiredHeaders:
         assert 'X-Brikk-Timestamp' in data['message']
     
     def test_missing_brikk_signature(self, client):
-        """Test that missing X-Brikk-Signature header is rejected with 400."""
+        "Test that missing X-Brikk-Signature header is rejected with 400."
         response = client.post(
             '/test',
             headers={
@@ -271,7 +263,7 @@ class TestRequiredHeaders:
         assert 'X-Brikk-Signature' in data['message']
     
     def test_missing_multiple_headers(self, client):
-        """Test that missing multiple headers are all reported."""
+        "Test that missing multiple headers are all reported."
         response = client.post(
             '/test',
             headers={
@@ -287,7 +279,7 @@ class TestRequiredHeaders:
         assert 'X-Brikk-Signature' in data['message']
     
     def test_empty_header_values(self, client):
-        """Test that empty header values are treated as missing."""
+        "Test that empty header values are treated as missing."
         response = client.post(
             '/test',
             headers={
@@ -304,10 +296,10 @@ class TestRequiredHeaders:
 
 
 class TestSecurityHeaders:
-    """Test that security headers are added to responses."""
+    "Test that security headers are added to responses."
     
     def test_security_headers_on_success(self, client):
-        """Test that security headers are added to successful responses."""
+        "Test that security headers are added to successful responses."
         response = client.post(
             '/test',
             headers={
@@ -326,7 +318,7 @@ class TestSecurityHeaders:
         assert response.headers.get('Referrer-Policy') == 'no-referrer'
     
     def test_security_headers_on_error(self, client):
-        """Test that security headers are added to error responses."""
+        "Test that security headers are added to error responses."
         response = client.post(
             '/test',
             headers={
@@ -343,10 +335,10 @@ class TestSecurityHeaders:
 
 
 class TestNonPostRequests:
-    """Test that middleware only applies to POST requests."""
+    "Test that middleware only applies to POST requests."
     
     def test_get_request_bypasses_validation(self, app):
-        """Test that GET requests bypass request guards."""
+        "Test that GET requests bypass request guards."
         bp = Blueprint('test_get', __name__)
         
         @bp.route('/test-get', methods=['GET'])
@@ -365,3 +357,4 @@ class TestNonPostRequests:
         
         # Security headers should still be present
         assert response.headers.get('Strict-Transport-Security') is not None
+

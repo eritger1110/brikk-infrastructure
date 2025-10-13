@@ -1,4 +1,3 @@
-# tests/test_billing_portal_stripe13.py
 """
 Minimal deterministic tests for Stripe 13.x billing portal compatibility.
 These tests validate request/validation/error handling without network calls.
@@ -6,16 +5,6 @@ These tests validate request/validation/error handling without network calls.
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-
-from src.main import app as flask_app
-
-
-@pytest.fixture(scope="function")
-def client():
-    """Fresh test client per test."""
-    with flask_app.test_client() as c:
-        yield c
-
 
 def test_billing_portal_stripe13_error_handling(client, monkeypatch):
     """Test that Stripe 13.x error structure is handled correctly."""
@@ -35,7 +24,7 @@ def test_billing_portal_stripe13_error_handling(client, monkeypatch):
         "Test error", user_message="User-friendly error"
     )
     
-    with patch('src.routes.app.stripe', mock_stripe):
+    with patch('src.routes.billing.stripe', mock_stripe, create=True):
         resp = client.post("/api/billing/portal", json={"customer_id": "cus_test"})
         
         assert resp.status_code == 502
@@ -43,7 +32,6 @@ def test_billing_portal_stripe13_error_handling(client, monkeypatch):
         assert "error" in data
         # Just check that it contains "Stripe error" - the exact message may vary
         assert "Stripe error" in data["error"]
-
 
 def test_billing_portal_request_validation(client, monkeypatch):
     """Test request payload validation and processing."""
@@ -55,7 +43,7 @@ def test_billing_portal_request_validation(client, monkeypatch):
     mock_session.url = "https://billing.stripe.com/session/test"
     mock_stripe.billing_portal.Session.create.return_value = mock_session
     
-    with patch('src.routes.app.stripe', mock_stripe):
+    with patch('src.routes.billing.stripe', mock_stripe, create=True):
         # Test with valid customer_id
         resp = client.post("/api/billing/portal", json={"customer_id": "cus_valid"})
         
@@ -70,7 +58,6 @@ def test_billing_portal_request_validation(client, monkeypatch):
             return_url="https://www.getbrikk.com/app/"
         )
 
-
 def test_billing_portal_missing_stripe_key(client, monkeypatch):
     """Test error handling when STRIPE_SECRET_KEY is missing."""
     # Remove the environment variable
@@ -82,3 +69,4 @@ def test_billing_portal_missing_stripe_key(client, monkeypatch):
     data = resp.get_json()
     assert "error" in data
     assert "missing" in data["error"].lower()
+

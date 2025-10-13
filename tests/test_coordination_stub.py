@@ -12,25 +12,6 @@ Tests the complete flow:
 import json
 import uuid
 import pytest
-from flask import Flask
-
-from src.routes.coordination import coordination_bp
-
-
-@pytest.fixture
-def app():
-    """Create Flask app with coordination blueprint for testing."""
-    app = Flask(__name__)
-    app.config['TESTING'] = True
-    app.register_blueprint(coordination_bp)
-    return app
-
-
-@pytest.fixture
-def client(app):
-    """Create test client."""
-    return app.test_client()
-
 
 @pytest.fixture
 def valid_headers():
@@ -394,3 +375,4 @@ class TestMessageTypes:
             assert response.status_code == 202, f"Failed for message type: {msg_type}"
             data = response.get_json()
             assert data['echo']['message_id'] == envelope['message_id']
+

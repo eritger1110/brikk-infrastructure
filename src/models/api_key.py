@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
-from src.database.db import db
+from src.database import db
 from src.services.crypto import generate_api_key, hash_api_key, verify_api_key
 
 

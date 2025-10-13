@@ -11,38 +11,10 @@ import pytest
 from flask import Flask
 from cryptography.fernet import Fernet
 
-from src.main import create_app
+from src.factory import create_app
 from src.models.api_key import ApiKey
 from src.models.org import Organization
-from src.database.db import db
-
-
-@pytest.fixture(scope="module")
-def app():
-    """Create a test app instance."""
-    # Generate a valid Fernet key for testing
-    test_key = Fernet.generate_key().decode()
-    os.environ["BRIKK_ENCRYPTION_KEY"] = test_key
-    os.environ["BRIKK_ALLOW_UUID4"] = "true"
-
-    app = create_app()
-    app.config.update({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "RATELIMIT_STORAGE_URI": "memory://",
-        "BRIKK_FEATURE_PER_ORG_KEYS": "true",
-        "BRIKK_IDEM_ENABLED": "true",
-    })
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.drop_all()
-
-
-@pytest.fixture
-def client(app):
-    """A test client for the app."""
-    return app.test_client()
+from src.database import db
 
 
 @pytest.fixture

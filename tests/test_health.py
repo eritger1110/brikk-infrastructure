@@ -71,13 +71,13 @@ class TestHealthEndpoint:
 class TestReadinessEndpoint:
     """Test /readyz endpoint functionality."""
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_endpoint_all_dependencies_healthy(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_endpoint_all_dependencies_healthy(self, mock_from_url, client):
         """Test readiness endpoint when all dependencies are healthy."""
         # Mock Redis connection success
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.return_value = True
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         response = client.get('/readyz')
         assert response.status_code == 200
@@ -89,13 +89,13 @@ class TestReadinessEndpoint:
         assert 'checks' in data
         assert data['checks']['redis'] is True
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_endpoint_redis_unhealthy(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_endpoint_redis_unhealthy(self, mock_from_url, client):
         """Test readiness endpoint when Redis is unhealthy."""
         # Mock Redis connection failure
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.side_effect = Exception("Connection failed")
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         response = client.get('/readyz')
         assert response.status_code == 503
@@ -107,13 +107,13 @@ class TestReadinessEndpoint:
         assert 'checks' in data
         assert data['checks']['redis'] is False
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_endpoint_redis_timeout(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_endpoint_redis_timeout(self, mock_from_url, client):
         """Test readiness endpoint when Redis times out."""
         # Mock Redis timeout
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.side_effect = TimeoutError("Redis timeout")
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         response = client.get('/readyz')
         assert response.status_code == 503
@@ -159,13 +159,13 @@ class TestReadinessEndpoint:
 class TestHealthVsReadiness:
     """Test differences between health and readiness endpoints."""
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_health_vs_readiness_when_redis_down(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_health_vs_readiness_when_redis_down(self, mock_from_url, client):
         """Test that health is always OK but readiness fails when Redis is down."""
         # Mock Redis failure
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.side_effect = Exception("Redis down")
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         # Health should always be OK
         health_response = client.get('/healthz')
@@ -268,13 +268,13 @@ class TestHealthEndpointPerformance:
         response_time = end_time - start_time
         assert response_time < 0.1
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_endpoint_reasonable_response_time(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_endpoint_reasonable_response_time(self, mock_from_url, client):
         """Test that readiness endpoint responds in reasonable time."""
         # Mock Redis with small delay
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.return_value = True
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         start_time = time.time()
         response = client.get('/readyz')
@@ -323,11 +323,11 @@ class TestHealthEndpointPerformance:
 class TestHealthEndpointErrorHandling:
     """Test health endpoint error handling."""
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_handles_redis_import_error(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_handles_redis_import_error(self, mock_from_url, client):
         """Test readiness endpoint handles Redis import errors gracefully."""
         # Mock Redis import failure
-        mock_redis.side_effect = ImportError("Redis not available")
+        mock_from_url.side_effect = ImportError("Redis not available")
         
         response = client.get('/readyz')
         assert response.status_code == 503
@@ -336,13 +336,13 @@ class TestHealthEndpointErrorHandling:
         assert data['status'] == 'not_ready'
         assert data['checks']['redis'] is False
     
-    @patch('src.services.metrics.redis.Redis')
-    def test_readiness_handles_unexpected_redis_errors(self, mock_redis, client):
+    @patch('redis.from_url')
+    def test_readiness_handles_unexpected_redis_errors(self, mock_from_url, client):
         """Test readiness endpoint handles unexpected Redis errors."""
         # Mock unexpected Redis error
         mock_redis_instance = MagicMock()
         mock_redis_instance.ping.side_effect = RuntimeError("Unexpected error")
-        mock_redis.return_value = mock_redis_instance
+        mock_from_url.return_value = mock_redis_instance
         
         response = client.get('/readyz')
         assert response.status_code == 503
@@ -363,3 +363,4 @@ class TestHealthEndpointErrorHandling:
 
 if __name__ == '__main__':
     pytest.main([__file__])
+

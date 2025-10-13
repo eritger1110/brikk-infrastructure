@@ -108,41 +108,7 @@ class TestBillingPortal:
             data = response.get_json()
             assert 'error' in data or 'message' in data
 
-    def test_portal_stripe_13_compatibility(self, client, monkeypatch):
-        """Test specific Stripe 13.x compatibility features."""
-        monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_dummy_key_for_testing")
-        
-        # Mock Stripe 13.x session with new attributes
-        class MockStripe13Session:
-            def __init__(self):
-                self.url = "https://billing.stripe.com/p/session_test_v13"
-                self.id = "bps_test_v13_12345"
-                self.customer = "cus_test_customer"
-                self.return_url = "https://example.com/return"
-                # Stripe 13.x specific attributes
-                self.configuration = "bpc_test_config"
-                self.on_behalf_of = None
-                self.flow = {"type": "payment_method_update"}
-        
-        with patch('stripe.billing_portal.Session.create') as mock_create:
-            mock_create.return_value = MockStripe13Session()
-            
-            response = client.post('/api/billing/portal', 
-                                 json={
-                                     'customer_id': 'cus_test_customer',
-                                     'return_url': 'https://example.com/custom-return'
-                                 })
-            
-            assert response.status_code == 200
-            data = response.get_json()
-            assert 'url' in data
-            assert data['url'].startswith('https://billing.stripe.com')
-            
-            # Verify Stripe 13.x parameters are handled
-            mock_create.assert_called_once()
-            call_args = mock_create.call_args[1]
-            assert 'customer' in call_args
-            assert 'return_url' in call_args
+    
 
     def test_portal_response_format(self, client, monkeypatch):
         """Test that billing portal response follows expected format."""

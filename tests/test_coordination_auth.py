@@ -16,7 +16,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-from src.main import create_app
+from src.factory import create_app
 from src.models.api_key import ApiKey
 from src.models.org import Organization
 from src.services.security_enhanced import HMACSecurityService
@@ -221,7 +221,7 @@ class TestCoordinationAuth:
             'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
             'BRIKK_IDEM_ENABLED': 'false'
         }):
-            # Create timestamp 400 seconds in the past (outside ±300s window)
+            # Create timestamp 400 seconds in the past (outside +/-300s window)
             old_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=400)).isoformat()
             
             body = json.dumps(valid_envelope).encode()

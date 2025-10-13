@@ -3,30 +3,14 @@ from flask import Flask
 from flask.testing import FlaskClient
 from datetime import datetime, timezone, timedelta
 
-from src.main import create_app, db
+from src.factory import create_app
+from src.database import db
 from src.models.user import User
 from src.models.org import Organization
 from src.models.agent import Agent
 from src.models.discovery import AgentService
 from src.services.jwt_service import JWTService
 from src.services.discovery_service import DiscoveryService
-
-@pytest.fixture(scope="function")
-def app() -> Flask:
-    app = create_app()
-    app.config.update({
-        "TESTING": True,
-        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "JWT_SECRET_KEY": "test-secret-key"
-    })
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.drop_all()
-
-@pytest.fixture()
-def client(app: Flask) -> FlaskClient:
-    return app.test_client()
 
 @pytest.fixture()
 def auth_headers(app: Flask) -> dict:

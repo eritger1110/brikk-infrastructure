@@ -5,7 +5,7 @@ These tests ensure the application can start and basic functionality works.
 
 import pytest
 import os
-from src.main import create_app
+from src.factory import create_app
 
 
 def test_app_creation():
@@ -69,7 +69,7 @@ def test_environment_variables():
 
 def test_database_url_normalization():
     """Test the database URL normalization function."""
-    from src.main import _normalize_db_url
+    from src.factory import _normalize_db_url
     
     # Test postgres:// to postgresql+psycopg:// conversion
     postgres_url = "postgres://user:pass@host:5432/db"

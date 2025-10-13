@@ -17,7 +17,7 @@ from enum import Enum
 import redis
 from flask import current_app
 from sqlalchemy import text, func
-from src.database.db import db
+from src.database import db
 from src.models.agent import Agent, Coordination
 from src.models.audit_log import AuditLog
 from src.services.structured_logging import get_logger

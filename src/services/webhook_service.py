@@ -16,7 +16,7 @@ from enum import Enum
 import requests
 from sqlalchemy.orm import Session
 
-from src.database.db import db
+from src.database import db
 from src.models.webhook import Webhook, WebhookEvent
 from src.services.structured_logging import get_logger
 

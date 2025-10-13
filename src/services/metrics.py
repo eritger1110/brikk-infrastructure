@@ -1,3 +1,4 @@
+
 """
 Prometheus metrics service for Brikk coordination API.
 
@@ -14,14 +15,15 @@ Metrics are exposed at /metrics endpoint when BRIKK_METRICS_ENABLED=true.
 import os
 import time
 from typing import Optional, Dict, Any
-from prometheus_client import Counter, Histogram, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST, REGISTRY
 from flask import Flask, Response, request, g
 
 
 class MetricsService:
     """Service for collecting and exposing Prometheus metrics."""
     
-    def __init__(self):
+    def __init__(self, registry=REGISTRY):
+        self.registry = registry
         self.enabled = self._get_feature_flag("BRIKK_METRICS_ENABLED", "true")
         
         if self.enabled:
@@ -38,52 +40,60 @@ class MetricsService:
         self.http_requests_total = Counter(
             'brikk_http_requests_total',
             'Total HTTP requests processed',
-            ['route', 'method', 'status']
+            ['route', 'method', 'status'],
+            registry=self.registry
         )
         
         self.http_request_duration_seconds = Histogram(
             'brikk_http_request_duration_seconds',
             'HTTP request duration in seconds',
             ['route', 'method'],
-            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+            registry=self.registry
         )
         
         self.http_errors_total = Counter(
             'brikk_http_errors_total',
             'Total HTTP errors by type',
-            ['route', 'kind']
+            ['route', 'kind'],
+            registry=self.registry
         )
         
         # Rate Limiting Metrics
         self.rate_limit_hits_total = Counter(
             'brikk_rate_limit_hits_total',
             'Total rate limit hits',
-            ['scope']
+            ['scope'],
+            registry=self.registry
         )
         
         # Idempotency Metrics
         self.idempotency_replays_total = Counter(
             'brikk_idempotency_replays_total',
-            'Total idempotent request replays'
+            'Total idempotent request replays',
+            registry=self.registry
         )
         
         # Infrastructure Metrics
         self.redis_up = Gauge(
             'brikk_redis_up',
-            'Redis connectivity status (1=up, 0=down)'
+            'Redis connectivity status (1=up, 0=down)',
+            registry=self.registry
         )
         
         # Feature Flag Metrics
         self.feature_flags = Gauge(
             'brikk_feature_flag',
             'Feature flag status (1=enabled, 0=disabled)',
-            ['flag']
+            ['flag'],
+            registry=self.registry
         )
         
         # Application Info
         self.app_info = Info(
             'brikk_app',
-            'Application information'
+            'Application information',
+            registry=self.registry
         )
         
         # Initialize app info
@@ -189,7 +199,7 @@ class MetricsService:
         self._update_feature_flag_metrics()
         self._update_redis_status()
         
-        return generate_latest()
+        return generate_latest(self.registry)
     
     def _update_redis_status(self):
         """Update Redis status by checking connectivity."""
@@ -434,3 +444,4 @@ def record_feature_flag(flag_name: str, enabled: bool):
     """Record feature flag usage."""
     # This is a placeholder - implement if needed
     pass
+
