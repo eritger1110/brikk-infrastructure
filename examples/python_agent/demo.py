@@ -26,8 +26,8 @@ def main():
             os.environ.setdefault("BRIKK_BASE_URL", "http://localhost:5000")
 
         client = BrikkClient()
-        print(f"'... Connected to: {client.base_url}")
-        print(f"'"' Agent ID: {client.api_key}")
+        print(f"... Connected to: {client.base_url}")
+        print(f"Agent ID: {client.api_key}")
 
         recipient = "demo-echo-agent"
         payload = {
@@ -45,21 +45,21 @@ def main():
                 "payload": payload,
                 "timestamp": int(time.time()),
             }
-            print("\n'"' Coordination envelope: ")
+            print("\nCoordination envelope: ")
             print(json.dumps(envelope, indent=2))
-            print("'... Demo envelope built successfully")
+            print("Demo envelope built successfully")
             return
 
-        print(f"\n'"' Sending echo job to: {recipient}")
-        print("'"' Payload: ", payload)
+        print(f"\nSending echo job to: {recipient}")
+        print("Payload: ", payload)
         response = client.send(recipient, payload)
 
-        print("\n'... Response received:")
-        print(f"'"' Status: {response.get('status', 'unknown')}")
-        print(f"'" Message ID: {response.get('message_id', 'N/A')}")
+        print("\nResponse received:")
+        print(f"Status: {response.get('status', 'unknown')}")
+        print(f"Message ID: {response.get('message_id', 'N/A')}")
 
         messages = client.poll()
-        print(f"\n'"' Polling result: {messages.get('status')}")
+        print(f"\nPolling result: {messages.get('status')}")
     except Exception as e:
         print(f"[CROSS] Error: {e}")
         sys.exit(1)
