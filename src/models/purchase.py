@@ -1,6 +1,6 @@
 # src/models/purchase.py
 import datetime as dt
-from src.database.db import db
+from src.database import db
 
 class Purchase(db.Model):
     __tablename__ = "purchases"

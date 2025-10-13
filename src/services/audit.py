@@ -2,7 +2,7 @@
 from typing import Any, Dict, Optional
 from flask import request, g, current_app
 
-from src.database.db import db
+from src.database import db
 from src.models.audit_log import AuditLog
 
 

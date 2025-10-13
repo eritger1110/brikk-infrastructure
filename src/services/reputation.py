@@ -4,7 +4,7 @@ Reputation Service
 Handles the calculation and updating of agent and organization reputation scores.
 """
 
-from src.database.db import db
+from src.database import db
 from src.models.economy import ReputationScore
 
 class ReputationService:

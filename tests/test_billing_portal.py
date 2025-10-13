@@ -10,6 +10,18 @@ import json
 from unittest.mock import patch, MagicMock
 import os
 
+from src.factory import create_app
+
+@pytest.fixture
+def app():
+    """Create and configure a new app instance for each test."""
+    app = create_app()
+    yield app
+
+@pytest.fixture
+def client(app):
+    """A test client for the app."""
+    return app.test_client()
 
 class TestBillingPortal:
     """Test cases for billing portal endpoint."""
@@ -200,47 +212,6 @@ class TestBillingPortal:
             assert call_args['return_url'].startswith('https://')
 
 
-@pytest.fixture
-def client():
-    """Create a test client for the Flask application."""
-    # Import here to avoid circular imports
-    try:
-        from src.main import app
-        app.config['TESTING'] = True
-        app.config['WTF_CSRF_ENABLED'] = False
-        
-        with app.test_client() as client:
-            with app.app_context():
-                yield client
-    except ImportError:
-        # If main app import fails, create a minimal test app
-        from flask import Flask, jsonify, request
-        
-        test_app = Flask(__name__)
-        test_app.config['TESTING'] = True
-        
-        @test_app.route('/api/billing/portal', methods=['POST'])
-        def mock_billing_portal():
-            """Mock billing portal endpoint for testing."""
-            data = request.get_json() or {}
-            
-            # Check for Stripe key
-            if not os.getenv('STRIPE_SECRET_KEY'):
-                return jsonify({'error': 'Stripe not configured'}), 501
-            
-            # Check for customer_id
-            if not data.get('customer_id'):
-                return jsonify({'error': 'customer_id required'}), 400
-            
-            # Mock successful response
-            return jsonify({
-                'url': 'https://billing.stripe.com/p/session_mock_12345'
-            }), 200
-        
-        with test_app.test_client() as client:
-            yield client
-
-
 class TestStripeImportCompatibility:
     """Test Stripe import and version compatibility."""
     
@@ -285,3 +256,4 @@ class TestStripeImportCompatibility:
 if __name__ == '__main__':
     """Run tests directly for development."""
     pytest.main([__file__, '-v'])
+

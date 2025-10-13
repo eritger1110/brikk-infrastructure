@@ -1,3 +1,4 @@
+
 """
 Test suite for health and readiness endpoints.
 
@@ -7,27 +8,6 @@ Tests health checks, dependency validation, and endpoint behavior.
 import pytest
 import time
 from unittest.mock import patch, MagicMock
-from flask import Flask
-
-from src.services.metrics import init_metrics
-
-
-@pytest.fixture
-def app():
-    """Create test Flask app."""
-    app = Flask(__name__)
-    app.config['TESTING'] = True
-    app.config['BRIKK_METRICS_ENABLED'] = 'true'
-    return app
-
-
-@pytest.fixture
-def client(app):
-    """Create test client."""
-    with app.app_context():
-        init_metrics(app)
-    return app.test_client()
-
 
 class TestHealthEndpoint:
     """Test /healthz endpoint functionality."""
@@ -71,7 +51,7 @@ class TestHealthEndpoint:
 class TestReadinessEndpoint:
     """Test /readyz endpoint functionality."""
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_endpoint_all_dependencies_healthy(self, mock_redis, client):
         """Test readiness endpoint when all dependencies are healthy."""
         # Mock Redis connection success
@@ -89,7 +69,7 @@ class TestReadinessEndpoint:
         assert 'checks' in data
         assert data['checks']['redis'] is True
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_endpoint_redis_unhealthy(self, mock_redis, client):
         """Test readiness endpoint when Redis is unhealthy."""
         # Mock Redis connection failure
@@ -107,7 +87,7 @@ class TestReadinessEndpoint:
         assert 'checks' in data
         assert data['checks']['redis'] is False
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_endpoint_redis_timeout(self, mock_redis, client):
         """Test readiness endpoint when Redis times out."""
         # Mock Redis timeout
@@ -122,8 +102,12 @@ class TestReadinessEndpoint:
         assert data['status'] == 'not_ready'
         assert data['checks']['redis'] is False
     
-    def test_readiness_endpoint_response_format(self, client):
+    @patch('src.services.rate_limit.redis')
+    def test_readiness_endpoint_response_format(self, mock_redis, client):
         """Test readiness endpoint response format."""
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.ping.return_value = True
+        mock_redis.return_value = mock_redis_instance
         response = client.get('/readyz')
         data = response.get_json()
         
@@ -159,7 +143,7 @@ class TestReadinessEndpoint:
 class TestHealthVsReadiness:
     """Test differences between health and readiness endpoints."""
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_health_vs_readiness_when_redis_down(self, mock_redis, client):
         """Test that health is always OK but readiness fails when Redis is down."""
         # Mock Redis failure
@@ -192,8 +176,12 @@ class TestHealthVsReadiness:
         expected_fields = {'status', 'service', 'timestamp'}
         assert set(data.keys()) == expected_fields
     
-    def test_readiness_has_dependency_checks(self, client):
+    @patch('src.services.rate_limit.redis')
+    def test_readiness_has_dependency_checks(self, mock_redis, client):
         """Test that readiness endpoint has dependency checks."""
+        mock_redis_instance = MagicMock()
+        mock_redis_instance.ping.return_value = True
+        mock_redis.return_value = mock_redis_instance
         response = client.get('/readyz')
         data = response.get_json()
         
@@ -210,37 +198,31 @@ class TestHealthEndpointIntegration:
     
     def test_health_endpoints_registered(self, app):
         """Test that health endpoints are properly registered."""
-        with app.app_context():
-            init_metrics(app)
-            
-            # Check that routes are registered
-            routes = [rule.rule for rule in app.url_map.iter_rules()]
-            assert '/healthz' in routes
-            assert '/readyz' in routes
+        # Check that routes are registered
+        routes = [rule.rule for rule in app.url_map.iter_rules()]
+        assert '/healthz' in routes
+        assert '/readyz' in routes
     
     def test_health_endpoints_methods(self, app):
         """Test that health endpoints support correct HTTP methods."""
-        with app.app_context():
-            init_metrics(app)
-            
-            # Find health endpoint rules
-            health_rule = None
-            readiness_rule = None
-            
-            for rule in app.url_map.iter_rules():
-                if rule.rule == '/healthz':
-                    health_rule = rule
-                elif rule.rule == '/readyz':
-                    readiness_rule = rule
-            
-            assert health_rule is not None
-            assert readiness_rule is not None
-            
-            # Check supported methods
-            assert 'GET' in health_rule.methods
-            assert 'HEAD' in health_rule.methods
-            assert 'GET' in readiness_rule.methods
-            assert 'HEAD' in readiness_rule.methods
+        # Find health endpoint rules
+        health_rule = None
+        readiness_rule = None
+        
+        for rule in app.url_map.iter_rules():
+            if rule.rule == '/healthz':
+                health_rule = rule
+            elif rule.rule == '/readyz':
+                readiness_rule = rule
+        
+        assert health_rule is not None
+        assert readiness_rule is not None
+        
+        # Check supported methods
+        assert 'GET' in health_rule.methods
+        assert 'HEAD' in health_rule.methods
+        assert 'GET' in readiness_rule.methods
+        assert 'HEAD' in readiness_rule.methods
     
     def test_health_endpoints_no_auth_required(self, client):
         """Test that health endpoints don't require authentication."""
@@ -268,7 +250,7 @@ class TestHealthEndpointPerformance:
         response_time = end_time - start_time
         assert response_time < 0.1
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_endpoint_reasonable_response_time(self, mock_redis, client):
         """Test that readiness endpoint responds in reasonable time."""
         # Mock Redis with small delay
@@ -323,7 +305,7 @@ class TestHealthEndpointPerformance:
 class TestHealthEndpointErrorHandling:
     """Test health endpoint error handling."""
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_handles_redis_import_error(self, mock_redis, client):
         """Test readiness endpoint handles Redis import errors gracefully."""
         # Mock Redis import failure
@@ -336,7 +318,7 @@ class TestHealthEndpointErrorHandling:
         assert data['status'] == 'not_ready'
         assert data['checks']['redis'] is False
     
-    @patch('src.services.metrics.redis.Redis')
+    @patch('src.services.rate_limit.redis')
     def test_readiness_handles_unexpected_redis_errors(self, mock_redis, client):
         """Test readiness endpoint handles unexpected Redis errors."""
         # Mock unexpected Redis error
@@ -363,3 +345,4 @@ class TestHealthEndpointErrorHandling:
 
 if __name__ == '__main__':
     pytest.main([__file__])
+

@@ -7,7 +7,7 @@ transactions, balance management, and double-entry accounting.
 
 import uuid
 from sqlalchemy.exc import IntegrityError
-from src.database.db import db
+from src.database import db
 from src.models.economy import OrgBalance, LedgerAccount, LedgerEntry, Transaction
 
 class EconomyService:

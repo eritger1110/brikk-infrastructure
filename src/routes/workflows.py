@@ -7,7 +7,7 @@ Provides API endpoints for managing multi-step coordination workflows.
 from flask import Blueprint, request, jsonify
 from src.services.workflow_service import WorkflowService
 from flask_jwt_extended import jwt_required, get_jwt
-from src.database import get_db
+from src.database import db
 
 workflows_bp = Blueprint("workflows", __name__)
 
@@ -17,7 +17,8 @@ def create_workflow():
     data = request.get_json()
     claims = get_jwt()
     organization_id = claims.get("organization_id")
-    db_session = next(get_db())
+    print(f"Creating workflow with name: {data.get('name')}, org_id: {organization_id}")
+    db_session = db.session
     workflow_service = WorkflowService(db_session)
     workflow = workflow_service.create_workflow(
         name=data["name"],
@@ -31,7 +32,7 @@ def create_workflow():
 def get_workflow(workflow_id):
     claims = get_jwt()
     organization_id = claims.get("organization_id")
-    db_session = next(get_db())
+    db_session = db.session
     workflow_service = WorkflowService(db_session)
     workflow = workflow_service.get_workflow(workflow_id)
     if not workflow or workflow.organization_id != organization_id:
@@ -44,7 +45,7 @@ def create_workflow_step(workflow_id):
     data = request.get_json()
     claims = get_jwt()
     organization_id = claims.get("organization_id")
-    db_session = next(get_db())
+    db_session = db.session
     workflow_service = WorkflowService(db_session)
     workflow = workflow_service.get_workflow(workflow_id)
     if not workflow or workflow.organization_id != organization_id:
@@ -67,7 +68,7 @@ def execute_workflow(workflow_id):
     data = request.get_json()
     claims = get_jwt()
     organization_id = claims.get("organization_id")
-    db_session = next(get_db())
+    db_session = db.session
     workflow_service = WorkflowService(db_session)
     workflow = workflow_service.get_workflow(workflow_id)
     if not workflow or workflow.organization_id != organization_id:

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from src.database.db import db
+from src.database import db
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Text
 

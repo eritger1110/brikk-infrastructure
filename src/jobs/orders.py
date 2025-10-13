@@ -22,7 +22,7 @@ except Exception:  # pragma: no cover
 # SQLAlchemy + Flask app (optional)
 try:
     from sqlalchemy import inspect, text  # type: ignore
-    from src.database.db import db  # type: ignore
+    from src.database import db  # type: ignore
 except Exception:  # pragma: no cover
     db = None          # type: ignore
     inspect = None     # type: ignore

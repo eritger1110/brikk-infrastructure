@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer
 from sqlalchemy.orm import relationship
-from src.database.db import db
+from src.database import db
 
 
 class Organization(db.Model):

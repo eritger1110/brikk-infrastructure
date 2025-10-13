@@ -11,10 +11,10 @@ import pytest
 from flask import Flask
 from cryptography.fernet import Fernet
 
-from src.main import create_app
+from src.factory import create_app
 from src.models.api_key import ApiKey
 from src.models.org import Organization
-from src.database.db import db
+from src.database import db
 
 
 @pytest.fixture(scope="module")

@@ -8,7 +8,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.database.db import db
+from src.database import db
 
 class Workflow(db.Model):
     __tablename__ = "workflows"

@@ -27,7 +27,7 @@ except Exception:
 try:
     from src.models.user import User  # type: ignore
     from src.models.purchase import Purchase  # type: ignore
-    from src.database.db import db  # type: ignore
+    from src.database import db  # type: ignore
     HAVE_MODELS = True
 except Exception:
     HAVE_MODELS = False

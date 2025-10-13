@@ -13,7 +13,7 @@ import jwt as pyjwt
 import bcrypt
 
 # '... Always import the shared db from database module
-from src.database.db import db
+from src.database import db
 from src.models.user import User
 from src.models.purchase import Purchase
 

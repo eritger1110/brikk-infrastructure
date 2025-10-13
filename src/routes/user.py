@@ -11,7 +11,7 @@ from flask_jwt_extended import (
     set_access_cookies,
     get_jwt,
 )
-from src.database.db import db
+from src.database import db
 from src.models.user import User
 
 user_bp = Blueprint("user", __name__, url_prefix="/api/user")

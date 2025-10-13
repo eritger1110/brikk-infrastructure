@@ -6,7 +6,7 @@ Provides standardized connectors for integrating with external APIs and services
 
 import os
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import requests
 from requests.auth import AuthBase
@@ -44,7 +44,7 @@ class ApiConnector:
         
     def _request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
         """Internal request handling method"""
-        url = f"{self.base_url.rstrip("/")}/{endpoint.lstrip("/")}"
+        url = self.base_url.rstrip("/") + "/" + endpoint.lstrip("/")
         try:
             response = self.session.request(method, url, **kwargs)
             response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)

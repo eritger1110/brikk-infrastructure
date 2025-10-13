@@ -4,7 +4,7 @@ Minimal smoke tests to verify basic app health and functionality.
 These tests ensure the application can start and respond to basic requests.
 """
 import pytest
-from src.main import create_app
+from src.factory import create_app
 
 
 @pytest.fixture

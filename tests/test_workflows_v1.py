@@ -1,11 +1,12 @@
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
-from src.main import create_app, db
+from src.factory import create_app
+from src.database import db
 from src.models.user import User
 from src.models.org import Organization
 from src.models.agent import Agent
-from src.services.jwt_service import JWTService
+from flask_jwt_extended import create_access_token, get_jwt
 
 @pytest.fixture(scope="function")
 def app() -> Flask:
@@ -31,13 +32,14 @@ def auth_headers(app: Flask) -> dict:
         db.session.add(org)
         db.session.commit()
 
-        user = User(email="test@example.com", password="password", organization_id=org.id)
+        user = User(email="test@example.com", username="testuser", org_id=org.id)
+        user.set_password("password")
         db.session.add(user)
         db.session.commit()
 
-        jwt_service = JWTService(app.config["JWT_SECRET_KEY"])
-        token = jwt_service.create_token(identity=user.id, claims={"organization_id": org.id})
-        return {"Authorization": f"Bearer {token}", "organization_id": org.id}
+        token = create_access_token(identity=str(user.id), additional_claims={"organization_id": org.id})
+        headers = {"Authorization": f"Bearer {token}"}
+        return headers
 
 
 def test_create_workflow(client: FlaskClient, auth_headers: dict):
@@ -71,7 +73,8 @@ def test_create_workflow_step(client: FlaskClient, auth_headers: dict):
         workflow_id = create_workflow_response.json["id"]
 
         # Then, create an agent
-        org_id = auth_headers["organization_id"]
+        claims = get_jwt()
+        org_id = claims.get("organization_id")
         agent = Agent(name="Test Agent", language="python", organization_id=org_id)
         db.session.add(agent)
         db.session.commit()

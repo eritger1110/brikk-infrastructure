@@ -17,7 +17,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 
-from src.main import create_app
+from src.factory import create_app
 from src.services.rate_limit import RateLimitService, RateLimitResult, get_rate_limiter, reset_rate_limiter
 
 

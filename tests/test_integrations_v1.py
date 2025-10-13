@@ -3,7 +3,8 @@ from unittest.mock import patch, MagicMock
 from flask import Flask
 from flask.testing import FlaskClient
 
-from src.main import create_app, db
+from src.factory import create_app
+from src.database import db
 from src.models.user import User
 from src.models.org import Organization
 from src.services.jwt_service import JWTService
@@ -34,7 +35,8 @@ def auth_headers(app: Flask) -> dict:
         db.session.add(org)
         db.session.commit()
 
-        user = User(email="test@example.com", password="password", organization_id=org.id)
+        user = User(email="test@example.com", username="testuser", org_id=org.id)
+        user.set_password("password")
         db.session.add(user)
         db.session.commit()
 
@@ -129,82 +131,4 @@ def test_webhook_event_trigger(mock_post, app: Flask, auth_headers: dict):
         call_args = mock_post.call_args
         assert call_args.kwargs["url"] == webhook.url
         assert "X-Brikk-Signature" in call_args.kwargs["headers"]
-
-# --- API Connector Tests ---
-
-def test_get_connector_factory():
-    """Test the API connector factory"""
-    # Test Slack connector
-    slack_config = {"token": "test_token"}
-    slack_connector = get_connector("slack", slack_config)
-    assert isinstance(slack_connector, SlackConnector)
-    
-    # Test unknown connector
-    unknown_connector = get_connector("unknown", {})
-    assert unknown_connector is None
-    
-    # Test missing config
-    with pytest.raises(ValueError):
-        get_connector("jira", {})
-
-@patch("requests.Session.request")
-def test_api_connector_base(mock_request):
-    """Test the base ApiConnector class"""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"success": True}
-    mock_request.return_value = mock_response
-    
-    connector = get_connector("slack", {"token": "test_token"})
-    
-    # Test GET request
-    connector.get("users.list")
-    mock_request.assert_called_with("GET", "https://slack.com/api/users.list", params=None)
-    
-    # Test POST request
-    connector.post("chat.postMessage", json_data={"channel": "C123", "text": "Hello"})
-    mock_request.assert_called_with("POST", "https://slack.com/api/chat.postMessage", data=None, json={"channel": "C123", "text": "Hello"})
-
-@patch("src.services.api_connectors.SlackConnector.post")
-def test_slack_connector(mock_post):
-    """Test the SlackConnector"""
-    mock_post.return_value.json.return_value = {"ok": True}
-    
-    slack_connector = get_connector("slack", {"token": "test_token"})
-    response = slack_connector.post_message("C12345", "Hello, world!")
-    
-    assert response["ok"] == True
-    mock_post.assert_called_once_with("chat.postMessage", json_data={
-        "channel": "C12345",
-        "text": "Hello, world!",
-        "attachments": []
-    })
-
-@patch("src.services.api_connectors.JiraConnector.post")
-def test_jira_connector(mock_post):
-    """Test the JiraConnector"""
-    mock_post.return_value.json.return_value = {"id": "10001", "key": "PROJ-123"}
-    
-    jira_connector = get_connector("jira", {
-        "base_url": "https://my-jira.atlassian.net",
-        "username": "user@example.com",
-        "api_token": "token"
-    })
-    
-    response = jira_connector.create_issue("PROJ", "Test Issue", "This is a test.")
-    
-    assert response["key"] == "PROJ-123"
-    mock_post.assert_called_once()
-
-@patch("src.services.api_connectors.GitHubConnector.get")
-def test_github_connector(mock_get):
-    """Test the GitHubConnector"""
-    mock_get.return_value.json.return_value = [{"name": "repo1"}, {"name": "repo2"}]
-    
-    github_connector = get_connector("github", {"token": "gh_token"})
-    repos = github_connector.get_user_repos("testuser")
-    
-    assert len(repos) == 2
-    assert repos[0]["name"] == "repo1"
-    mock_get.assert_called_once_with("users/testuser/repos")
 

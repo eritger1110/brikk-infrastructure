@@ -10,7 +10,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.database.db import db
+from src.database import db
 
 class OrgBalance(db.Model):
     __tablename__ = "org_balances"

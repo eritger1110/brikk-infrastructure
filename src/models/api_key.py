@@ -1,44 +1,51 @@
-# src/models/api_key.py
 """
 API Key model for secure per-org/per-agent authentication in Brikk infrastructure.
-Uses PBKDF2 hashing for secure, non-reversible API key storage.
+Uses Fernet encryption for secure, reversible API key storage.
 """
 from __future__ import annotations
 
+import os
 import secrets
 from datetime import datetime, timedelta
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
+from cryptography.fernet import Fernet
 
-from src.database.db import db
-from src.services.crypto import generate_api_key, hash_api_key, verify_api_key
+from src.database import db
+
+
+def get_fernet():
+    """Get Fernet instance from environment key."""
+    encryption_key = os.environ.get("BRIKK_ENCRYPTION_KEY")
+    if not encryption_key:
+        raise ValueError("BRIKK_ENCRYPTION_KEY environment variable not set.")
+    return Fernet(encryption_key.encode())
 
 
 class ApiKey(db.Model):
-    """API Key model for secure authentication with PBKDF2 hashing."""
+    """API Key model for secure authentication with Fernet encryption."""
     __tablename__ = "api_keys"
 
     # Identity
     id = Column(Integer, primary_key=True)
-    key_id = Column(String(64), unique=True, nullable=False, index=True)      # public identifier
-    key_prefix = Column(String(16), nullable=False, index=True)               # first 16 chars
+    key_id = Column(String(64), unique=True, nullable=False, index=True)
+    key_prefix = Column(String(16), nullable=False, index=True)
 
     # Ownership / scope
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     organization = relationship("Organization", back_populates="api_keys")
 
-    # IMPORTANT: match Agent.id = String(36)
     agent_id = Column(String(36), ForeignKey("agents.id"), nullable=True, index=True)
     agent = relationship("Agent", back_populates="api_keys")
 
-    # Secret storage - PBKDF2 hash only (no reversible encryption)
-    api_key_hash = Column(Text, nullable=False)                               # PBKDF2 hash of API key
+    # Secret storage - Fernet encrypted
+    api_key_encrypted = Column(Text, nullable=False)
 
     # Metadata
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    scopes = Column(Text)                                                     # optional JSON-encoded list
+    scopes = Column(Text)
 
     # Lifecycle / status
     is_active = Column(Boolean, default=True, nullable=False)
@@ -52,14 +59,12 @@ class ApiKey(db.Model):
     failed_requests = Column(Integer, default=0, nullable=False)
     last_failure_at = Column(DateTime)
 
-    # Basic per-key rate hints (does not enforce; limiter uses Redis)
+    # Basic per-key rate hints
     requests_per_minute = Column(Integer, default=100, nullable=False)
     requests_per_hour = Column(Integer, default=1000, nullable=False)
 
-    def __repr__(self) -> str:  # pragma: no cover
+    def __repr__(self) -> str:
         return f"<ApiKey {self.key_prefix}*** ({self.name})>"
-
-    # ---- Factory / crypto helpers -------------------------------------------------
 
     @classmethod
     def create_api_key(
@@ -71,13 +76,10 @@ class ApiKey(db.Model):
         expires_days: int | None = None,
     ) -> tuple["ApiKey", str]:
         """Create and persist a new API key. Returns (ApiKey, PLAINTEXT_API_KEY)."""
-        # Generate the API key
-        api_key = generate_api_key()
-        
-        # Hash the API key using PBKDF2
-        api_key_hashed = hash_api_key(api_key)
-        
-        # Create key_id and prefix
+        fernet = get_fernet()
+        api_key = f"brikk_{secrets.token_urlsafe(32)}"
+        api_key_encrypted = fernet.encrypt(api_key.encode()).decode()
+
         key_id = f"bk_{secrets.token_urlsafe(16)}"
         key_prefix = key_id[:16]
 
@@ -88,7 +90,7 @@ class ApiKey(db.Model):
             key_prefix=key_prefix,
             organization_id=organization_id,
             agent_id=agent_id,
-            api_key_hash=api_key_hashed,
+            api_key_encrypted=api_key_encrypted,
             name=name,
             description=description,
             expires_at=expires_at,
@@ -97,11 +99,20 @@ class ApiKey(db.Model):
         db.session.commit()
         return rec, api_key
 
-    def verify_api_key(self, provided_api_key: str) -> bool:
-        """Verify a provided API key against the stored hash."""
-        return verify_api_key(provided_api_key, self.api_key_hash)
+    def decrypt_secret(self) -> str:
+        """Decrypt the stored API key secret."""
+        fernet = get_fernet()
+        return fernet.decrypt(self.api_key_encrypted.encode()).decode()
 
-    # ---- Convenience ----------------------------------------------------------------
+    def rotate_secret(self) -> str:
+        """Generate a new secret, encrypt it, and update the record."""
+        fernet = get_fernet()
+        new_secret = f"brikk_{secrets.token_urlsafe(32)}"
+        self.api_key_encrypted = fernet.encrypt(new_secret.encode()).decode()
+        self.updated_at = datetime.utcnow()
+        db.session.add(self)
+        db.session.commit()
+        return new_secret
 
     def is_valid(self) -> bool:
         if not self.is_active:
@@ -151,12 +162,9 @@ class ApiKey(db.Model):
             "requests_per_hour": self.requests_per_hour,
             "is_valid": self.is_valid(),
         }
-        # Note: API keys are hashed and cannot be retrieved
         if include_secret:
-            data["note"] = "API key is hashed and cannot be retrieved"
+            data["note"] = "API key is encrypted and cannot be retrieved without the key."
         return data
-
-    # ---- Queries --------------------------------------------------------------------
 
     @classmethod
     def get_by_key_id(cls, key_id: str) -> "ApiKey | None":
@@ -172,12 +180,13 @@ class ApiKey(db.Model):
     @classmethod
     def authenticate_api_key(cls, provided_api_key: str) -> "ApiKey | None":
         """Authenticate an API key and return the ApiKey record if valid."""
-        # Extract key_id from the API key if it has the brikk_ prefix
-        if provided_api_key.startswith('brikk_'):
-            # For now, we'll need to check all active keys since we can't reverse the hash
-            # In production, you might want to add an index or use a different approach
-            active_keys = cls.query.filter_by(is_active=True).all()
-            for api_key_record in active_keys:
-                if api_key_record.verify_api_key(provided_api_key) and api_key_record.is_valid():
+        active_keys = cls.query.filter_by(is_active=True).all()
+        for api_key_record in active_keys:
+            try:
+                decrypted_secret = api_key_record.decrypt_secret()
+                if secrets.compare_digest(provided_api_key, decrypted_secret) and api_key_record.is_valid():
                     return api_key_record
+            except Exception:
+                continue
         return None
+

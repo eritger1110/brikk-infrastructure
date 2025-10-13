@@ -371,8 +371,11 @@ class CoordinationAuthService:
         rate_limiter = get_rate_limiter()
         
         # Get scope key based on auth context
-        organization_id = getattr(g, 'auth_context', {}).get('organization_id')
-        api_key_id = getattr(g, 'auth_context', {}).get('key_id')
+        auth_context = getattr(g, 'auth_context', {})
+        if auth_context is None:
+            auth_context = {}
+        organization_id = auth_context.get('organization_id')
+        api_key_id = auth_context.get('key_id')
         
         scope_key = rate_limiter.get_scope_key(organization_id, api_key_id)
         

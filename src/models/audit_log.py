@@ -7,7 +7,7 @@ from sqlalchemy import Column, String, DateTime
 from sqlalchemy.types import JSON as SA_JSON  # generic JSON that works on SQLite & Postgres
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Text
-from src.database.db import db
+from src.database import db
 
 
 class AuditLog(db.Model):

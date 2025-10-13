@@ -1,4 +1,4 @@
-"""
+'''
 Test suite for coordination endpoint authentication and idempotency.
 
 Tests the full security layer integration including:
@@ -7,7 +7,7 @@ Tests the full security layer integration including:
 - Redis idempotency
 - Feature flag behavior
 - Error handling
-"""
+'''
 
 import os
 import json
@@ -16,7 +16,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-from src.main import create_app
+from src.factory import create_app
 from src.models.api_key import ApiKey
 from src.models.org import Organization
 from src.services.security_enhanced import HMACSecurityService
@@ -32,7 +32,8 @@ class TestCoordinationAuth:
         app = create_app()
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
-        return app
+        with app.app_context():
+            yield app
     
     @pytest.fixture
     def client(self, app):
@@ -56,7 +57,7 @@ class TestCoordinationAuth:
     @pytest.fixture
     def mock_api_key(self):
         """Create mock API key."""
-        api_key = MagicMock(spec=ApiKey)
+        api_key = MagicMock()
         api_key.key_id = "test-key-id"
         api_key.organization_id = "test-org-id"
         api_key.agent_id = "test-agent-id"
@@ -287,7 +288,7 @@ class TestCoordinationAuth:
         mock_query.filter_by.return_value.first.return_value = mock_api_key
         
         # Mock idempotency service to return conflict
-        mock_idempotency.return_value = (False, None, 409)
+        mock_idempotency.return_value = (False, {'code': 'idempotency_conflict', 'message': 'Idempotency key conflicts with previous request'}, 409)
         
         with patch.dict(os.environ, {
             'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
@@ -414,10 +415,10 @@ class TestCoordinationAuth:
                 'POST', '/api/v1/coordination', body, 'test-secret-key',
                 valid_envelope['message_id']
             )
-            headers['Idempotency-Key'] = 'custom-idem-key-123'
+            headers['Idempotency-Key'] = 'custom-idempotency-key'
             
-            with patch('src.services.idempotency.IdempotencyService.process_request_idempotency') as mock_idem:
-                mock_idem.return_value = (True, None, None)  # Should process
+            with patch.object(IdempotencyService, 'process_request_idempotency') as mock_process:
+                mock_process.return_value = (True, None, None)
                 
                 response = client.post(
                     '/api/v1/coordination',
@@ -428,38 +429,7 @@ class TestCoordinationAuth:
                 assert response.status_code == 202
                 
                 # Verify idempotency service was called with custom key
-                mock_idem.assert_called_once()
-                call_args = mock_idem.call_args[1]
-                assert call_args['custom_idempotency_key'] == 'custom-idem-key-123'
+                mock_process.assert_called_once()
+                call_args = mock_process.call_args[0]
+                assert call_args[2] == 'custom-idempotency-key'
 
-
-class TestCoordinationAuthIntegration:
-    """Integration tests for coordination authentication."""
-    
-    @pytest.fixture
-    def app(self):
-        """Create test Flask app with database."""
-        app = create_app()
-        app.config['TESTING'] = True
-        app.config['WTF_CSRF_ENABLED'] = False
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        return app
-    
-    @pytest.fixture
-    def client(self, app):
-        """Create test client with database setup."""
-        with app.app_context():
-            from src.models import db
-            db.create_all()
-            yield app.test_client()
-            db.drop_all()
-    
-    def test_full_authentication_flow(self, client):
-        """Test complete authentication flow with real database."""
-        # This would require setting up real database records
-        # For now, we'll skip this test in the basic implementation
-        pytest.skip("Integration test requires full database setup")
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])

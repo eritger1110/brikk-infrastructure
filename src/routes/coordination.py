@@ -19,7 +19,7 @@ from src.services.request_guards import apply_request_guards_to_blueprint
 from src.services.security_headers import apply_security_headers_to_blueprint
 from src.schemas.envelope import Envelope
 from src.services.structured_logging import get_logger, log_auth_success, log_auth_failure, log_rate_limit_hit, log_idempotency_replay
-from src.services.metrics import record_rate_limit_hit, record_idempotency_replay
+from src.services.metrics import get_metrics_service
 from src.services.request_context import set_auth_context
 
 
@@ -196,7 +196,7 @@ def coordination_endpoint():
                 remaining=rate_limit_result.remaining,
                 request_id=request_id
             )
-            record_rate_limit_hit(scope)
+            get_metrics_service().record_rate_limit_hit(scope)
             logger.log_rate_limit_event(scope=scope, limit_exceeded=True,
                                       limit=rate_limit_result.limit,
                                       remaining=rate_limit_result.remaining,
@@ -222,7 +222,7 @@ def coordination_endpoint():
                 # Log idempotency replay
                 idempotency_key = request.headers.get('Idempotency-Key', body_hash[:16])
                 log_idempotency_replay(idempotency_key=idempotency_key, request_id=request_id)
-                record_idempotency_replay()
+                get_metrics_service().record_idempotency_replay()
                 logger.log_idempotency_event('replay', idempotency_key=idempotency_key,
                                            request_id=request_id, status_code=idem_status)
                 return jsonify(idem_response), idem_status

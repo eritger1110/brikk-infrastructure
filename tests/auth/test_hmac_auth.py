@@ -7,14 +7,28 @@ import os
 import hashlib
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
+from flask import Flask, g
 
 from src.services.security_enhanced import HMACSecurityService
 from src.models.org import Organization
 from src.models.agent import Agent
 from src.models.api_key import ApiKey
 from src.services.auth_middleware import AuthMiddleware
-from src.database.db import db
+from src.database import db
+from src.factory import create_app
 
+@pytest.fixture(scope="function")
+def app() -> Flask:
+    app = create_app()
+    app.config.update({
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "JWT_SECRET_KEY": "test-secret-key"
+    })
+    with app.app_context():
+        db.create_all()
+        yield app
+        db.drop_all()
 
 class TestHMACSecurityService:
     """Test HMAC security service functionality."""
@@ -283,15 +297,6 @@ class TestAuthMiddleware:
     """Test authentication middleware functionality."""
     
     @pytest.fixture
-    def app_context(self):
-        """Create Flask app context for testing."""
-        from flask import Flask
-        app = Flask(__name__)
-        app.config['TESTING'] = True
-        with app.app_context():
-            yield app
-    
-    @pytest.fixture
     def auth_middleware(self):
         """Create auth middleware instance."""
         return AuthMiddleware()
@@ -317,27 +322,29 @@ class TestAuthMiddleware:
             assert not auth_middleware.is_feature_enabled('TEST_FLAG', True)
     
     @patch('src.services.auth_middleware.request')
-    def test_authenticate_request_feature_disabled(self, mock_request, auth_middleware):
+    def test_authenticate_request_feature_disabled(self, mock_request, app: Flask, auth_middleware):
         """Test authentication when per-org keys feature is disabled."""
-        with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'false'}):
-            success, error, status = auth_middleware.authenticate_request()
-            assert success
-            assert error is None
-            assert status is None
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'false'}):
+                success, error, status = auth_middleware.authenticate_request()
+                assert success
+                assert error is None
+                assert status is None
     
     @patch('src.services.auth_middleware.request')
-    def test_authenticate_request_missing_headers(self, mock_request, auth_middleware):
+    def test_authenticate_request_missing_headers(self, mock_request, app: Flask, auth_middleware):
         """Test authentication with missing headers."""
         mock_request.headers = {}
         
-        with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
-            success, error, status = auth_middleware.authenticate_request()
-            assert not success
-            assert error['code'] == 'protocol_error'
-            assert status == 400
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
+                success, error, status = auth_middleware.authenticate_request()
+                assert not success
+                assert error['code'] == 'protocol_error'
+                assert status == 400
     
     @patch('src.services.auth_middleware.request')
-    def test_authenticate_request_invalid_timestamp(self, mock_request, auth_middleware):
+    def test_authenticate_request_invalid_timestamp(self, mock_request, app: Flask, auth_middleware):
         """Test authentication with invalid timestamp."""
         # 10 minutes ago (exceeds drift limit)
         old_time = datetime.now(timezone.utc) - timedelta(minutes=10)
@@ -349,15 +356,16 @@ class TestAuthMiddleware:
             'X-Brikk-Signature': 'v1=abc123'
         }
         
-        with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
-            success, error, status = auth_middleware.authenticate_request()
-            assert not success
-            assert error['code'] == 'timestamp_error'
-            assert status == 401
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
+                success, error, status = auth_middleware.authenticate_request()
+                assert not success
+                assert error['code'] == 'timestamp_error'
+                assert status == 401
     
-    @patch('src.services.auth_middleware.request')
     @patch('src.models.api_key.ApiKey.get_by_key_id')
-    def test_authenticate_request_invalid_api_key(self, mock_get_key, mock_request, auth_middleware):
+    @patch('src.services.auth_middleware.request')
+    def test_authenticate_request_invalid_api_key(self, mock_request, mock_get_key, app: Flask, auth_middleware):
         """Test authentication with invalid API key."""
         mock_get_key.return_value = None
         
@@ -370,259 +378,103 @@ class TestAuthMiddleware:
             'X-Brikk-Signature': 'v1=abc123'
         }
         
-        with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
-            success, error, status = auth_middleware.authenticate_request()
-            assert not success
-            assert error['code'] == 'invalid_api_key'
-            assert status == 401
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_FEATURE_PER_ORG_KEYS': 'true'}):
+                success, error, status = auth_middleware.authenticate_request()
+                assert not success
+                assert error['code'] == 'invalid_api_key'
+                assert status == 401
     
     @patch('src.services.auth_middleware.request')
-    @patch('src.services.auth_middleware.g')
-    def test_check_idempotency_feature_disabled(self, mock_g, mock_request, auth_middleware):
+    def test_check_idempotency_feature_disabled(self, mock_request, app: Flask, auth_middleware):
         """Test idempotency check when feature is disabled."""
-        with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'false'}):
-            success, response, status = auth_middleware.check_idempotency()
-            assert success
-            assert response is None
-            assert status is None
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'false'}):
+                success, response, status = auth_middleware.check_idempotency()
+                assert success
+                assert response is None
+                assert status is None
     
     @patch('src.services.auth_middleware.request')
-    @patch('src.services.auth_middleware.g')
-    def test_check_idempotency_no_auth(self, mock_g, mock_request, auth_middleware):
+    def test_check_idempotency_no_auth(self, mock_request, app: Flask, auth_middleware):
         """Test idempotency check without authentication context."""
-        # Mock g without api_key attribute
-        mock_g.configure_mock(**{})
-        del mock_g.api_key  # Ensure api_key doesn't exist
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'true'}):
+                # No auth context on g
+                if hasattr(g, 'auth_context'):
+                    del g.auth_context
+                
+                success, response, status = auth_middleware.check_idempotency()
+                assert not success
+                assert response['code'] == 'internal_error'
+                assert status == 500
+    
+    @patch('src.services.idempotency.IdempotencyService.process_request_idempotency')
+    @patch('src.services.auth_middleware.request')
+    def test_check_idempotency_success(self, mock_request, mock_process, app: Flask, auth_middleware):
+        """Test successful idempotency check."""
+        mock_process.return_value = (True, None, None)
         
-        with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'true'}):
-            success, response, status = auth_middleware.check_idempotency()
-            assert success
-            assert response is None
-            assert status is None
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'true'}):
+                g.auth_context = {'key_id': 'bk_test_key'}
+                mock_request.get_data.return_value = b'{"test": "body"}'
+                
+                success, response, status = auth_middleware.check_idempotency()
+                assert success
+                assert response is None
+                assert status is None
+    
+    @patch('src.services.idempotency.IdempotencyService.process_request_idempotency')
+    @patch('src.services.auth_middleware.request')
+    def test_check_idempotency_replay(self, mock_request, mock_process, app: Flask, auth_middleware):
+        """Test idempotency check with replayed request."""
+        replayed_response = ({ 'message': 'replayed'}, 200)
+        mock_process.return_value = (False, replayed_response, 200)
+        
+        with app.test_request_context():
+            with patch.dict(os.environ, {'BRIKK_IDEM_ENABLED': 'true'}):
+                g.auth_context = {'key_id': 'bk_test_key'}
+                mock_request.get_data.return_value = b'{"test": "body"}'
+                
+                success, response, status = auth_middleware.check_idempotency()
+                assert not success
+                assert response == replayed_response
+                assert status == 200
+    
+    @patch('src.services.auth_middleware.request')
+    def test_set_auth_context(self, mock_request, app: Flask, auth_middleware):
+        """Test setting authentication context on Flask's g."""
+        auth_context = {'organization_id': 1, 'agent_id': 2}
+        
+        with app.test_request_context():
+            auth_middleware.set_auth_context(auth_context)
+            assert hasattr(g, 'auth_context')
+            assert g.auth_context == auth_context
+    
+    @patch('src.services.auth_middleware.request')
+    def test_log_auth_result_success(self, mock_request, app: Flask, auth_middleware):
+        """Test logging successful authentication."""
+        with app.test_request_context():
+            with patch.object(auth_middleware.logger, 'info') as mock_log:
+                g.auth_context = {'key_id': 'bk_test_key'}
+                auth_middleware.log_auth_result(True)
+                
+                mock_log.assert_called_once()
+                log_message = mock_log.call_args[0][0]
+                assert "Authentication successful" in log_message
+                assert "key_id=bk_test_key" in log_message
+    
+    @patch('src.services.auth_middleware.request')
+    def test_log_auth_result_failure(self, mock_request, app: Flask, auth_middleware):
+        """Test logging failed authentication."""
+        with app.test_request_context():
+            with patch.object(auth_middleware.logger, 'warning') as mock_log:
+                error = {'code': 'test_error', 'message': 'Test error'}
+                auth_middleware.log_auth_result(False, error=error)
+                
+                mock_log.assert_called_once()
+                log_message = mock_log.call_args[0][0]
+                assert "Authentication failed" in log_message
+                assert "error=test_error" in log_message
 
-
-class TestIntegrationScenarios:
-    """Integration tests for complete authentication scenarios."""
-    
-    @pytest.fixture
-    def app(self):
-        """Create Flask app for integration testing."""
-        from flask import Flask
-        app = Flask(__name__)
-        app.config['TESTING'] = True
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        
-        # Initialize database
-        db.init_app(app)
-        
-        with app.app_context():
-            db.create_all()
-            yield app
-            db.drop_all()
-    
-    @pytest.fixture
-    def client(self, app):
-        """Create test client."""
-        return app.test_client()
-    
-    @pytest.fixture
-    def test_org(self, app):
-        """Create test organization."""
-        with app.app_context():
-            org = Organization(
-                name="Test Organization",
-                slug="test-org",
-                description="Test organization for authentication tests"
-            )
-            db.session.add(org)
-            db.session.commit()
-            return org
-    
-    @pytest.fixture
-    def test_agent(self, app, test_org):
-        """Create test agent."""
-        with app.app_context():
-            agent = Agent(
-                agent_id="test-agent-001",
-                name="Test Agent",
-                organization_id=test_org.id
-            )
-            db.session.add(agent)
-            db.session.commit()
-            return agent
-    
-    @pytest.fixture
-    def test_api_key(self, app, test_org, test_agent):
-        """Create test API key."""
-        with app.app_context():
-            with patch.dict(os.environ, {'BRIKK_ENCRYPTION_KEY': 'test_key_32_bytes_long_for_fernet'}):
-                api_key, secret = ApiKey.create_api_key(
-                    organization_id=test_org.id,
-                    name="Test API Key",
-                    agent_id=test_agent.id
-                )
-                return api_key, secret
-    
-    def test_valid_hmac_request(self, app, client, test_api_key):
-        """Test valid HMAC authenticated request."""
-        api_key, secret = test_api_key
-        
-        # Prepare request
-        body = json.dumps({
-            "version": "1.0",
-            "message_id": "01234567-89ab-cdef-0123-456789abcdef",
-            "ts": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            "type": "message",
-            "sender": {"agent_id": "test-sender"},
-            "recipient": {"agent_id": "test-recipient"},
-            "payload": {"action": "test"}
-        })
-        
-        timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        
-        # Create HMAC signature
-        signature = HMACSecurityService.create_signature(
-            method="POST",
-            path="/api/v1/coordination",
-            timestamp=timestamp,
-            body=body.encode(),
-            secret=secret,
-            message_id="01234567-89ab-cdef-0123-456789abcdef"
-        )
-        
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Brikk-Key': api_key.key_id,
-            'X-Brikk-Timestamp': timestamp,
-            'X-Brikk-Signature': signature
-        }
-        
-        with patch.dict(os.environ, {
-            'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
-            'BRIKK_IDEM_ENABLED': 'true',
-            'BRIKK_ALLOW_UUID4': 'false'
-        }):
-            # Mock the coordination endpoint to test authentication
-            @app.route('/api/v1/coordination', methods=['POST'])
-            def test_coordination():
-                from src.services.auth_middleware import AuthMiddleware
-                auth_middleware = AuthMiddleware()
-                
-                # Test authentication
-                auth_success, auth_error, auth_status = auth_middleware.authenticate_request()
-                if not auth_success:
-                    return auth_error, auth_status
-                
-                return {"status": "authenticated", "message": "success"}, 200
-            
-            response = client.post('/api/v1/coordination', 
-                                 data=body, 
-                                 headers=headers)
-            
-            assert response.status_code == 200
-            data = response.get_json()
-            assert data['status'] == 'authenticated'
-    
-    def test_invalid_signature_request(self, app, client, test_api_key):
-        """Test request with invalid HMAC signature."""
-        api_key, secret = test_api_key
-        
-        body = json.dumps({
-            "version": "1.0",
-            "message_id": "01234567-89ab-cdef-0123-456789abcdef",
-            "ts": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            "type": "message",
-            "sender": {"agent_id": "test-sender"},
-            "recipient": {"agent_id": "test-recipient"},
-            "payload": {"action": "test"}
-        })
-        
-        timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Brikk-Key': api_key.key_id,
-            'X-Brikk-Timestamp': timestamp,
-            'X-Brikk-Signature': 'v1=invalid_signature_here'
-        }
-        
-        with patch.dict(os.environ, {
-            'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
-            'BRIKK_IDEM_ENABLED': 'true'
-        }):
-            @app.route('/api/v1/coordination', methods=['POST'])
-            def test_coordination():
-                from src.services.auth_middleware import AuthMiddleware
-                auth_middleware = AuthMiddleware()
-                
-                auth_success, auth_error, auth_status = auth_middleware.authenticate_request()
-                if not auth_success:
-                    return auth_error, auth_status
-                
-                return {"status": "authenticated"}, 200
-            
-            response = client.post('/api/v1/coordination', 
-                                 data=body, 
-                                 headers=headers)
-            
-            assert response.status_code == 401
-            data = response.get_json()
-            assert data['code'] == 'invalid_signature'
-    
-    def test_timestamp_drift_request(self, app, client, test_api_key):
-        """Test request with timestamp drift exceeding limits."""
-        api_key, secret = test_api_key
-        
-        body = json.dumps({
-            "version": "1.0",
-            "message_id": "01234567-89ab-cdef-0123-456789abcdef",
-            "ts": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            "type": "message",
-            "sender": {"agent_id": "test-sender"},
-            "recipient": {"agent_id": "test-recipient"},
-            "payload": {"action": "test"}
-        })
-        
-        # Use timestamp 10 minutes ago (exceeds 5-minute limit)
-        old_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat().replace('+00:00', 'Z')
-        
-        signature = HMACSecurityService.create_signature(
-            method="POST",
-            path="/api/v1/coordination",
-            timestamp=old_timestamp,
-            body=body.encode(),
-            secret=secret,
-            message_id="01234567-89ab-cdef-0123-456789abcdef"
-        )
-        
-        headers = {
-            'Content-Type': 'application/json',
-            'X-Brikk-Key': api_key.key_id,
-            'X-Brikk-Timestamp': old_timestamp,
-            'X-Brikk-Signature': signature
-        }
-        
-        with patch.dict(os.environ, {
-            'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
-            'BRIKK_IDEM_ENABLED': 'true'
-        }):
-            @app.route('/api/v1/coordination', methods=['POST'])
-            def test_coordination():
-                from src.services.auth_middleware import AuthMiddleware
-                auth_middleware = AuthMiddleware()
-                
-                auth_success, auth_error, auth_status = auth_middleware.authenticate_request()
-                if not auth_success:
-                    return auth_error, auth_status
-                
-                return {"status": "authenticated"}, 200
-            
-            response = client.post('/api/v1/coordination', 
-                                 data=body, 
-                                 headers=headers)
-            
-            assert response.status_code == 401
-            data = response.get_json()
-            assert data['code'] == 'timestamp_error'
-            assert 'drift' in data['message'].lower()

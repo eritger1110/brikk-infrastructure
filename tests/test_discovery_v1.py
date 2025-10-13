@@ -3,7 +3,8 @@ from flask import Flask
 from flask.testing import FlaskClient
 from datetime import datetime, timezone, timedelta
 
-from src.main import create_app, db
+from src.factory import create_app
+from src.database import db
 from src.models.user import User
 from src.models.org import Organization
 from src.models.agent import Agent

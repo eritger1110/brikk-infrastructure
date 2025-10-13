@@ -107,7 +107,7 @@ def _iso(dt):
 
 def _imports_common():
     """Only what both handlers need (no schema)."""
-    from src.database.db import db
+    from src.database import db
     from src.models.agent import Agent
     from src.services.security import require_auth, require_perm, redact_dict
     from src.services.audit import log_action
@@ -209,7 +209,7 @@ def list_agents():
 @limiter.limit("10 per minute", exempt_when=is_admin)
 def create_agent():
     """Create a new agent with one-time API key generation"""
-    from src.database.db import db
+    from src.database import db
     from src.services.crypto import generate_and_hash_api_key
     from src.services.audit import log_agent_created
     

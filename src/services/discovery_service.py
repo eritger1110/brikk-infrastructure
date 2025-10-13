@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any
 
 from sqlalchemy.orm import Session
 
-from src.database.db import db
+from src.database import db
 from src.models.agent import Agent
 from src.models.discovery import AgentService, AgentCapability
 from src.services.structured_logging import get_logger

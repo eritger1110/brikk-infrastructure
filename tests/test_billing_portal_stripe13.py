@@ -7,13 +7,19 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.main import app as flask_app
+from src.factory import create_app
 
 
 @pytest.fixture(scope="function")
-def client():
+def app():
+    """Create and configure a new app instance for each test."""
+    app = create_app()
+    yield app
+
+@pytest.fixture(scope="function")
+def client(app):
     """Fresh test client per test."""
-    with flask_app.test_client() as c:
+    with app.test_client() as c:
         yield c
 
 
@@ -35,7 +41,7 @@ def test_billing_portal_stripe13_error_handling(client, monkeypatch):
         "Test error", user_message="User-friendly error"
     )
     
-    with patch('src.routes.app.stripe', mock_stripe):
+    with patch('src.routes.billing.stripe', mock_stripe):
         resp = client.post("/api/billing/portal", json={"customer_id": "cus_test"})
         
         assert resp.status_code == 502
@@ -55,7 +61,7 @@ def test_billing_portal_request_validation(client, monkeypatch):
     mock_session.url = "https://billing.stripe.com/session/test"
     mock_stripe.billing_portal.Session.create.return_value = mock_session
     
-    with patch('src.routes.app.stripe', mock_stripe):
+    with patch('src.routes.billing.stripe', mock_stripe):
         # Test with valid customer_id
         resp = client.post("/api/billing/portal", json={"customer_id": "cus_valid"})
         
@@ -82,3 +88,4 @@ def test_billing_portal_missing_stripe_key(client, monkeypatch):
     data = resp.get_json()
     assert "error" in data
     assert "missing" in data["error"].lower()
+

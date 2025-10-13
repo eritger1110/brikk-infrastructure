@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from src.database.db import db
+from src.database import db
 from sqlalchemy.types import TypeDecorator
 
 
@@ -306,4 +306,8 @@ class SecurityEvent(db.Model):
             "event_data": self.event_data or {},
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
+
+
+
+from src.models.agent_performance import AgentPerformance
 

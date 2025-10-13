@@ -6,8 +6,8 @@ import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 
-from src.main import create_app
-from src.database.db import db
+from src.factory import create_app
+from src.database import db
 
 @pytest.fixture
 def app() -> Flask:

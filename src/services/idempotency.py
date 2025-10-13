@@ -1,6 +1,6 @@
-"""
+'''
 Redis-based idempotency service for Brikk API to prevent duplicate request processing.
-"""
+'''
 import json
 import redis
 from datetime import datetime, timezone, timedelta
@@ -10,10 +10,10 @@ import os
 
 
 class IdempotencyService:
-    """Redis-based idempotency service with 24-hour TTL."""
+    '''Redis-based idempotency service with 24-hour TTL.'''
     
     def __init__(self, redis_client: Optional[redis.Redis] = None):
-        """Initialize idempotency service with Redis client."""
+        '''Initialize idempotency service with Redis client.'''
         if redis_client:
             self.redis = redis_client
         else:
@@ -23,11 +23,11 @@ class IdempotencyService:
     
     @staticmethod
     def generate_idempotency_key(api_key_id: str, body_hash: str, custom_key: Optional[str] = None) -> str:
-        """
+        '''
         Generate idempotency key for request.
         
         Format: idem:{key_prefix}:{body_hash_prefix}[:custom]
-        """
+        '''
         key_prefix = api_key_id[:16] if len(api_key_id) > 16 else api_key_id
         body_prefix = body_hash[:16] if len(body_hash) > 16 else body_hash
         
@@ -47,11 +47,11 @@ class IdempotencyService:
         status_code: int = 200,
         ttl_hours: int = 24
     ) -> bool:
-        """
+        '''
         Store response data for idempotency checking.
         
         Returns True if stored successfully, False otherwise.
-        """
+        '''
         try:
             # Create response record
             record = {
@@ -73,23 +73,23 @@ class IdempotencyService:
             current_app.logger.error(f"Failed to store idempotency record: {e}")
             return False
     
-    def get_cached_response(self, idempotency_key: str) -> Optional[Tuple[Dict[str, Any], int]]:
-        """
+    def get_cached_response(self, idempotency_key: str) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+        '''
         Retrieve cached response for idempotency key.
         
-        Returns (response_data, status_code) if found, None otherwise.
-        """
+        Returns (response_data, status_code) if found, (None, None) otherwise.
+        '''
         try:
             cached_data = self.redis.get(idempotency_key)
             if not cached_data:
-                return None
+                return None, None
             
             record = json.loads(cached_data)
-            return record['response_data'], record['status_code']
+            return record.get('response_data'), record.get('status_code')
             
         except Exception as e:
             current_app.logger.error(f"Failed to retrieve idempotency record: {e}")
-            return None
+            return None, None
     
     def check_request_conflict(
         self,
@@ -97,35 +97,38 @@ class IdempotencyService:
         current_body_hash: str,
         custom_idempotency_key: Optional[str] = None
     ) -> Tuple[bool, Optional[str], Optional[Tuple[Dict[str, Any], int]]]:
-        """
+        '''
         Check for idempotency conflicts.
         
         Returns:
         - (False, None, None): No conflict, proceed with request
         - (True, "cached", (response_data, status_code)): Same request, return cached response
         - (True, "conflict", None): Different request with same idempotency key, return 409
-        """
+        '''
         try:
             if custom_idempotency_key:
                 # Check if custom idempotency key is already used with different body
                 custom_key = self.generate_idempotency_key(api_key_id, "", custom_idempotency_key)
-                cached_response = self.get_cached_response(custom_key)
+                response_data, status_code = self.get_cached_response(custom_key)
+                cached_response = (response_data, status_code) if response_data else None
                 
                 if cached_response:
                     # Check if this is the same request (same body hash)
                     stored_body_key = self.generate_idempotency_key(api_key_id, current_body_hash)
-                    same_request_response = self.get_cached_response(stored_body_key)
+                    same_request_response, same_status_code = self.get_cached_response(stored_body_key)
+                    same_request_tuple = (same_request_response, same_status_code) if same_request_response else None
                     
-                    if same_request_response:
+                    if same_request_tuple:
                         # Same request, return cached response
-                        return True, "cached", same_request_response
+                        return True, "cached", same_request_tuple
                     else:
                         # Different request with same custom idempotency key
                         return True, "conflict", None
             
             # Check for exact request match (same API key + body hash)
             request_key = self.generate_idempotency_key(api_key_id, current_body_hash)
-            cached_response = self.get_cached_response(request_key)
+            response_data, status_code = self.get_cached_response(request_key)
+            cached_response = (response_data, status_code) if response_data else None
             
             if cached_response:
                 return True, "cached", cached_response
@@ -143,13 +146,13 @@ class IdempotencyService:
         body_hash: str,
         custom_idempotency_key: Optional[str] = None
     ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[int]]:
-        """
+        '''
         Process request idempotency check.
         
         Returns:
         - (True, None, None): Proceed with request processing
         - (False, response_data, status_code): Return cached/error response immediately
-        """
+        '''
         try:
             is_conflict, conflict_type, cached_response = self.check_request_conflict(
                 api_key_id, body_hash, custom_idempotency_key
@@ -177,12 +180,12 @@ class IdempotencyService:
             return True, None, None
     
     def cleanup_expired_keys(self, batch_size: int = 1000) -> int:
-        """
+        '''
         Clean up expired idempotency keys (Redis handles TTL automatically).
         
         This method is mainly for monitoring/metrics purposes.
         Returns count of keys that would be cleaned up.
-        """
+        '''
         try:
             # Get all idempotency keys
             keys = self.redis.keys("idem:*")
@@ -201,7 +204,7 @@ class IdempotencyService:
             return 0
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get idempotency service statistics."""
+        '''Get idempotency service statistics.'''
         try:
             # Get all idempotency keys
             keys = self.redis.keys("idem:*")
@@ -242,11 +245,11 @@ class IdempotencyService:
             }
     
     def delete_key(self, idempotency_key: str) -> bool:
-        """
+        '''
         Delete specific idempotency key (for testing or manual cleanup).
         
         Returns True if deleted, False otherwise.
-        """
+        '''
         try:
             return bool(self.redis.delete(idempotency_key))
         except Exception as e:
@@ -254,7 +257,7 @@ class IdempotencyService:
             return False
     
     def health_check(self) -> Dict[str, Any]:
-        """Perform health check on idempotency service."""
+        '''Perform health check on idempotency service.'''
         try:
             # Test Redis connection
             ping_result = self.redis.ping()
@@ -285,3 +288,4 @@ class IdempotencyService:
                 'error': str(e),
                 'timestamp': datetime.now(timezone.utc).isoformat()
             }
+

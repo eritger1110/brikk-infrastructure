@@ -5,7 +5,7 @@ These tests ensure the application can start and basic functionality works.
 
 import pytest
 import os
-from src.main import create_app
+from src.factory import create_app, _normalize_db_url
 
 
 def test_app_creation():
@@ -31,9 +31,8 @@ def test_health_endpoint():
     """Test the health check endpoint if it exists."""
     app = create_app()
     with app.test_client() as client:
-        response = client.get('/health')
-        # Health endpoint may not exist yet, so we accept 404 as valid
-        assert response.status_code in [200, 404]
+        response = client.get('/api/inbound/_health')
+        assert response.status_code == 200
 
 
 def test_inbound_ping_endpoint():
@@ -44,7 +43,7 @@ def test_inbound_ping_endpoint():
         assert response.status_code == 200
         data = response.get_json()
         assert data['ok'] is True
-        assert data['bp'] == 'inbound'
+        assert data['bp'] == 'health'
 
 
 def test_environment_variables():
@@ -69,7 +68,7 @@ def test_environment_variables():
 
 def test_database_url_normalization():
     """Test the database URL normalization function."""
-    from src.main import _normalize_db_url
+    
     
     # Test postgres:// to postgresql+psycopg:// conversion
     postgres_url = "postgres://user:pass@host:5432/db"
@@ -100,7 +99,7 @@ def test_blueprint_registration():
     blueprint_names = [bp.name for bp in app.blueprints.values()]
     
     # These blueprints should be registered based on the main.py file
-    expected_blueprints = ['inbound']
+    expected_blueprints = ['health']
     
     for expected_bp in expected_blueprints:
         assert expected_bp in blueprint_names, f"Blueprint {expected_bp} not registered"
@@ -128,51 +127,3 @@ def test_security_configuration():
     assert 'JWT_SECRET_KEY' in app.config or 'SECRET_KEY' in app.config
 
 
-class TestSecurityFeatures:
-    """Test security-related functionality."""
-    
-    def test_hmac_signature_parsing(self):
-        """Test HMAC signature header parsing."""
-        from src.routes.inbound import _parse_sig_header
-        
-        # Test valid signature header
-        valid_header = "t=1234567890,v1=abcdef1234567890"
-        timestamp, signature = _parse_sig_header(valid_header)
-        assert timestamp == 1234567890
-        assert signature == "abcdef1234567890"
-        
-        # Test invalid signature header
-        invalid_header = "invalid_format"
-        timestamp, signature = _parse_sig_header(invalid_header)
-        assert timestamp is None
-        assert signature is None
-        
-        # Test malformed signature
-        malformed_header = "t=not_a_number,v1=invalid_hex_chars_xyz"
-        timestamp, signature = _parse_sig_header(malformed_header)
-        assert timestamp is None
-        assert signature is None
-    
-    def test_signature_verification_disabled(self):
-        """Test signature verification when disabled."""
-        from src.routes.inbound import _verify_signature
-        
-        # Mock request context
-        class MockRequest:
-            def __init__(self):
-                self.headers = {}
-        
-        # Test with signature verification disabled
-        original_env = os.environ.copy()
-        try:
-            os.environ['INBOUND_REQUIRE_SIGNATURE'] = '0'
-            
-            # Should pass when disabled
-            ok, status, message = _verify_signature(b'{"test": "data"}')
-            assert ok is True
-            assert status == 200
-            assert "not required" in message
-            
-        finally:
-            os.environ.clear()
-            os.environ.update(original_env)

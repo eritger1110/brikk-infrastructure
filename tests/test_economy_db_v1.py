@@ -2,7 +2,7 @@
 
 import pytest
 from flask import Flask
-from src.main import create_app
+from src.factory import create_app
 from src.database import db
 from src.models.economy import OrgBalance, LedgerAccount, LedgerEntry, Transaction, ReputationScore
 from src.models.org import Organization
