@@ -221,7 +221,7 @@ class TestCoordinationAuth:
             'BRIKK_FEATURE_PER_ORG_KEYS': 'true',
             'BRIKK_IDEM_ENABLED': 'false'
         }):
-            # Create timestamp 400 seconds in the past (outside Â+/-300s window)
+            # Create timestamp 400 seconds in the past (outside '+/-300s window)
             old_timestamp = (datetime.now(timezone.utc) - timedelta(seconds=400)).isoformat()
             
             body = json.dumps(valid_envelope).encode()

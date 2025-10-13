@@ -115,7 +115,7 @@ Brikk Monitoring System
                 channel=NotificationChannel.SLACK,
                 subject_template="",
                 body_template="""
-🚨 *{severity.upper()} ALERT*
+[ALERT] *{severity.upper()} ALERT*
 
 *{alert_name}*
 {description}

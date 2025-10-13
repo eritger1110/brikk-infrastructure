@@ -82,7 +82,7 @@ class Agent(db.Model):
     status = db.Column(db.String(20), default="active")  # active, inactive, busy, error
 
     # Descriptive
-    description = db.Column(db.Text, nullable=True)      # <â€" newly added
+    description = db.Column(db.Text, nullable=True)      # <'" newly added
     capabilities = db.Column(JSONList)                   # list[str]
     tags = db.Column(JSONList)                            # list[str] (new)
 

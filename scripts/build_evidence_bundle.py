@@ -78,7 +78,7 @@ def main():
                         continue
                     zf.write(file_path, file_path.relative_to(root_dir))
     
-    print(f"âœ... Evidence bundle created: {zip_filename}")
+    print(f"'... Evidence bundle created: {zip_filename}")
 
 
 if __name__ == "__main__":

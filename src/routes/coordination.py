@@ -129,7 +129,7 @@ def coordination_endpoint():
     Security layers (in order):
     1. Request guards: Content-Type, body size, required headers (via middleware)
     2. HMAC v1 authentication: X-Brikk-Key, X-Brikk-Timestamp, X-Brikk-Signature
-    3. Timestamp drift check: Â+/-300 seconds
+    3. Timestamp drift check: '+/-300 seconds
     4. Redis idempotency: Duplicate request detection
     5. Envelope validation: Pydantic schema validation
     

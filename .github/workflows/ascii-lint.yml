@@ -1,0 +1,32 @@
+name: ascii-lint
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+jobs:
+  ascii_guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect non-ASCII in Python sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=$(git ls-files 'src/**/*.py' 'tests/**/*.py' 'examples/**/*.py' 'scripts/**/*.py')
+          found=0
+          while IFS= read -r f; do
+            if LC_ALL=C grep -nP "[^\x00-\x7F]" "$f" >/tmp/ascii_hits || true; then
+              if [ -s /tmp/ascii_hits ]; then
+                echo "::group::Non-ASCII in $f"
+                cat /tmp/ascii_hits
+                echo "::endgroup::"
+                found=1
+              fi
+            fi
+          done <<< "$files"
+          if [ "$found" -ne 0 ]; then
+            echo "::error::Non-ASCII characters found in Python sources. See groups above."
+            exit 1
+          fi
+          echo "All Python sources are ASCII-only."
+

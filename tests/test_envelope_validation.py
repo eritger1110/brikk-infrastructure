@@ -2,10 +2,10 @@
 Test suite for envelope schema validation.
 
 Tests:
-- Valid minimal envelope â†' 202 with echo.message_id
-- Extra/unknown fields â†' 422
-- Bad type/uuid/timestamp â†' 422
-- TTL out of range â†' 422
+- Valid minimal envelope '' 202 with echo.message_id
+- Extra/unknown fields '' 422
+- Bad type/uuid/timestamp '' 422
+- TTL out of range '' 422
 - minify() excludes None keys
 """
 

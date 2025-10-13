@@ -11,7 +11,7 @@ import time
 from client import BrikkClient  # assumes examples/python_agent/client.py
 
 def main():
-    print("ğŸ¤- Brikk Python Agent Demo")
+    print("'- Brikk Python Agent Demo")
     print("=" * 40)
 
     dry_run = ("--dry-run" in sys.argv) or (os.getenv("NO_NETWORK") == "1")
@@ -24,8 +24,8 @@ def main():
             os.environ.setdefault("BRIKK_BASE_URL", "http://localhost:5000")
 
         client = BrikkClient()
-        print(f"âœ... Connected to: {client.base_url}")
-        print(f"ğŸ"' Agent ID: {client.api_key}")
+        print(f"'... Connected to: {client.base_url}")
+        print(f"'"' Agent ID: {client.api_key}")
 
         recipient = "demo-echo-agent"
         payload = {
@@ -35,7 +35,7 @@ def main():
         }
 
         if dry_run:
-            print("ğŸ§ª Dry run mode - building envelope without network calls")
+            print("[TEST] Dry run mode - building envelope without network calls")
             envelope = {
                 "version": "1.0",
                 "sender": client.api_key,
@@ -43,23 +43,23 @@ def main():
                 "payload": payload,
                 "timestamp": int(time.time()),
             }
-            print("\nğŸ"¦ Coordination envelope:")
+            print("\n'"' Coordination envelope:")
             print(json.dumps(envelope, indent=2))
-            print("âœ... Demo envelope built successfully")
+            print("'... Demo envelope built successfully")
             return
 
-        print(f"\nğŸ"¤ Sending echo job to: {recipient}")
-        print("ğŸ"¦ Payload:", payload)
+        print(f"\n'"' Sending echo job to: {recipient}")
+        print("'"' Payload:", payload)
         response = client.send(recipient, payload)
 
-        print("\nâœ... Response received:")
-        print(f"ğŸ"¨ Status: {response.get('status', 'unknown')}")
-        print(f"ğŸ†" Message ID: {response.get('message_id', 'N/A')}")
+        print("\n'... Response received:")
+        print(f"'"' Status: {response.get('status', 'unknown')}")
+        print(f"'" Message ID: {response.get('message_id', 'N/A')}")
 
         messages = client.poll()
-        print(f"\nğŸ"¬ Polling result: {messages.get('status')}")
+        print(f"\n'"' Polling result: {messages.get('status')}")
     except Exception as e:
-        print(f"âŒ Error: {e}")
+        print(f"[CROSS] Error: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

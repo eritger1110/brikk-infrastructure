@@ -107,7 +107,7 @@ def _persist_order_row(row: JSON) -> None:
                 conn.execute(sql, fields)
 
     except Exception as e:
-        # Don't fail the job if logging is noisyâ€"just stash it in job meta
+        # Don't fail the job if logging is noisy'"just stash it in job meta
         _update_job_meta(db_error=str(e))
 
 
@@ -144,7 +144,7 @@ def _supplier_generic_rest(payload: JSON, cfg: SupplierConfig) -> Tuple[bool, JS
     assert cfg.base_url, "Supplier base_url missing"
     session = _requests_session()
 
-    # map your payload âœ supplier schema here
+    # map your payload -> supplier schema here
     outbound = {
         "sku": payload["sku"],
         "quantity": payload["qty"],
