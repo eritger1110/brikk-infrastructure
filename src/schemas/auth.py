@@ -2,9 +2,8 @@
 """
 Authentication schemas for API key management and HMAC validation.
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 import re
 
 
@@ -23,7 +22,8 @@ class CreateOrganizationRequest(BaseModel):
     monthly_request_limit: int = Field(
         10000, ge=1, le=1000000, description="Monthly API request limit")
 
-    @validator('slug')
+    @field_validator('slug')
+    @classmethod
     def validate_slug(cls, v):
         """Validate slug format (alphanumeric, hyphens, underscores only)."""
         if not re.match(r'^[a-zA-Z0-9_-]+$', v):
@@ -31,7 +31,8 @@ class CreateOrganizationRequest(BaseModel):
                 'Slug must contain only alphanumeric characters, hyphens, and underscores')
         return v.lower()
 
-    @validator('contact_email')
+    @field_validator('contact_email')
+    @classmethod
     def validate_email(cls, v):
         """Basic email validation."""
         if v and not re.match(r'^[^@]+@[^@]+\.[^@]+$', v):
@@ -56,7 +57,8 @@ class CreateAgentRequest(BaseModel):
     endpoint_url: Optional[str] = Field(
         None, max_length=500, description="Agent callback URL")
 
-    @validator('agent_id')
+    @field_validator('agent_id')
+    @classmethod
     def validate_agent_id(cls, v):
         """Validate agent ID format."""
         if not re.match(r'^[a-zA-Z0-9_.-]+$', v):
@@ -82,7 +84,8 @@ class CreateApiKeyRequest(BaseModel):
     requests_per_hour: int = Field(
         1000, ge=1, le=100000, description="Rate limit per hour")
 
-    @validator('scopes')
+    @field_validator('scopes')
+    @classmethod
     def validate_scopes(cls, v):
         """Validate scopes format."""
         if v:

@@ -29,10 +29,12 @@ def app():
     db_fd, db_path = tempfile.mkstemp()
     with patch.dict(os.environ, {
         "DATABASE_URL": f"sqlite:///{db_path}",
+        "TESTING": "true",
     }):
         from src.factory import create_app
         from src.database import db
         app = create_app()
+        app.config["TESTING"] = True
         with app.app_context():
             db.create_all()
             yield app

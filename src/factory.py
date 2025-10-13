@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
-import sys
-import importlib
-from typing import List
 
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
@@ -85,7 +82,11 @@ def create_app() -> Flask:
 
     # --- Mount blueprints ---
     with app.app_context():
-        from src.routes import auth, app as app_routes, agents, billing, coordination, auth_admin, workflows, monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk, health
+        from src.routes import (
+            auth, app as app_routes, agents, billing, coordination, auth_admin,
+            workflows, monitoring, alerting, webhooks, discovery, reputation,
+            connectors_zendesk, health, inbound
+        )
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
         app.register_blueprint(agents.agents_bp)
@@ -102,6 +103,7 @@ def create_app() -> Flask:
             connectors_zendesk.zendesk_bp,
             url_prefix="/api")
         app.register_blueprint(health.health_bp, url_prefix="/")
+        app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
         if ENABLE_DEV_LOGIN:
             from src.routes import dev_login
             app.register_blueprint(dev_login.dev_bp, url_prefix="/api")

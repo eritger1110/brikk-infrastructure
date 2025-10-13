@@ -23,17 +23,17 @@ def test_app_config(app):
 
 def test_health_endpoint(client):
     """Test the health check endpoint if it exists."""
-    response = client.get('/api/inbound/_health')
+    response = client.get('/healthz')
     assert response.status_code == 200
 
 
 def test_inbound_ping_endpoint(client):
     """Test the inbound ping endpoint."""
-    response = client.get('/api/inbound/_ping')
+    response = client.get('/api/_ping')
     assert response.status_code == 200
     data = response.get_json()
     assert data['ok'] is True
-    assert data['bp'] == 'health'
+    assert data['bp'] == 'inbound'
 
 
 def test_environment_variables(app):
