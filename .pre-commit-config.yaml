@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ascii-python-only
+        name: forbid non-ASCII in Python
+        entry: bash -c 'LC_ALL=C ! grep -nP "[^\\x00-\\x7F]" $(git ls-files "*.py")'
+        language: system
+        pass_filenames: false
+

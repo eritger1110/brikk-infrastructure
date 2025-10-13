@@ -215,3 +215,14 @@ By contributing to Brikk Infrastructure, you agree that your contributions will 
 ---
 
 *This contributing guide is updated regularly to reflect our evolving development practices and security requirements.*
+
+_
+
+
+### Pre-commit
+Install once:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
