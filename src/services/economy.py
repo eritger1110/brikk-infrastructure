@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Economy Service
 
@@ -8,9 +7,8 @@ transactions, balance management, and double-entry accounting.
 
 import uuid
 from sqlalchemy.exc import IntegrityError
-from src.database import db
+from src.database.db import db
 from src.models.economy import OrgBalance, LedgerAccount, LedgerEntry, Transaction
-
 
 class EconomyService:
 
@@ -28,18 +26,10 @@ class EconomyService:
             db.session.commit()
         return balance
 
-    def post_transaction(
-            self,
-            org_id: str,
-            type: str,
-            amount: int,
-            meta: dict,
-            idempotency_key: str,
-            system_account: str = 'platform_revenue') -> Transaction:
+    def post_transaction(self, org_id: str, type: str, amount: int, meta: dict, idempotency_key: str, system_account: str = 'platform_revenue') -> Transaction:
         """Posts a new transaction to the ledger, ensuring idempotency and atomicity."""
         # Check for existing transaction with the same idempotency key
-        existing_tx = Transaction.query.filter_by(
-            idempotency_key=idempotency_key).first()
+        existing_tx = Transaction.query.filter_by(idempotency_key=idempotency_key).first()
         if existing_tx:
             return existing_tx
 
@@ -58,30 +48,19 @@ class EconomyService:
         )
 
         # Create ledger entries for double-entry accounting
-        org_wallet = LedgerAccount.query.filter_by(
-            org_id=org_id, type='org_wallet').first()
+        org_wallet = LedgerAccount.query.filter_by(org_id=org_id, type='org_wallet').first()
         if not org_wallet:
-            org_wallet = LedgerAccount(
-                org_id=org_id,
-                name=f"{org_id} Wallet",
-                type='org_wallet')
+            org_wallet = LedgerAccount(org_id=org_id, name=f"{org_id} Wallet", type='org_wallet')
             db.session.add(org_wallet)
 
-        system_ledger_account = LedgerAccount.query.filter_by(
-            name=system_account, org_id=None).first()
+        system_ledger_account = LedgerAccount.query.filter_by(name=system_account, org_id=None).first()
 
         # Debit/Credit logic
         debit_account = org_wallet if amount < 0 else system_ledger_account
         credit_account = system_ledger_account if amount < 0 else org_wallet
 
-        debit_entry = LedgerEntry(
-            tx_id=new_tx.id,
-            account_id=debit_account.id,
-            amount=-abs(amount))
-        credit_entry = LedgerEntry(
-            tx_id=new_tx.id,
-            account_id=credit_account.id,
-            amount=abs(amount))
+        debit_entry = LedgerEntry(tx_id=new_tx.id, account_id=debit_account.id, amount=-abs(amount))
+        credit_entry = LedgerEntry(tx_id=new_tx.id, account_id=credit_account.id, amount=abs(amount))
 
         try:
             db.session.begin_nested()
@@ -89,12 +68,11 @@ class EconomyService:
             db.session.add_all([debit_entry, credit_entry])
 
             # Update organization balance
-            balance = OrgBalance.query.filter_by(
-                org_id=org_id).with_for_update().one()
+            balance = OrgBalance.query.filter_by(org_id=org_id).with_for_update().one()
             if balance.current_credits + amount < 0:
                 raise ValueError("Insufficient credits")
             balance.current_credits += amount
-
+            
             new_tx.status = 'posted'
             db.session.commit()
         except Exception as e:
@@ -102,3 +80,4 @@ class EconomyService:
             raise e
 
         return new_tx
+
