@@ -5,6 +5,15 @@ All notable changes to the Brikk Infrastructure project will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### CI / Maintenance
+- **ASCII-only source enforcement**: Added ASCII lint workflow to prevent non-ASCII characters in Python files
+- **Pydantic v2 migration**: Migrated deprecated @validator decorators to @field_validator style
+- **Smoke test fixes**: Fixed route registration and endpoint paths for proper CI validation
+- **Prometheus metrics**: Resolved registry duplication issues in test environment
+- **Code quality**: Enhanced flake8 compliance and removed unused imports
+
 ## [0.1.0] - 2025-10-10
 
 ### Added - Stage 1: Agent Core + Echo Workflow (MVP)
