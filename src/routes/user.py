@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/user.py
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from flask_jwt_extended import (
     set_access_cookies,
     get_jwt,
 )
-from src.database.db import db
+from src.database import db
 from src.models.user import User
 
 user_bp = Blueprint("user", __name__, url_prefix="/api/user")
@@ -21,14 +22,22 @@ user_bp = Blueprint("user", __name__, url_prefix="/api/user")
 
 def _role_perms(role: str) -> list[str]:
     table = {
-        "admin":  ["agent:create", "agent:read", "agent:update", "agent:delete"],
-        "editor": ["agent:create", "agent:read", "agent:update"],
+        "admin": [
+            "agent:create",
+            "agent:read",
+            "agent:update",
+            "agent:delete"],
+        "editor": [
+            "agent:create",
+            "agent:read",
+            "agent:update"],
         "viewer": ["agent:read"],
     }
     return table.get(role or "viewer", ["agent:read"])
 
 
-def _claims_for(user: Optional[User], email_fallback: str | None = None) -> Dict[str, Any]:
+def _claims_for(
+        user: Optional[User], email_fallback: str | None = None) -> Dict[str, Any]:
     """
     Build JWT claims from User rows (role/org) with safe defaults.
     """
@@ -69,7 +78,8 @@ def ping():
 def me():
     ident = get_jwt_identity()
     if not ident:
-        return jsonify({"authenticated": False, "user": None, "claims": None}), 200
+        return jsonify(
+            {"authenticated": False, "user": None, "claims": None}), 200
 
     user = _find_user_by_identity(ident)
     if not user:
@@ -77,7 +87,7 @@ def me():
         return jsonify({
             "authenticated": True,
             "user": {"id": str(ident)},
-            "claims": get_jwt(),   # whatever’s in the token
+            "claims": get_jwt(),   # whatever's in the token
         }), 200
 
     # include DB-backed fields and current token claims
@@ -117,7 +127,9 @@ def mint_token():
         return jsonify({"error": "User not found"}), 404
 
     claims = _claims_for(user, email_fallback=str(ident))
-    token = create_access_token(identity=claims["email"] or str(ident), additional_claims=claims)
+    token = create_access_token(
+        identity=claims["email"] or str(ident),
+        additional_claims=claims)
 
     resp = make_response(jsonify({"ok": True, "claims": claims}), 200)
     set_access_cookies(resp, token)

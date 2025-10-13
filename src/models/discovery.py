@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Discovery Models
 
@@ -8,7 +9,8 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from src.database.db import db
+from src.database import db
+
 
 class AgentService(db.Model):
     """Represents a service offered by an agent"""
@@ -23,21 +25,27 @@ class AgentService(db.Model):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     agent = relationship("Agent", back_populates="services")
-    capabilities = relationship("AgentCapability", back_populates="service", cascade="all, delete-orphan")
+    capabilities = relationship(
+        "AgentCapability",
+        back_populates="service",
+        cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<AgentService {self.name} for agent {self.agent_id}>"
+
 
 class AgentCapability(db.Model):
     """Represents a capability of an agent service"""
     __tablename__ = "agent_capabilities"
 
     id = Column(Integer, primary_key=True)
-    service_id = Column(Integer, ForeignKey("agent_services.id"), nullable=False)
+    service_id = Column(
+        Integer,
+        ForeignKey("agent_services.id"),
+        nullable=False)
     name = Column(String(255), nullable=False)
 
     service = relationship("AgentService", back_populates="capabilities")
 
     def __repr__(self):
         return f"<AgentCapability {self.name} for service {self.service_id}>"
-

@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 # src/models/customer_profile.py
-from src.database.db import db
+from src.database import db
+
 
 class CustomerProfile(db.Model):
     __tablename__ = 'customer_profiles'

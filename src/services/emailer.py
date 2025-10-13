@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/services/emailer.py
 import os
 import json
@@ -7,7 +8,13 @@ SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "").strip()
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "connect@getbrikk.com").strip()
 FROM_NAME = os.environ.get("FROM_NAME", "Brikk").strip()
 
-def send_email(*, to_email: str, subject: str, html: str, text: str = "") -> bool:
+
+def send_email(
+    *,
+    to_email: str,
+    subject: str,
+    html: str,
+        text: str = "") -> bool:
     """
     Send an email with SendGrid v3. Returns True on 2xx. Logs response body on failure.
     """

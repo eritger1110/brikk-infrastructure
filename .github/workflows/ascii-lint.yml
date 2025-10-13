@@ -1,0 +1,28 @@
+name: ASCII Lint
+
+on:
+  pull_request:
+    paths:
+      - 'src/**/*.py'
+      - 'tests/**/*.py'
+      - 'examples/**/*.py'
+      - 'scripts/**/*.py'
+
+jobs:
+  ascii-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check for non-ASCII characters
+        run: |
+          find src tests examples scripts -name "*.py" -print0 | xargs -0 -L1 awk '
+            {
+              if (match($0, /[^\x00-\x7F]/)) {
+                print "FAIL: Non-ASCII character found in " FILENAME " on line " NR;
+                print $0;
+                exit 1;
+              }
+            }
+          ' || exit 1
+

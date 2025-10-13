@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/agents.py
 """
 Stage 1 Agents API - Create and list user agents with API key generation.
@@ -60,7 +61,8 @@ def is_admin() -> bool:
         user = getattr(g, "user", None)
         if user:
             role = (getattr(user, "role", None) or "").lower()
-            if role in {"admin", "owner"} or bool(getattr(user, "is_admin", False)):
+            if role in {"admin", "owner"} or bool(
+                    getattr(user, "is_admin", False)):
                 return True
     except Exception:
         pass
@@ -107,7 +109,7 @@ def _iso(dt):
 
 def _imports_common():
     """Only what both handlers need (no schema)."""
-    from src.database.db import db
+    from src.database import db
     from src.models.agent import Agent
     from src.services.security import require_auth, require_perm, redact_dict
     from src.services.audit import log_action
@@ -171,7 +173,8 @@ def list_agents():
         # Filter by owner_id = g.user.id for Stage 1
         user_id = getattr(g.user, 'id', None)
         if not user_id:
-            return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
+            return jsonify(
+                {"error": "unauthorized", "message": "User ID not found"}), 401
 
         q = db.session.query(Agent).filter(Agent.owner_id == user_id)
 
@@ -209,25 +212,28 @@ def list_agents():
 @limiter.limit("10 per minute", exempt_when=is_admin)
 def create_agent():
     """Create a new agent with one-time API key generation"""
-    from src.database.db import db
+    from src.database import db
     from src.services.crypto import generate_and_hash_api_key
     from src.services.audit import log_agent_created
-    
+
     # Simple auth check - ensure user is authenticated
     if not hasattr(g, 'user') or not g.user:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    
+        return jsonify({"error": "unauthorized",
+                        "message": "Authentication required"}), 401
+
     user_id = getattr(g.user, 'id', None)
     if not user_id:
-        return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
+        return jsonify(
+            {"error": "unauthorized", "message": "User ID not found"}), 401
 
     payload = request.get_json(silent=True) or {}
-    
+
     # Basic validation
     name = payload.get('name', '').strip()
     if not name or len(name) > 128:
-        return jsonify({"error": "validation_error", "message": "Name is required and must be <= 128 chars"}), 400
-    
+        return jsonify({"error": "validation_error",
+                       "message": "Name is required and must be <= 128 chars"}), 400
+
     description = payload.get('description', '').strip() or None
 
     # Check for duplicate name for this user
@@ -236,14 +242,15 @@ def create_agent():
         Agent.name == name,
         Agent.owner_id == user_id
     ).first()
-    
+
     if existing:
-        return jsonify({"error": "duplicate_name", "message": "Agent name already exists"}), 409
+        return jsonify({"error": "duplicate_name",
+                       "message": "Agent name already exists"}), 409
 
     try:
         # Generate API key and hash
         api_key, api_key_hash = generate_and_hash_api_key()
-        
+
         # Create agent with Stage 1 fields
         agent = Agent(
             id=str(uuid.uuid4()),
@@ -277,4 +284,5 @@ def create_agent():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Failed to create agent: {e}")
-        return jsonify({"error": "internal_error", "message": "Failed to create agent"}), 500
+        return jsonify({"error": "internal_error",
+                       "message": "Failed to create agent"}), 500

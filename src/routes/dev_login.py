@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/dev_login.py
 from __future__ import annotations
 import os
@@ -7,8 +8,10 @@ from flask_jwt_extended import create_access_token, set_access_cookies
 
 dev_bp = Blueprint("dev_login", __name__)  # mounted under /api
 
+
 def _dev_enabled() -> bool:
     return os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
+
 
 @dev_bp.route("/auth/dev-login", methods=["POST", "OPTIONS"])
 def dev_login():
@@ -25,8 +28,14 @@ def dev_login():
         return jsonify({"error": "email required"}), 400
 
     # 7-day token for testing only
-    access = create_access_token(identity=email, expires_delta=timedelta(days=7))
+    access = create_access_token(
+        identity=email,
+        expires_delta=timedelta(
+            days=7))
 
     resp = jsonify({"ok": True, "identity": email})
-    set_access_cookies(resp, access, max_age=int(timedelta(days=7).total_seconds()))
+    set_access_cookies(
+        resp, access, max_age=int(
+            timedelta(
+                days=7).total_seconds()))
     return resp, 200

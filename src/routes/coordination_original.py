@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/coordination.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt
@@ -7,6 +8,7 @@ import time
 import random
 
 coordination_bp = Blueprint("coordination_bp", __name__)
+
 
 @coordination_bp.post("/api/coordination/run")
 @jwt_required()
@@ -41,12 +43,12 @@ def metrics():
     Minimal metrics for the dashboard graphs.
     Replace with your real metrics collection if available.
     """
-    total_agents   = Agent.query.count()
-    active_agents  = Agent.query.filter_by(status='active').count()
+    total_agents = Agent.query.count()
+    active_agents = Agent.query.filter_by(status='active').count()
 
-    # Fake “today” numbers if you haven’t populated Coordination yet
+    # Fake "today" numbers if you haven't populated Coordination yet
     total_coord = Coordination.query.count()
-    completed   = Coordination.query.filter_by(status="completed").count()
+    completed = Coordination.query.filter_by(status="completed").count()
     success_rate = round((completed / max(total_coord, 1)) * 100, 2)
 
     # Some sample series (client will chart these)

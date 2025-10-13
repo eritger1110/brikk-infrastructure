@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/app.py
 from __future__ import annotations
 
@@ -89,12 +90,15 @@ def billing_portal():
         return jsonify({"error": "STRIPE_SECRET_KEY missing"}), 500
     stripe.api_key = secret
 
-    return_url = os.getenv("BILLING_PORTAL_RETURN_URL", "").strip() or "https://www.getbrikk.com/app/"
+    return_url = os.getenv(
+        "BILLING_PORTAL_RETURN_URL",
+        "").strip() or "https://www.getbrikk.com/app/"
 
     payload = _json()
     customer_id = (payload.get("customer_id") or "").strip() or None
 
-    # Try to derive the customer from the logged-in email, unless one was provided
+    # Try to derive the customer from the logged-in email, unless one was
+    # provided
     email: Optional[str] = None
     if not customer_id and HAVE_JWT:
         try:
@@ -125,12 +129,15 @@ def billing_portal():
 
                 # 2) Create if still missing
                 if not customer_id:
-                    created = stripe.Customer.create(email=email, description="Brikk user")
+                    created = stripe.Customer.create(
+                        email=email, description="Brikk user")
                     customer_id = created.id
 
-            # If we STILL don't have a customer_id, error out with a clear message
+            # If we STILL don't have a customer_id, error out with a clear
+            # message
             if not customer_id:
-                return jsonify({"error": "No Stripe customer on file for this user"}), 400
+                return jsonify(
+                    {"error": "No Stripe customer on file for this user"}), 400
 
         # Create a Customer Portal session
         sess = stripe.billing_portal.Session.create(
@@ -140,7 +147,7 @@ def billing_portal():
         return jsonify({"url": sess.url}), 200
 
     except stripe.StripeError as e:
-        # Surface Stripe’s message for fast diagnosis
+        # Surface Stripe's message for fast diagnosis
         msg = getattr(e, "user_message", None) or str(e)
         log.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
@@ -174,7 +181,11 @@ def get_api_key():
 
     # Build a stable, non-sensitive demo key
     secret = os.getenv("SECRET_KEY", "dev-secret-key").encode("utf-8")
-    digest = hmac.new(secret, email.encode("utf-8"), hashlib.sha256).hexdigest()[:24]
+    digest = hmac.new(
+        secret,
+        email.encode("utf-8"),
+        hashlib.sha256).hexdigest()[
+        :24]
     # Looks like a key, but is worthless outside this demo
     demo_key = f"brikk_{digest}"
 

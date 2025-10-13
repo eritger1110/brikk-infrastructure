@@ -1,0 +1,119 @@
+# -*- coding: utf-8 -*-
+import os
+
+from flask import Flask
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
+
+from src.database import db
+
+# Observability imports
+from src.services.metrics import init_metrics
+from src.services.request_context import init_request_context
+from src.services.structured_logging import init_logging
+
+ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
+ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
+ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
+
+
+def _normalize_db_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql://") and "+psycopg://" not in url:
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+def _seed_system_accounts():
+    """Creates the default system ledger accounts if they don't exist."""
+    from src.models.economy import LedgerAccount
+
+    system_accounts = [
+        {"name": "platform_revenue", "type": "system"},
+        {"name": "platform_fees", "type": "system"},
+        {"name": "promotions", "type": "system"},
+    ]
+
+    for acc_data in system_accounts:
+        acc = LedgerAccount.query.filter_by(name=acc_data["name"]).first()
+        if not acc:
+            new_acc = LedgerAccount(
+                name=acc_data["name"],
+                type=acc_data["type"])
+            db.session.add(new_acc)
+    db.session.commit()
+
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.url_map.strict_slashes = False
+
+    # --- Core config ---
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
+
+    # --- DB config ---
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        db_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "instance",
+            "app.db")
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        db_url = f"sqlite:///{db_path}"
+    else:
+        db_url = _normalize_db_url(db_url)
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    db.init_app(app)
+
+    # --- JWT cookies ---
+    JWTManager(app)
+
+    # --- CORS ---
+    CORS(app, supports_credentials=True)
+
+    # --- Initialize observability ---
+    init_logging(app)
+    init_request_context(app)
+    init_metrics(app)
+
+    # --- Mount blueprints ---
+    with app.app_context():
+        from src.routes import (
+            auth, app as app_routes, agents, billing, coordination, auth_admin,
+            workflows, monitoring, alerting, webhooks, discovery, reputation,
+            connectors_zendesk, health, inbound
+        )
+        app.register_blueprint(auth.auth_bp, url_prefix="/api")
+        app.register_blueprint(app_routes.app_bp, url_prefix="/api")
+        app.register_blueprint(agents.agents_bp)
+        app.register_blueprint(billing.billing_bp, url_prefix="/api")
+        app.register_blueprint(coordination.coordination_bp)
+        app.register_blueprint(auth_admin.auth_admin_bp)
+        app.register_blueprint(workflows.workflows_bp)
+        app.register_blueprint(monitoring.monitoring_bp)
+        app.register_blueprint(alerting.alerting_bp)
+        app.register_blueprint(webhooks.webhooks_bp)
+        app.register_blueprint(discovery.discovery_bp)
+        app.register_blueprint(reputation.reputation_bp)
+        app.register_blueprint(
+            connectors_zendesk.zendesk_bp,
+            url_prefix="/api")
+        app.register_blueprint(health.health_bp, url_prefix="/")
+        app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
+        if ENABLE_DEV_LOGIN:
+            from src.routes import dev_login
+            app.register_blueprint(dev_login.dev_bp, url_prefix="/api")
+        if ENABLE_SECURITY_ROUTES:
+            from src.routes import security
+            app.register_blueprint(security.security_bp, url_prefix="/api")
+
+    # --- DB init ---
+    with app.app_context():
+        db.create_all()
+        _seed_system_accounts()
+
+    return app

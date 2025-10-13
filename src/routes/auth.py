@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/auth.py
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ except Exception:
 try:
     from src.models.user import User  # type: ignore
     from src.models.purchase import Purchase  # type: ignore
-    from src.database.db import db  # type: ignore
+    from src.database import db  # type: ignore
     HAVE_MODELS = True
 except Exception:
     HAVE_MODELS = False
@@ -82,15 +83,16 @@ def _send_verify_email(to_email: str) -> bool:
     current_app.logger.info(f"[verify-email] to={to_email} link={verify_link}")
 
     if not HAVE_EMAILER:
-        current_app.logger.warning("SendGrid emailer not available; skipping send")
+        current_app.logger.warning(
+            "SendGrid emailer not available; skipping send")
         return False
 
     html = f"""
     <div style="font-family:system-ui,Segoe UI,Roboto,Arial">
       <h2>Verify your email</h2>
-      <p>Weâ€™re confirming <strong>{to_email}</strong> for your Brikk account.</p>
+      <p>We're confirming <strong>{to_email}</strong> for your Brikk account.</p>
       <p>Click to verify: <a href="{verify_link}">Verify your email</a></p>
-      <p style="opacity:.7">If you didnâ€™t request this, you can ignore it.</p>
+      <p style="opacity:.7">If you didn't request this, you can ignore it.</p>
       <p style="opacity:.7">Thanks,<br/>The Brikk Team</p>
     </div>
     """
@@ -108,10 +110,15 @@ def _send_verify_email(to_email: str) -> bool:
         return False
 
 
-def _claims_from_user(user: "User" | None, email_fallback: str | None = None) -> Dict[str, Any]:
+def _claims_from_user(user: "User" | None,
+                      email_fallback: str | None = None) -> Dict[str, Any]:
     """Server-trusted claims to embed in JWTs."""
     if not user:
-        return {"email": email_fallback, "role": "member", "is_admin": False, "org_id": None}
+        return {
+            "email": email_fallback,
+            "role": "member",
+            "is_admin": False,
+            "org_id": None}
     role = (getattr(user, "role", None) or "member").lower()
     return {
         "role": role,
@@ -179,7 +186,7 @@ def debug_echo():
 
 
 # --------------------------------------------------------------------------- #
-# Signup (used by /checkout/success) â€" sends verification & sets initial JWT
+# Signup (used by /checkout/success) '" sends verification & sets initial JWT
 # --------------------------------------------------------------------------- #
 @auth_bp.route("/auth/complete-signup", methods=["POST", "OPTIONS"])
 def complete_signup():
@@ -246,7 +253,8 @@ def complete_signup():
         claims = _claims_from_user(user, email_fallback=email)
         ident = str(getattr(user, "id", email))
         access = create_access_token(identity=ident, additional_claims=claims)
-        refresh = create_refresh_token(identity=ident, additional_claims=claims)
+        refresh = create_refresh_token(
+            identity=ident, additional_claims=claims)
         set_access_cookies(resp, access)
         set_refresh_cookies(resp, refresh)
 
@@ -275,8 +283,14 @@ def login():
         return jsonify({"error": "invalid_credentials"}), 401
 
     claims = _claims_from_user(user)
-    access = create_access_token(identity=str(user.id), additional_claims=claims)
-    refresh = create_refresh_token(identity=str(user.id), additional_claims=claims)
+    access = create_access_token(
+        identity=str(
+            user.id),
+        additional_claims=claims)
+    refresh = create_refresh_token(
+        identity=str(
+            user.id),
+        additional_claims=claims)
 
     resp = make_response(jsonify({"ok": True}), 200)
     set_access_cookies(resp, access)
@@ -314,7 +328,8 @@ def verify_email():
                 setattr(user, "email_verified", True)
                 db.session.commit()
         except Exception:
-            current_app.logger.exception("verify: could not persist email_verified")
+            current_app.logger.exception(
+                "verify: could not persist email_verified")
 
     return jsonify({"ok": True, "email": email}), 200
 
@@ -378,7 +393,8 @@ if HAVE_JWT:
         user_min: Dict[str, Any] = {"id": str(ident)}
         if isinstance(ident, str) and "@" in ident:
             user_min["email"] = ident
-        user_min.update({k: claims.get(k) for k in ("role", "is_admin", "org_id") if k in claims})
+        user_min.update({k: claims.get(k)
+                        for k in ("role", "is_admin", "org_id") if k in claims})
         return jsonify({"authenticated": True, "user": user_min}), 200
 
 else:
@@ -460,9 +476,13 @@ def email_test():
     if not to_email:
         return jsonify({"ok": False, "error": "email required"}), 400
 
-    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works âœ...</p>"
+    html = f"<p>Brikk test email to <strong>{to_email}</strong>. If you see this, SendGrid works '...</p>"
     try:
-        ok = bool(send_email(to_email=to_email, subject="Brikk test email", html=html))
+        ok = bool(
+            send_email(
+                to_email=to_email,
+                subject="Brikk test email",
+                html=html))
         return jsonify({"ok": ok}), (200 if ok else 502)
     except Exception as e:
         current_app.logger.exception("email-test failed")

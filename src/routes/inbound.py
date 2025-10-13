@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/inbound.py
 from __future__ import annotations
 
@@ -10,7 +11,8 @@ from typing import Any, Dict, Optional, Tuple
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.exceptions import BadRequest
 
-# Only the sub-path here; /api is added in main.py when the blueprint is registered
+# Only the sub-path here; /api is added in main.py when the blueprint is
+# registered
 inbound_bp = Blueprint("inbound", __name__, url_prefix="/inbound")
 
 
@@ -44,7 +46,8 @@ def _verify_signature(body_bytes: bytes) -> Tuple[bool, int, str]:
 
     secret = os.getenv("INBOUND_SIGNING_SECRET") or ""
     if not secret:
-        current_app.logger.error("INBOUND_REQUIRE_SIGNATURE=1 but INBOUND_SIGNING_SECRET is missing")
+        current_app.logger.error(
+            "INBOUND_REQUIRE_SIGNATURE=1 but INBOUND_SIGNING_SECRET is missing")
         return False, 500, "server_signature_not_configured"
 
     sig_hdr = request.headers.get("X-Brikk-Signature", "")
@@ -101,7 +104,8 @@ def inbound_order():
     if not isinstance(payload, dict):
         raise BadRequest("JSON body must be an object")
 
-    # Lazy import so missing jobs/queue modules don't prevent the BP from registering
+    # Lazy import so missing jobs/queue modules don't prevent the BP from
+    # registering
     try:
         from src.services.queue import enqueue  # rq wrapper
         try:
@@ -111,8 +115,10 @@ def inbound_order():
                 f"[inbound] couldn't import place_supplier_order, using echo fallback: {e}"
             )
 
-            # fallback job that just echoes the payload (so enqueue still works)
-            def place_supplier_order(data: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[no-redef]
+            # fallback job that just echoes the payload (so enqueue still
+            # works)
+            # type: ignore[no-redef]
+            def place_supplier_order(data: Dict[str, Any]) -> Dict[str, Any]:
                 return {"echo": data}
 
         job = enqueue(place_supplier_order, payload)
@@ -133,7 +139,8 @@ def inbound_job_status(job_id: str):
         from src.services.queue import _redis  # use same connection as the queue
         job: Job = Job.fetch(job_id, connection=_redis)
     except NoSuchJobError:
-        return jsonify({"error": "job_not_found_in_redis", "job_id": job_id}), 404
+        return jsonify(
+            {"error": "job_not_found_in_redis", "job_id": job_id}), 404
     except Exception as e:
         return jsonify({"error": "redis_error", "detail": str(e)}), 500
 

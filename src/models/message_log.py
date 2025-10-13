@@ -1,9 +1,10 @@
+# -*- coding: utf-8 -*-
 # src/models/message_log.py
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from src.database.db import db
+from src.database import db
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Text
 
@@ -13,29 +14,44 @@ class MessageLog(db.Model):
     __tablename__ = "message_logs"
 
     # Primary key
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    
+    id = db.Column(
+        db.String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid.uuid4()))
+
     # Owner and agent references
     owner_id = db.Column(db.String(36), nullable=False, index=True)
     sender_id = db.Column(db.String(36), nullable=True, index=True)  # Agent ID
-    receiver_id = db.Column(db.String(36), nullable=True, index=True)  # Agent ID
-    
+    receiver_id = db.Column(
+        db.String(36),
+        nullable=True,
+        index=True)  # Agent ID
+
     # Message content - use JSONB for PostgreSQL, fallback to Text for SQLite
-    request_payload = db.Column(JSONB().with_variant(Text, "sqlite"), nullable=False)
-    response_payload = db.Column(JSONB().with_variant(Text, "sqlite"), nullable=True)
-    
+    request_payload = db.Column(
+        JSONB().with_variant(
+            Text, "sqlite"), nullable=False)
+    response_payload = db.Column(
+        JSONB().with_variant(
+            Text, "sqlite"), nullable=True)
+
     # Status tracking
-    status = db.Column(db.String(20), nullable=False, default="success")  # success, error
-    
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default="success")  # success, error
+
     # Timestamps
     created_at = db.Column(
-        db.DateTime, 
-        nullable=False, 
+        db.DateTime,
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         index=True
     )
 
-    def __init__(self, owner_id: str, request_payload: Dict[str, Any], **kwargs):
+    def __init__(self, owner_id: str,
+                 request_payload: Dict[str, Any], **kwargs):
         self.owner_id = owner_id
         self.request_payload = request_payload
         for key, value in kwargs.items():

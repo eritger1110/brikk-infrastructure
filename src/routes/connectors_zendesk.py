@@ -1,9 +1,15 @@
+# -*- coding: utf-8 -*-
 # src/routes/connectors_zendesk.py
-import os, requests
+import os
+import requests
 from flask import Blueprint, request, jsonify
 from src.services.security import require_auth
 
-zendesk_bp = Blueprint("zendesk", __name__, url_prefix="/api/connectors/zendesk")
+zendesk_bp = Blueprint(
+    "zendesk",
+    __name__,
+    url_prefix="/api/connectors/zendesk")
+
 
 def _cfg():
     return {
@@ -12,9 +18,11 @@ def _cfg():
         "token": os.getenv("ZENDESK_API_TOKEN"),
     }
 
+
 def _auth():
     c = _cfg()
     return (f"{c['email']}/token", c["token"])
+
 
 @zendesk_bp.get("/tickets")
 @require_auth
@@ -23,6 +31,7 @@ def list_tickets():
     url = f"https://{c['subdomain']}.zendesk.com/api/v2/tickets.json?page[size]=25"
     r = requests.get(url, auth=_auth(), timeout=20)
     return jsonify(r.json()), r.status_code
+
 
 @zendesk_bp.post("/tickets/reply")
 @require_auth

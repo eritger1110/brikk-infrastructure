@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Test suite for request guards middleware.
 
@@ -32,15 +33,15 @@ def app():
 def test_blueprint():
     """Create test blueprint with middleware applied."""
     bp = Blueprint('test', __name__)
-    
+
     @bp.route('/test', methods=['POST'])
     def test_endpoint():
         return jsonify({"status": "success"}), 200
-    
+
     # Apply middleware
     apply_request_guards_to_blueprint(bp)
     apply_security_headers_to_blueprint(bp)
-    
+
     return bp
 
 
@@ -53,7 +54,7 @@ def client(app, test_blueprint):
 
 class TestContentTypeValidation:
     """Test Content-Type header validation."""
-    
+
     def test_valid_content_type(self, client):
         """Test that application/json content type is accepted."""
         response = client.post(
@@ -67,7 +68,7 @@ class TestContentTypeValidation:
             json={"test": "data"}
         )
         assert response.status_code == 200
-    
+
     def test_content_type_with_charset(self, client):
         """Test that application/json with charset is accepted."""
         response = client.post(
@@ -81,7 +82,7 @@ class TestContentTypeValidation:
             json={"test": "data"}
         )
         assert response.status_code == 200
-    
+
     def test_wrong_content_type_text_plain(self, client):
         """Test that text/plain content type is rejected with 415."""
         response = client.post(
@@ -99,7 +100,7 @@ class TestContentTypeValidation:
         assert data['code'] == 'protocol_error'
         assert 'Content-Type must be application/json' in data['message']
         assert 'request_id' in data
-    
+
     def test_wrong_content_type_form_data(self, client):
         """Test that form data content type is rejected with 415."""
         response = client.post(
@@ -115,7 +116,7 @@ class TestContentTypeValidation:
         assert response.status_code == 415
         data = response.get_json()
         assert data['code'] == 'protocol_error'
-    
+
     def test_missing_content_type(self, client):
         """Test that missing Content-Type header is rejected with 415."""
         response = client.post(
@@ -132,7 +133,7 @@ class TestContentTypeValidation:
 
 class TestBodySizeValidation:
     """Test request body size limits."""
-    
+
     def test_small_body_accepted(self, client):
         """Test that small request body is accepted."""
         small_data = {"data": "x" * 1000}  # 1KB
@@ -147,7 +148,7 @@ class TestBodySizeValidation:
             json=small_data
         )
         assert response.status_code == 200
-    
+
     def test_max_size_body_accepted(self, client):
         """Test that body at max size limit is accepted."""
         # Create data close to but under the limit
@@ -163,7 +164,7 @@ class TestBodySizeValidation:
             json=max_data
         )
         assert response.status_code == 200
-    
+
     def test_oversized_body_rejected(self, client):
         """Test that oversized request body is rejected with 413."""
         # Create data larger than the limit
@@ -184,7 +185,7 @@ class TestBodySizeValidation:
         assert data['code'] == 'protocol_error'
         assert 'Request body too large' in data['message']
         assert f'{MAX_BODY_SIZE} bytes' in data['message']
-    
+
     def test_invalid_content_length_header(self, client):
         """Test that invalid Content-Length header is rejected with 400."""
         response = client.post(
@@ -206,7 +207,7 @@ class TestBodySizeValidation:
 
 class TestRequiredHeaders:
     """Test required Brikk headers validation."""
-    
+
     def test_all_headers_present(self, client):
         """Test that request with all required headers is accepted."""
         response = client.post(
@@ -220,7 +221,7 @@ class TestRequiredHeaders:
             json={"test": "data"}
         )
         assert response.status_code == 200
-    
+
     def test_missing_brikk_key(self, client):
         """Test that missing X-Brikk-Key header is rejected with 400."""
         response = client.post(
@@ -237,7 +238,7 @@ class TestRequiredHeaders:
         assert data['code'] == 'protocol_error'
         assert 'Missing required headers' in data['message']
         assert 'X-Brikk-Key' in data['message']
-    
+
     def test_missing_brikk_timestamp(self, client):
         """Test that missing X-Brikk-Timestamp header is rejected with 400."""
         response = client.post(
@@ -253,7 +254,7 @@ class TestRequiredHeaders:
         data = response.get_json()
         assert data['code'] == 'protocol_error'
         assert 'X-Brikk-Timestamp' in data['message']
-    
+
     def test_missing_brikk_signature(self, client):
         """Test that missing X-Brikk-Signature header is rejected with 400."""
         response = client.post(
@@ -269,7 +270,7 @@ class TestRequiredHeaders:
         data = response.get_json()
         assert data['code'] == 'protocol_error'
         assert 'X-Brikk-Signature' in data['message']
-    
+
     def test_missing_multiple_headers(self, client):
         """Test that missing multiple headers are all reported."""
         response = client.post(
@@ -285,7 +286,7 @@ class TestRequiredHeaders:
         assert data['code'] == 'protocol_error'
         assert 'X-Brikk-Timestamp' in data['message']
         assert 'X-Brikk-Signature' in data['message']
-    
+
     def test_empty_header_values(self, client):
         """Test that empty header values are treated as missing."""
         response = client.post(
@@ -305,7 +306,7 @@ class TestRequiredHeaders:
 
 class TestSecurityHeaders:
     """Test that security headers are added to responses."""
-    
+
     def test_security_headers_on_success(self, client):
         """Test that security headers are added to successful responses."""
         response = client.post(
@@ -319,12 +320,13 @@ class TestSecurityHeaders:
             json={"test": "data"}
         )
         assert response.status_code == 200
-        
+
         # Check security headers
-        assert response.headers.get('Strict-Transport-Security') == 'max-age=31536000; includeSubDomains; preload'
+        assert response.headers.get(
+            'Strict-Transport-Security') == 'max-age=31536000; includeSubDomains; preload'
         assert response.headers.get('X-Content-Type-Options') == 'nosniff'
         assert response.headers.get('Referrer-Policy') == 'no-referrer'
-    
+
     def test_security_headers_on_error(self, client):
         """Test that security headers are added to error responses."""
         response = client.post(
@@ -335,33 +337,34 @@ class TestSecurityHeaders:
             data="test data"
         )
         assert response.status_code == 415
-        
+
         # Check security headers are present even on error
-        assert response.headers.get('Strict-Transport-Security') == 'max-age=31536000; includeSubDomains; preload'
+        assert response.headers.get(
+            'Strict-Transport-Security') == 'max-age=31536000; includeSubDomains; preload'
         assert response.headers.get('X-Content-Type-Options') == 'nosniff'
         assert response.headers.get('Referrer-Policy') == 'no-referrer'
 
 
 class TestNonPostRequests:
     """Test that middleware only applies to POST requests."""
-    
+
     def test_get_request_bypasses_validation(self, app):
         """Test that GET requests bypass request guards."""
         bp = Blueprint('test_get', __name__)
-        
+
         @bp.route('/test-get', methods=['GET'])
         def test_get_endpoint():
             return jsonify({"status": "success"}), 200
-        
+
         apply_request_guards_to_blueprint(bp)
         apply_security_headers_to_blueprint(bp)
-        
+
         app.register_blueprint(bp)
         client = app.test_client()
-        
+
         # GET request without any Brikk headers should succeed
         response = client.get('/test-get')
         assert response.status_code == 200
-        
+
         # Security headers should still be present
         assert response.headers.get('Strict-Transport-Security') is not None

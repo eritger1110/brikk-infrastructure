@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 # src/schemas/agent.py
 from marshmallow import Schema, fields, validate, EXCLUDE
+
 
 class AgentCreateSchema(Schema):
     # v4: use load_default instead of missing

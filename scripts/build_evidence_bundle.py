@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Build Evidence Bundle
 
@@ -15,8 +16,10 @@ from pathlib import Path
 def get_git_commit_info():
     """Get the current Git commit hash and date."""
     try:
-        commit_hash = subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
-        commit_date = subprocess.check_output(["git", "show", "-s", "--format=%ci"]).strip().decode("utf-8")
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"]).strip().decode("utf-8")
+        commit_date = subprocess.check_output(
+            ["git", "show", "-s", "--format=%ci"]).strip().decode("utf-8")
         return commit_hash, commit_date
     except Exception as e:
         print(f"Warning: Could not get Git info: {e}")
@@ -38,20 +41,21 @@ def main():
     root_dir = Path(__file__).parent.parent
     artifacts_dir = root_dir / "artifacts"
     artifacts_dir.mkdir(exist_ok=True)
-    
+
     # Create version file
     commit_hash, commit_date = get_git_commit_info()
-    (artifacts_dir / "version.txt").write_text(f"Commit: {commit_hash}\nDate: {commit_date}\n")
-    
+    (artifacts_dir /
+     "version.txt").write_text(f"Commit: {commit_hash}\nDate: {commit_date}\n")
+
     # Create pip freeze file
     runtime_dir = artifacts_dir / "runtime"
     runtime_dir.mkdir(exist_ok=True)
     (runtime_dir / "pip-freeze.txt").write_text(get_pip_freeze())
-    
+
     # Create ZIP file
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d")
     zip_filename = artifacts_dir / f"evidence-bundle-{timestamp}.zip"
-    
+
     # Files and directories to include
     include_paths = [
         root_dir / "docs",
@@ -61,15 +65,15 @@ def main():
         artifacts_dir / "version.txt",
         runtime_dir / "pip-freeze.txt"
     ]
-    
+
     # Exclude patterns
     exclude_patterns = [".env", "*secret*", "**/node_modules/**"]
-    
+
     with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in include_paths:
             if not path.exists():
                 continue
-            
+
             if path.is_file():
                 zf.write(path, path.relative_to(root_dir))
             else:
@@ -77,10 +81,9 @@ def main():
                     if any(file_path.match(p) for p in exclude_patterns):
                         continue
                     zf.write(file_path, file_path.relative_to(root_dir))
-    
-    print(f"âœ... Evidence bundle created: {zip_filename}")
+
+    print(f"'... Evidence bundle created: {zip_filename}")
 
 
 if __name__ == "__main__":
     main()
-

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/services/crypto.py
 import hashlib
 import os
@@ -18,7 +19,7 @@ def hash_api_key(api_key: str) -> str:
     """
     # Generate a random salt
     salt = os.urandom(32)  # 32 bytes salt
-    
+
     # Hash the API key with PBKDF2
     key_hash = hashlib.pbkdf2_hmac(
         'sha256',           # Hash algorithm
@@ -26,7 +27,7 @@ def hash_api_key(api_key: str) -> str:
         salt,               # Salt
         100000              # Iterations (100k is recommended minimum)
     )
-    
+
     # Return salt and hash as hex, separated by $
     return f"{salt.hex()}${key_hash.hex()}"
 
@@ -41,7 +42,7 @@ def verify_api_key(api_key: str, stored_hash: str) -> bool:
         salt_hex, hash_hex = stored_hash.split('$', 1)
         salt = bytes.fromhex(salt_hex)
         stored_key_hash = bytes.fromhex(hash_hex)
-        
+
         # Hash the provided API key with the same salt
         key_hash = hashlib.pbkdf2_hmac(
             'sha256',
@@ -49,10 +50,10 @@ def verify_api_key(api_key: str, stored_hash: str) -> bool:
             salt,
             100000
         )
-        
+
         # Compare hashes using constant-time comparison
         return secrets.compare_digest(key_hash, stored_key_hash)
-    
+
     except (ValueError, TypeError):
         # Invalid hash format
         return False

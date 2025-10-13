@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
 # src/models/agent.py
 from __future__ import annotations
+from src.models.agent_performance import AgentPerformance
 
 import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from src.database.db import db
+from src.database import db
 from sqlalchemy.types import TypeDecorator
 
 
@@ -73,16 +75,21 @@ class Agent(db.Model):
     __tablename__ = "agents"
 
     # Identity
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(
+        db.String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid.uuid4()))
     name = db.Column(db.String(100), nullable=False)
 
     # Core
     language = db.Column(db.String(50), nullable=False)  # e.g., "en"
     version = db.Column(db.String(20), default="1.0.0")
-    status = db.Column(db.String(20), default="active")  # active, inactive, busy, error
+    # active, inactive, busy, error
+    status = db.Column(db.String(20), default="active")
 
     # Descriptive
-    description = db.Column(db.Text, nullable=True)      # <â€" newly added
+    description = db.Column(db.Text, nullable=True)      # <'" newly added
     capabilities = db.Column(JSONList)                   # list[str]
     tags = db.Column(JSONList)                            # list[str] (new)
 
@@ -92,7 +99,10 @@ class Agent(db.Model):
     # Connection
     endpoint_url = db.Column(db.String(500))
     api_key = db.Column(db.String(100))
-    last_seen = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_seen = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            timezone.utc))
 
     # Metrics
     total_coordinations = db.Column(db.Integer, default=0)
@@ -100,19 +110,38 @@ class Agent(db.Model):
     average_response_time = db.Column(db.Float, default=0.0)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            timezone.utc))
     updated_at = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    
-    organization_id = db.Column(db.String(36), db.ForeignKey("organizations.id"), nullable=False, index=True)
+
+    organization_id = db.Column(
+        db.String(36),
+        db.ForeignKey("organizations.id"),
+        nullable=False,
+        index=True)
     organization = db.relationship("Organization", back_populates="agents")
-    api_keys = db.relationship("ApiKey", back_populates="agent", cascade="all, delete-orphan")
-    services = db.relationship("AgentService", back_populates="agent", cascade="all, delete-orphan")
-    reputation_scores = db.relationship("ReputationScore", back_populates="agent", cascade="all, delete-orphan")
-    performance_metrics = db.relationship("AgentPerformance", back_populates="agent", cascade="all, delete-orphan")
+    api_keys = db.relationship(
+        "ApiKey",
+        back_populates="agent",
+        cascade="all, delete-orphan")
+    services = db.relationship(
+        "AgentService",
+        back_populates="agent",
+        cascade="all, delete-orphan")
+    reputation_scores = db.relationship(
+        "ReputationScore",
+        back_populates="agent",
+        cascade="all, delete-orphan")
+    performance_metrics = db.relationship(
+        "AgentPerformance",
+        back_populates="agent",
+        cascade="all, delete-orphan")
 
     def __init__(self, name: str, language: str, **kwargs):
         self.name = name
@@ -135,7 +164,10 @@ class Agent(db.Model):
         self.capabilities = capabilities_list or []
 
     # ---- Metrics helpers ----
-    def update_performance(self, response_time: float, success: bool = True) -> None:
+    def update_performance(
+            self,
+            response_time: float,
+            success: bool = True) -> None:
         self.total_coordinations += 1
         if success:
             self.successful_coordinations += 1
@@ -144,15 +176,19 @@ class Agent(db.Model):
             self.average_response_time = response_time
         else:
             self.average_response_time = (
-                (self.average_response_time * (self.total_coordinations - 1) + response_time)
-                / self.total_coordinations
-            )
+                (self.average_response_time *
+                 (
+                     self.total_coordinations -
+                     1) +
+                    response_time) /
+                self.total_coordinations)
 
         success_rate = (
-            self.successful_coordinations / self.total_coordinations if self.total_coordinations else 0.0
-        )
+            self.successful_coordinations /
+            self.total_coordinations if self.total_coordinations else 0.0)
         response_score = max(0.0, 100.0 - (self.average_response_time / 10.0))
-        self.performance_score = (success_rate * 70.0) + (min(response_score, 30.0))
+        self.performance_score = (success_rate * 70.0) + \
+            (min(response_score, 30.0))
 
         self.last_seen = datetime.now(timezone.utc)
         self.updated_at = datetime.now(timezone.utc)
@@ -195,16 +231,24 @@ class Coordination(db.Model):
     """Agent Coordination Transaction Model"""
     __tablename__ = "coordinations"
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(
+        db.String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid.uuid4()))
     workflow_type = db.Column(db.String(100), nullable=False)
-    status = db.Column(db.String(20), default="pending")  # pending, running, completed, failed
+    # pending, running, completed, failed
+    status = db.Column(db.String(20), default="pending")
 
     initiator_agent_id = db.Column(db.String(36), db.ForeignKey("agents.id"))
     participating_agents = db.Column(JSONList)  # list[str]
     workflow_steps = db.Column(JSONList)        # list[dict|str]
 
     # Performance
-    start_time = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    start_time = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            timezone.utc))
     end_time = db.Column(db.DateTime)
     total_duration = db.Column(db.Float)  # milliseconds
 
@@ -232,9 +276,11 @@ class Coordination(db.Model):
         if self.audit_trail is None:
             self.audit_trail = []
 
-    def complete_coordination(self, result_data: Dict[str, Any], success: bool = True) -> None:
+    def complete_coordination(
+            self, result_data: Dict[str, Any], success: bool = True) -> None:
         self.end_time = datetime.now(timezone.utc)
-        self.total_duration = (self.end_time - self.start_time).total_seconds() * 1000.0
+        self.total_duration = (
+            self.end_time - self.start_time).total_seconds() * 1000.0
         self.status = "completed" if success else "failed"
         self.result_data = result_data or {}
 
@@ -262,7 +308,11 @@ class SecurityEvent(db.Model):
     """Security and Audit Event Model"""
     __tablename__ = "security_events"
 
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(
+        db.String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid.uuid4()))
     event_type = db.Column(db.String(50), nullable=False)
     severity = db.Column(db.String(20), default="info")
 
@@ -280,7 +330,10 @@ class SecurityEvent(db.Model):
 
     # Data
     event_data = db.Column(JSONDict)  # dict
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(
+            timezone.utc))
 
     def __init__(self, event_type: str, **kwargs):
         self.event_type = event_type
@@ -306,4 +359,3 @@ class SecurityEvent(db.Model):
             "event_data": self.event_data or {},
             "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
-

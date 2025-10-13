@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
 # src/models/audit_log.py
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from sqlalchemy import Column, String, DateTime
-from sqlalchemy.types import JSON as SA_JSON  # generic JSON that works on SQLite & Postgres
+# generic JSON that works on SQLite & Postgres
+from sqlalchemy.types import JSON as SA_JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Text
-from src.database.db import db
+from src.database import db
 
 
 class AuditLog(db.Model):
@@ -15,23 +17,30 @@ class AuditLog(db.Model):
     __tablename__ = "audit_logs"
 
     # Use UUID for primary key to match Stage 1 requirements
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    
+    id = Column(
+        String(36),
+        primary_key=True,
+        default=lambda: str(
+            uuid.uuid4()))
+
     # Actor (user performing the action)
     actor_id = Column(String(36), nullable=False, index=True)
-    
+
     # Action details
-    action = Column(String(120), nullable=False)          # e.g., "agent.created", "echo.sent"
-    resource_type = Column(String(64), nullable=True)     # e.g., "agent", "message"
-    resource_id = Column(String(36), nullable=True)       # UUID of the resource
-    
+    # e.g., "agent.created", "echo.sent"
+    action = Column(String(120), nullable=False)
+    # e.g., "agent", "message"
+    resource_type = Column(String(64), nullable=True)
+    # UUID of the resource
+    resource_id = Column(String(36), nullable=True)
+
     # Metadata - use JSONB for PostgreSQL, fallback to Text for SQLite
     details = Column(JSONB().with_variant(Text, "sqlite"), nullable=True)
-    
+
     # Timestamp with timezone
     created_at = Column(
-        DateTime, 
-        nullable=False, 
+        DateTime,
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
         index=True
     )
