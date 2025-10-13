@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
 """
 Reputation Service
 
 Handles the calculation and updating of agent and organization reputation scores.
 """
 
-from src.database import db
+from src.database.db import db
 from src.models.economy import ReputationScore
-
 
 class ReputationService:
 
@@ -18,8 +16,7 @@ class ReputationService:
         # scoring model based on the provided signals.
         score = self._calculate_score(signal_dict)
 
-        reputation = ReputationScore.query.filter_by(
-            org_id=org_id, agent_id=agent_id).first()
+        reputation = ReputationScore.query.filter_by(org_id=org_id, agent_id=agent_id).first()
         if not reputation:
             reputation = ReputationScore(org_id=org_id, agent_id=agent_id)
             db.session.add(reputation)
@@ -37,3 +34,4 @@ class ReputationService:
 
         score = (success_rate * 50) + (volume / 100) - (latency / 100)
         return max(0, min(100, score))
+
