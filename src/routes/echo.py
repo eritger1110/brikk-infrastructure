@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/echo.py
 """
 Stage 1 Echo Workflow - Simple message echo for testing agent communication.
@@ -21,13 +22,18 @@ from src.models.message_log import MessageLog
 from src.services.audit import log_echo_sent
 
 # Rate limiting setup
+
+
 def rate_key() -> str:
     """Use user ID if available, otherwise IP address"""
     try:
-        user_id = getattr(g.user, 'id', None) if hasattr(g, 'user') and g.user else None
+        user_id = getattr(
+            g.user, 'id', None) if hasattr(
+            g, 'user') and g.user else None
         return f"user:{user_id}" if user_id else get_remote_address()
-    except:
+    except BaseException:
         return get_remote_address()
+
 
 limiter = Limiter(
     key_func=rate_key,
@@ -43,13 +49,13 @@ echo_bp = Blueprint("echo_bp", __name__, url_prefix="/api/v1/echo")
 def send_echo():
     """
     Echo workflow - accepts a message and returns it with metadata.
-    
+
     Expected payload:
     {
         "message": "Hello, world!",
         "sender_id": "agent-uuid-optional"
     }
-    
+
     Returns:
     {
         "id": "message-uuid",
@@ -61,36 +67,40 @@ def send_echo():
     """
     # Basic auth check
     if not hasattr(g, 'user') or not g.user:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    
+        return jsonify({"error": "unauthorized",
+                        "message": "Authentication required"}), 401
+
     user_id = getattr(g.user, 'id', None)
     if not user_id:
-        return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
+        return jsonify(
+            {"error": "unauthorized", "message": "User ID not found"}), 401
 
     payload = request.get_json(silent=True) or {}
-    
+
     # Validate message
     message = payload.get('message', '').strip()
     if not message:
-        return jsonify({"error": "validation_error", "message": "Message is required"}), 400
-    
+        return jsonify({"error": "validation_error",
+                       "message": "Message is required"}), 400
+
     if len(message) > 10000:  # 10KB limit
-        return jsonify({"error": "validation_error", "message": "Message too long (max 10KB)"}), 400
-    
+        return jsonify({"error": "validation_error",
+                       "message": "Message too long (max 10KB)"}), 400
+
     sender_id = payload.get('sender_id')  # Optional agent ID
-    
+
     try:
         # Create message log entry
         message_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc)
-        
+
         # Build request payload for logging
         request_payload = {
             "message": message,
             "sender_id": sender_id,
             "timestamp": timestamp.isoformat()
         }
-        
+
         # Build response payload
         response_payload = {
             "id": message_id,
@@ -99,7 +109,7 @@ def send_echo():
             "timestamp": timestamp.isoformat(),
             "status": "success"
         }
-        
+
         # Log the message
         message_log = MessageLog(
             id=message_id,
@@ -109,22 +119,23 @@ def send_echo():
             response_payload=response_payload,
             status="success"
         )
-        
+
         db.session.add(message_log)
         db.session.commit()
-        
+
         # Audit log
         try:
             log_echo_sent(user_id, message_id, sender_id or "unknown")
         except Exception as e:
             current_app.logger.warning(f"Failed to create audit log: {e}")
-        
+
         return jsonify(response_payload), 200
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Echo workflow failed: {e}")
-        return jsonify({"error": "internal_error", "message": "Echo workflow failed"}), 500
+        return jsonify({"error": "internal_error",
+                       "message": "Echo workflow failed"}), 500
 
 
 @echo_bp.route("/logs", methods=["GET"])
@@ -132,11 +143,11 @@ def send_echo():
 def get_echo_logs():
     """
     Get echo message logs for the authenticated user.
-    
+
     Query parameters:
     - limit: Number of logs to return (default 50, max 200)
     - offset: Number of logs to skip (default 0)
-    
+
     Returns:
     {
         "logs": [
@@ -153,29 +164,34 @@ def get_echo_logs():
     """
     # Basic auth check
     if not hasattr(g, 'user') or not g.user:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    
+        return jsonify({"error": "unauthorized",
+                        "message": "Authentication required"}), 401
+
     user_id = getattr(g.user, 'id', None)
     if not user_id:
-        return jsonify({"error": "unauthorized", "message": "User ID not found"}), 401
+        return jsonify(
+            {"error": "unauthorized", "message": "User ID not found"}), 401
 
     # Parse query parameters
     try:
         limit = min(int(request.args.get('limit', 50)), 200)
         offset = max(int(request.args.get('offset', 0)), 0)
     except ValueError:
-        return jsonify({"error": "validation_error", "message": "Invalid limit or offset"}), 400
+        return jsonify({"error": "validation_error",
+                       "message": "Invalid limit or offset"}), 400
 
     try:
         # Query message logs for this user
-        query = db.session.query(MessageLog).filter(MessageLog.owner_id == user_id)
-        
+        query = db.session.query(MessageLog).filter(
+            MessageLog.owner_id == user_id)
+
         # Get total count
         total = query.count()
-        
+
         # Get paginated results
-        logs = query.order_by(MessageLog.created_at.desc()).offset(offset).limit(limit).all()
-        
+        logs = query.order_by(MessageLog.created_at.desc()).offset(
+            offset).limit(limit).all()
+
         # Format response
         log_data = []
         for log in logs:
@@ -187,14 +203,15 @@ def get_echo_logs():
                 "status": log.status,
                 "created_at": log.created_at.isoformat() if log.created_at else None
             })
-        
+
         return jsonify({
             "logs": log_data,
             "total": total,
             "limit": limit,
             "offset": offset
         }), 200
-        
+
     except Exception as e:
         current_app.logger.error(f"Failed to get echo logs: {e}")
-        return jsonify({"error": "internal_error", "message": "Failed to get logs"}), 500
+        return jsonify({"error": "internal_error",
+                       "message": "Failed to get logs"}), 500

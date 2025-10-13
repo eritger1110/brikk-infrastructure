@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/routes/security.py
 import os
 import secrets
@@ -22,11 +23,13 @@ security_bp = Blueprint("security", __name__, url_prefix="/api")
 # -------------------------------
 # Environment
 # -------------------------------
-PROVISION_SECRET   = os.environ.get("PROVISION_SECRET")
-JWT_COOKIE_DOMAIN  = os.environ.get("COOKIE_DOMAIN")                # e.g. ".getbrikk.com"
-FROM_EMAIL         = os.environ.get("FROM_EMAIL")                   # e.g. "support@getbrikk.com"
-SENDGRID_KEY       = os.environ.get("SENDGRID_API_KEY")
-APP_URL            = os.environ.get("APP_URL", "https://www.getbrikk.com").rstrip("/")
+PROVISION_SECRET = os.environ.get("PROVISION_SECRET")
+JWT_COOKIE_DOMAIN = os.environ.get(
+    "COOKIE_DOMAIN")                # e.g. ".getbrikk.com"
+# e.g. "support@getbrikk.com"
+FROM_EMAIL = os.environ.get("FROM_EMAIL")
+SENDGRID_KEY = os.environ.get("SENDGRID_API_KEY")
+APP_URL = os.environ.get("APP_URL", "https://www.getbrikk.com").rstrip("/")
 APP_DASHBOARD_PATH = os.environ.get("APP_DASHBOARD_PATH", "/app")
 
 # -------------------------------
@@ -34,8 +37,10 @@ APP_DASHBOARD_PATH = os.environ.get("APP_DASHBOARD_PATH", "/app")
 # -------------------------------
 ALNUM = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no confusing chars
 
+
 def gen_order_ref(n: int = 10) -> str:
     return "BRK-" + "".join(secrets.choice(ALNUM) for _ in range(n))
+
 
 def unique_order_ref(n: int = 10) -> str:
     for _ in range(5):
@@ -44,8 +49,10 @@ def unique_order_ref(n: int = 10) -> str:
             return ref
     return gen_order_ref(n + 2)
 
+
 def _hash_password(pw: str) -> str:
     return bcrypt.hashpw(pw.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def _set_password(user: User, pw: str):
     if hasattr(user, "set_password"):
@@ -57,9 +64,15 @@ def _set_password(user: User, pw: str):
     else:
         raise RuntimeError("User model has no password field/method")
 
-def _send_verification(email: str, vtoken: str, first_name: str = "", order_ref: str | None = None):
+
+def _send_verification(
+        email: str,
+        vtoken: str,
+        first_name: str = "",
+        order_ref: str | None = None):
     if not FROM_EMAIL or not SENDGRID_KEY:
-        current_app.logger.warning("SendGrid not configured; skipping verification email")
+        current_app.logger.warning(
+            "SendGrid not configured; skipping verification email")
         return
     link = f"{APP_URL}/verify?token={vtoken}"
     subject = "Verify your email for Brikk"
@@ -77,8 +90,14 @@ def _send_verification(email: str, vtoken: str, first_name: str = "", order_ref:
       <p><a href="{link}">Verify my email</a></p>
       <p>This link is valid for 24 hours.</p>
     """
-    message = Mail(from_email=FROM_EMAIL, to_emails=email, subject=subject, plain_text_content=plain, html_content=html)
+    message = Mail(
+        from_email=FROM_EMAIL,
+        to_emails=email,
+        subject=subject,
+        plain_text_content=plain,
+        html_content=html)
     SendGridAPIClient(SENDGRID_KEY).send(message)
+
 
 def _login_response(user: User, payload: dict | None = None):
     claims = {"email": getattr(user, "email", None)}
@@ -86,11 +105,14 @@ def _login_response(user: User, payload: dict | None = None):
         claims.update(payload)
     identity = str(getattr(user, "id", getattr(user, "email", "")))
     access = create_access_token(identity=identity, additional_claims=claims)
-    resp = jsonify({"ok": True, "user": {"id": identity, "email": getattr(user, "email", None)}})
+    resp = jsonify({"ok": True, "user": {"id": identity,
+                   "email": getattr(user, "email", None)}})
     set_access_cookies(resp, access)
     return resp
 
 # --- verification field helpers (works with either verification_expires or _at) ---
+
+
 def _set_verification_fields(user: User, token: str, expires: dt.datetime):
     if hasattr(user, "verification_token"):
         user.verification_token = token
@@ -101,8 +123,16 @@ def _set_verification_fields(user: User, token: str, expires: dt.datetime):
     if hasattr(user, "email_verified"):
         user.email_verified = False
 
+
 def _get_verification_expiry(user: User) -> dt.datetime | None:
-    return getattr(user, "verification_expires", None) or getattr(user, "verification_expires_at", None)
+    return getattr(
+        user,
+        "verification_expires",
+        None) or getattr(
+        user,
+        "verification_expires_at",
+        None)
+
 
 def _clear_verification_fields(user: User):
     if hasattr(user, "verification_token"):
@@ -115,6 +145,8 @@ def _clear_verification_fields(user: User):
 # -------------------------------
 # POST /api/auth/complete-signup
 # -------------------------------
+
+
 @security_bp.post("/auth/complete-signup")
 def complete_signup():
     """
@@ -129,23 +161,32 @@ def complete_signup():
         data = request.get_json() or {}
         token = (data.get("token") or "").strip()
         first = (data.get("first_name") or "").strip()
-        last  = (data.get("last_name")  or "").strip()
-        email = (data.get("email")      or "").strip().lower()
-        pw    = data.get("password")
+        last = (data.get("last_name") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        pw = data.get("password")
 
-        if not token: return jsonify({"error":"missing token"}), 400
-        if not first or not last: return jsonify({"error":"missing name"}), 400
-        if not email: return jsonify({"error":"missing email"}), 400
-        if not pw: return jsonify({"error":"missing password"}), 400
-        if not PROVISION_SECRET: return jsonify({"error":"server missing PROVISION_SECRET"}), 500
+        if not token:
+            return jsonify({"error": "missing token"}), 400
+        if not first or not last:
+            return jsonify({"error": "missing name"}), 400
+        if not email:
+            return jsonify({"error": "missing email"}), 400
+        if not pw:
+            return jsonify({"error": "missing password"}), 400
+        if not PROVISION_SECRET:
+            return jsonify({"error": "server missing PROVISION_SECRET"}), 500
 
-        payload = pyjwt.decode(token, PROVISION_SECRET, algorithms=["HS256"], issuer="brikk-netlify")
-        token_email       = (payload.get("email") or "").strip().lower()
-        customer_id       = payload.get("customer")
-        subscription_id   = payload.get("subscription")
-        effective_email   = token_email or email
+        payload = pyjwt.decode(
+            token,
+            PROVISION_SECRET,
+            algorithms=["HS256"],
+            issuer="brikk-netlify")
+        token_email = (payload.get("email") or "").strip().lower()
+        customer_id = payload.get("customer")
+        subscription_id = payload.get("subscription")
+        effective_email = token_email or email
         if not effective_email:
-            return jsonify({"error":"token missing email"}), 400
+            return jsonify({"error": "token missing email"}), 400
 
         # Create or update user
         user = User.query.filter_by(email=effective_email).first()
@@ -157,14 +198,15 @@ def complete_signup():
         _set_password(user, pw)
 
         # Set verification fields
-        vtoken  = secrets.token_urlsafe(32)
+        vtoken = secrets.token_urlsafe(32)
         expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
         _set_verification_fields(user, vtoken, expires)
 
         # Create/find purchase record for order_ref
         purchase = None
         if subscription_id:
-            purchase = Purchase.query.filter_by(stripe_subscription_id=subscription_id).first()
+            purchase = Purchase.query.filter_by(
+                stripe_subscription_id=subscription_id).first()
         if not purchase:
             purchase = Purchase(
                 order_ref=unique_order_ref(10),
@@ -177,13 +219,21 @@ def complete_signup():
         db.session.commit()
 
         # Send verification
-        _send_verification(effective_email, vtoken, first_name=first, order_ref=purchase.order_ref if purchase else None)
+        _send_verification(
+            effective_email,
+            vtoken,
+            first_name=first,
+            order_ref=purchase.order_ref if purchase else None)
 
         # Login immediately
-        return _login_response(user, payload={"order_ref": getattr(purchase, "order_ref", None)})
+        return _login_response(
+            user, payload={
+                "order_ref": getattr(
+                    purchase, "order_ref", None)})
 
     except pyjwt.ExpiredSignatureError:
-        return jsonify({"error":"session link expired, please refresh the success page"}), 400
+        return jsonify(
+            {"error": "session link expired, please refresh the success page"}), 400
     except Exception as e:
         current_app.logger.exception("complete-signup failed")
         return jsonify({"error": str(e)}), 500
@@ -191,6 +241,8 @@ def complete_signup():
 # -------------------------------
 # GET /api/auth/verify
 # -------------------------------
+
+
 @security_bp.get("/auth/verify")
 def verify_email():
     token = request.args.get("token", "").strip()
@@ -199,11 +251,13 @@ def verify_email():
     try:
         user = User.query.filter_by(verification_token=token).first()
         if not user:
-            return _simple_page("Verification", "<p>Invalid verification link.</p>"), 400
+            return _simple_page(
+                "Verification", "<p>Invalid verification link.</p>"), 400
 
         exp = _get_verification_expiry(user)
         if exp and dt.datetime.utcnow() > exp:
-            return _simple_page("Verification", "<p>This verification link has expired.</p>"), 400
+            return _simple_page(
+                "Verification", "<p>This verification link has expired.</p>"), 400
 
         if hasattr(user, "email_verified"):
             user.email_verified = True
@@ -214,13 +268,18 @@ def verify_email():
         # Log them in and redirect to app
         resp = redirect(APP_URL + APP_DASHBOARD_PATH)
         identity = str(getattr(user, "id", getattr(user, "email", "")))
-        access = create_access_token(identity=identity, additional_claims={"email": getattr(user, "email", None)})
+        access = create_access_token(
+            identity=identity, additional_claims={
+                "email": getattr(
+                    user, "email", None)})
         set_access_cookies(resp, access)
         return resp
 
     except Exception as e:
         current_app.logger.exception("verify failed")
-        return _simple_page("Verification", f"<p>Something went wrong: {e}</p>"), 500
+        return _simple_page(
+            "Verification", f"<p>Something went wrong: {e}</p>"), 500
+
 
 def _simple_page(title: str, body_html: str):
     html = f"""<!doctype html><meta charset="utf-8">
@@ -238,18 +297,20 @@ def _simple_page(title: str, body_html: str):
 # -------------------------------
 # POST /api/auth/resend-verification
 # -------------------------------
+
+
 @security_bp.post("/auth/resend-verification")
 def resend_verification():
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
     if not email:
-        return jsonify({"error":"missing email"}), 400
+        return jsonify({"error": "missing email"}), 400
 
     user = User.query.filter_by(email=email).first()
     if not user:
-        return jsonify({"error":"no account for that email"}), 404
+        return jsonify({"error": "no account for that email"}), 404
     if hasattr(user, "email_verified") and user.email_verified:
-        return jsonify({"error":"email already verified"}), 400
+        return jsonify({"error": "email already verified"}), 400
 
     vtoken = secrets.token_urlsafe(32)
     expires = dt.datetime.utcnow() + dt.timedelta(hours=24)
@@ -265,6 +326,8 @@ def resend_verification():
 # -------------------------------
 # GET /api/auth/me
 # -------------------------------
+
+
 @security_bp.get("/auth/me")
 @jwt_required(optional=True)
 def me():
@@ -272,12 +335,16 @@ def me():
     if not ident:
         return jsonify({"user": None}), 200
 
-    user = User.query.filter((User.id == ident) | (User.email == ident)).first()
+    user = User.query.filter(
+        (User.id == ident) | (
+            User.email == ident)).first()
     if not user:
         return jsonify({"user": None}), 200
 
     # fetch latest order ref if present
-    purchase = Purchase.query.filter_by(email=user.email).order_by(Purchase.id.desc()).first()
+    purchase = Purchase.query.filter_by(
+        email=user.email).order_by(
+        Purchase.id.desc()).first()
     return jsonify({
         "user": {
             "id": str(getattr(user, "id", "")),
@@ -291,6 +358,8 @@ def me():
 # -------------------------------
 # POST /api/auth/logout
 # -------------------------------
+
+
 @security_bp.post("/auth/logout")
 def logout():
     resp = jsonify({"ok": True})

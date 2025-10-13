@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/services/audit.py
 from typing import Any, Dict, Optional
 from flask import request, g, current_app
@@ -15,14 +16,14 @@ def log_action(
 ) -> AuditLog:
     """
     Log an audit action to the database.
-    
+
     Args:
         actor_id: UUID of the user performing the action (defaults to g.user.id)
         action: Action being performed (e.g., "agent.created", "echo.sent")
         resource_type: Type of resource being acted upon (e.g., "agent", "message")
         resource_id: UUID of the specific resource
         metadata: Additional context data
-    
+
     Returns:
         The created AuditLog instance
     """
@@ -32,11 +33,11 @@ def log_action(
             actor_id = getattr(g, 'user', None)
             if actor_id:
                 actor_id = getattr(actor_id, 'id', None)
-        
+
         if not actor_id:
             current_app.logger.warning("No actor_id available for audit log")
             return None
-            
+
         audit_log = AuditLog(
             actor_id=str(actor_id),
             action=action,
@@ -44,24 +45,27 @@ def log_action(
             resource_id=str(resource_id) if resource_id else None,
             metadata=metadata or {}
         )
-        
+
         db.session.add(audit_log)
         db.session.commit()
-        
+
         current_app.logger.info(
             f"Audit log created: actor={actor_id} action={action} "
             f"resource={resource_type}:{resource_id}"
         )
-        
+
         return audit_log
-        
+
     except Exception as e:
         current_app.logger.error(f"Failed to create audit log: {e}")
         db.session.rollback()
         raise
 
 
-def log_agent_created(actor_id: str, agent_id: str, agent_name: str) -> AuditLog:
+def log_agent_created(
+        actor_id: str,
+        agent_id: str,
+        agent_name: str) -> AuditLog:
     """Convenience method for logging agent creation"""
     return log_action(
         actor_id=actor_id,
@@ -84,7 +88,11 @@ def log_echo_sent(actor_id: str, message_id: str, sender_id: str) -> AuditLog:
 
 
 # Backward compatibility function for existing code
-def log_action_legacy(action: str, resource_type: str, resource_id: str = None, metadata: dict = None):
+def log_action_legacy(
+        action: str,
+        resource_type: str,
+        resource_id: str = None,
+        metadata: dict = None):
     """
     Legacy function for backward compatibility.
     Write an audit log row using the old signature.

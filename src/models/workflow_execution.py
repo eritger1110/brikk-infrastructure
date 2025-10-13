@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 """
 Workflow Execution Model
@@ -11,6 +12,7 @@ from sqlalchemy.sql import func
 
 from src.database import db
 
+
 class WorkflowExecution(db.Model):
     __tablename__ = "workflow_executions"
 
@@ -18,7 +20,8 @@ class WorkflowExecution(db.Model):
     workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=False)
     workflow = relationship("Workflow", back_populates="executions")
 
-    status = Column(String, nullable=False, default="pending") # pending, running, completed, failed
+    # pending, running, completed, failed
+    status = Column(String, nullable=False, default="pending")
     context = Column(JSON)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -26,4 +29,3 @@ class WorkflowExecution(db.Model):
 
     def __repr__(self):
         return f"<WorkflowExecution(id={self.id}, status=\"{self.status}\")>"
-

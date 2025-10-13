@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """""
 Service for managing Prometheus metrics.
 
@@ -11,6 +12,7 @@ from typing import Optional
 from flask import Flask, request, g, current_app, has_app_context
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Histogram, Gauge
 from prometheus_client.exposition import generate_latest
+
 
 def init_metrics(app: Flask) -> None:
     """Initialize metrics service and endpoints."""
@@ -37,7 +39,9 @@ def init_metrics(app: Flask) -> None:
         # Add /metrics endpoint
         @app.route("/metrics")
         def metrics():
-            return generate_latest(service.registry), 200, {'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'}
+            return generate_latest(service.registry), 200, {
+                'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'}
+
 
 def get_metrics_service() -> Optional['MetricsService']:
     """Get the metrics service instance from the current app context."""
@@ -45,12 +49,15 @@ def get_metrics_service() -> Optional['MetricsService']:
         return current_app.extensions.get('metrics')
     return None
 
+
 class MetricsService:
     """Service for managing Prometheus metrics."""
 
     def __init__(self, registry: Optional[CollectorRegistry] = None):
         """Initialize the metrics service."""
-        self.enabled = os.environ.get("BRIKK_METRICS_ENABLED", "true").lower() == "true"
+        self.enabled = os.environ.get(
+            "BRIKK_METRICS_ENABLED",
+            "true").lower() == "true"
         self.registry = registry if registry is not None else REGISTRY
 
         if self.enabled:
@@ -95,12 +102,21 @@ class MetricsService:
                 registry=self.registry
             )
 
-    def record_http_request(self, route: str, method: str, status_code: int, duration_seconds: float):
+    def record_http_request(
+            self,
+            route: str,
+            method: str,
+            status_code: int,
+            duration_seconds: float):
         """Record an HTTP request."""
         if self.enabled:
             normalized_route = self._normalize_route(route)
-            self.http_requests_total.labels(route=normalized_route, method=method, status=status_code).inc()
-            self.http_request_duration_seconds.labels(route=normalized_route, method=method).observe(duration_seconds)
+            self.http_requests_total.labels(
+                route=normalized_route,
+                method=method,
+                status=status_code).inc()
+            self.http_request_duration_seconds.labels(
+                route=normalized_route, method=method).observe(duration_seconds)
 
     def get_metrics(self) -> str:
         """Get metrics data as text."""
@@ -120,4 +136,3 @@ class MetricsService:
             except (ValueError, AttributeError):
                 pass
         return '/'.join(parts)
-

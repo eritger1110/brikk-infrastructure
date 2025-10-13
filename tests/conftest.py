@@ -1,12 +1,27 @@
+# -*- coding: utf-8 -*-
+
 import pytest
 import os
 import tempfile
 from unittest.mock import patch
+from prometheus_client import REGISTRY, CollectorRegistry
 
 # Set test environment variables
 os.environ["FLASK_ENV"] = "testing"
 os.environ["TESTING"] = "true"
 os.environ["BRIKK_ENCRYPTION_KEY"] = "test_key_32_bytes_long_for_fernet"
+
+
+@pytest.fixture(autouse=True)
+def clear_prometheus_registry():
+    """Clear the default prometheus registry before each test."""
+    collectors = list(REGISTRY._collector_to_names.keys())
+    for collector in collectors:
+        try:
+            REGISTRY.unregister(collector)
+        except KeyError:
+            pass  # Already unregistered
+
 
 @pytest.fixture
 def app():
@@ -25,22 +40,8 @@ def app():
     os.close(db_fd)
     os.unlink(db_path)
 
+
 @pytest.fixture
 def client(app):
     """A test client for the app."""
     return app.test_client()
-
-
-
-
-import pytest
-from prometheus_client import REGISTRY
-
-@pytest.fixture(autouse=True)
-def clear_prometheus_registry():
-    """Clear the default prometheus registry before each test."""
-    collectors = list(REGISTRY._collector_to_names.keys())
-    for collector in collectors:
-        REGISTRY.unregister(collector)
-    yield
-

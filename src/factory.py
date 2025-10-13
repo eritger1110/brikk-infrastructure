@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import importlib
@@ -18,12 +19,34 @@ ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
 ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
 
+
 def _normalize_db_url(url: str) -> str:
     if url.startswith("postgres://"):
         return url.replace("postgres://", "postgresql+psycopg://", 1)
     if url.startswith("postgresql://") and "+psycopg://" not in url:
         return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
+
+
+def _seed_system_accounts():
+    """Creates the default system ledger accounts if they don't exist."""
+    from src.models.economy import LedgerAccount
+
+    system_accounts = [
+        {"name": "platform_revenue", "type": "system"},
+        {"name": "platform_fees", "type": "system"},
+        {"name": "promotions", "type": "system"},
+    ]
+
+    for acc_data in system_accounts:
+        acc = LedgerAccount.query.filter_by(name=acc_data["name"]).first()
+        if not acc:
+            new_acc = LedgerAccount(
+                name=acc_data["name"],
+                type=acc_data["type"])
+            db.session.add(new_acc)
+    db.session.commit()
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -35,7 +58,11 @@ def create_app() -> Flask:
     # --- DB config ---
     db_url = os.environ.get("DATABASE_URL")
     if not db_url:
-        db_path = os.path.join(os.path.dirname(__file__), "..", "instance", "app.db")
+        db_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "instance",
+            "app.db")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         db_url = f"sqlite:///{db_path}"
     else:
@@ -71,8 +98,10 @@ def create_app() -> Flask:
         app.register_blueprint(webhooks.webhooks_bp)
         app.register_blueprint(discovery.discovery_bp)
         app.register_blueprint(reputation.reputation_bp)
-        app.register_blueprint(connectors_zendesk.zendesk_bp, url_prefix="/api")
-        app.register_blueprint(health.health_bp, url_prefix="/api/inbound")
+        app.register_blueprint(
+            connectors_zendesk.zendesk_bp,
+            url_prefix="/api")
+        app.register_blueprint(health.health_bp, url_prefix="/")
         if ENABLE_DEV_LOGIN:
             from src.routes import dev_login
             app.register_blueprint(dev_login.dev_bp, url_prefix="/api")
@@ -83,6 +112,6 @@ def create_app() -> Flask:
     # --- DB init ---
     with app.app_context():
         db.create_all()
+        _seed_system_accounts()
 
     return app
-

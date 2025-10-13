@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 API Key model for secure per-org/per-agent authentication in Brikk infrastructure.
 Uses Fernet encryption for secure, reversible API key storage.
@@ -33,10 +34,18 @@ class ApiKey(db.Model):
     key_prefix = Column(String(16), nullable=False, index=True)
 
     # Ownership / scope
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id"),
+        nullable=False,
+        index=True)
     organization = relationship("Organization", back_populates="api_keys")
 
-    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=True, index=True)
+    agent_id = Column(
+        String(36),
+        ForeignKey("agents.id"),
+        nullable=True,
+        index=True)
     agent = relationship("Agent", back_populates="api_keys")
 
     # Secret storage - Fernet encrypted
@@ -50,7 +59,11 @@ class ApiKey(db.Model):
     # Lifecycle / status
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False)
     expires_at = Column(DateTime)
     last_used_at = Column(DateTime)
 
@@ -171,7 +184,10 @@ class ApiKey(db.Model):
         return cls.query.filter_by(key_id=key_id, is_active=True).first()
 
     @classmethod
-    def get_by_organization(cls, organization_id: int, active_only: bool = True) -> list["ApiKey"]:
+    def get_by_organization(
+            cls,
+            organization_id: int,
+            active_only: bool = True) -> list["ApiKey"]:
         q = cls.query.filter_by(organization_id=organization_id)
         if active_only:
             q = q.filter_by(is_active=True)
@@ -184,9 +200,10 @@ class ApiKey(db.Model):
         for api_key_record in active_keys:
             try:
                 decrypted_secret = api_key_record.decrypt_secret()
-                if secrets.compare_digest(provided_api_key, decrypted_secret) and api_key_record.is_valid():
+                if secrets.compare_digest(
+                        provided_api_key,
+                        decrypted_secret) and api_key_record.is_valid():
                     return api_key_record
             except Exception:
                 continue
         return None
-

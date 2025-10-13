@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import time
 import hmac
@@ -67,7 +68,10 @@ def org_and_key(app):
 def generate_signature(timestamp, body, secret):
     """Generate HMAC-SHA256 signature."""
     message = f"{timestamp}.{body}".encode("utf-8")
-    return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return hmac.new(
+        secret.encode("utf-8"),
+        message,
+        hashlib.sha256).hexdigest()
 
 
 def test_coordination_v1_success(client, org_and_key):
@@ -94,7 +98,10 @@ def test_coordination_v1_success(client, org_and_key):
         "X-Brikk-Signature": signature,
     }
 
-    response = client.post("/api/v1/coordination", headers=headers, data=body_str)
+    response = client.post(
+        "/api/v1/coordination",
+        headers=headers,
+        data=body_str)
 
     assert response.status_code == 202
     json_data = response.get_json()
@@ -126,7 +133,10 @@ def test_coordination_v1_invalid_signature(client, org_and_key):
         "X-Brikk-Signature": signature,
     }
 
-    response = client.post("/api/v1/coordination", headers=headers, data=body_str)
+    response = client.post(
+        "/api/v1/coordination",
+        headers=headers,
+        data=body_str)
 
     assert response.status_code == 401
     json_data = response.get_json()
@@ -160,11 +170,17 @@ def test_coordination_v1_idempotency(client, org_and_key):
     }
 
     # First request should succeed
-    response1 = client.post("/api/v1/coordination", headers=headers, data=body_str)
+    response1 = client.post(
+        "/api/v1/coordination",
+        headers=headers,
+        data=body_str)
     assert response1.status_code == 202
 
     # Second request with same idempotency key should be a replay
-    response2 = client.post("/api/v1/coordination", headers=headers, data=body_str)
+    response2 = client.post(
+        "/api/v1/coordination",
+        headers=headers,
+        data=body_str)
     assert response2.status_code == 200  # Replay returns 200
     assert response2.get_json() == response1.get_json()
 
@@ -172,10 +188,13 @@ def test_coordination_v1_idempotency(client, org_and_key):
     body2 = body.copy()
     body2["payload"] = {"foo": "baz"}
     body2_str = json.dumps(body2)
-    signature2 = generate_signature(timestamp, body2_str, api_key.signing_secret)
+    signature2 = generate_signature(
+        timestamp, body2_str, api_key.signing_secret)
     headers2 = headers.copy()
     headers2["X-Brikk-Signature"] = signature2
-    response3 = client.post("/api/v1/coordination", headers=headers2, data=body2_str)
+    response3 = client.post(
+        "/api/v1/coordination",
+        headers=headers2,
+        data=body2_str)
     assert response3.status_code == 409  # Conflict
     assert response3.get_json()["code"] == "idempotency_conflict"
-

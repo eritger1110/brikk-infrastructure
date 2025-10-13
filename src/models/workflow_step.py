@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 """
 Workflow Step Model
@@ -10,6 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from src.database import db
+
 
 class WorkflowStep(db.Model):
     __tablename__ = "workflow_steps"
@@ -34,4 +36,3 @@ class WorkflowStep(db.Model):
 
     def __repr__(self):
         return f"<WorkflowStep(id={self.id}, name='{self.name}')>"
-

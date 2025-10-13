@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from src.database import db
 
 from .agent import Agent
@@ -14,4 +15,3 @@ from .webhook import Webhook
 from .workflow import Workflow
 from .workflow_execution import WorkflowExecution
 from .workflow_step import WorkflowStep
-

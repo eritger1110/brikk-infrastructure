@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/services/queue.py
 from __future__ import annotations
 import os
@@ -15,6 +16,7 @@ _redis = redis.from_url(REDIS_URL, decode_responses=False)
 
 # Queue name MUST match your worker start command. We use "default".
 queue = Queue("default", connection=_redis)
+
 
 def enqueue(func: Any, *args, **kwargs):
     """Enqueue a job on the default queue."""

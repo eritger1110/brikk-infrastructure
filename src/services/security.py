@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/services/security.py
 import os
 import re
@@ -16,7 +17,8 @@ from flask_jwt_extended import (
 FF_RBAC = os.getenv("FF_RBAC", "0") == "1"
 
 # Used by redact_dict
-SENSITIVE_KEYS = re.compile(r"(password|secret|api[-_]?key|token|ssn|card)", re.I)
+SENSITIVE_KEYS = re.compile(
+    r"(password|secret|api[-_]?key|token|ssn|card)", re.I)
 
 
 def attach_request_id(app):
@@ -118,8 +120,10 @@ def require_perm(permission_name: str):
             roles = (getattr(user, "roles", set()) or set())
 
             # Simple model: having the perm in `perms` OR `roles` passes.
-            if (permission_name not in perms) and (permission_name not in roles):
-                return jsonify({"error": "forbidden", "missing": permission_name}), 403
+            if (permission_name not in perms) and (
+                    permission_name not in roles):
+                return jsonify(
+                    {"error": "forbidden", "missing": permission_name}), 403
 
             return fn(*args, **kwargs)
         return wrapper

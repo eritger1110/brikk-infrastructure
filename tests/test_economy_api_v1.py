@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Tests for the Economy API Layer (PR B)
 """
@@ -8,6 +9,7 @@ from flask.testing import FlaskClient
 
 from src.factory import create_app
 from src.database import db
+
 
 @pytest.fixture
 def app() -> Flask:
@@ -20,9 +22,11 @@ def app() -> Flask:
         yield app
         db.drop_all()
 
+
 @pytest.fixture
 def client(app: Flask) -> FlaskClient:
     return app.test_client()
+
 
 def test_get_balance(client: FlaskClient):
     """Test retrieving the credit balance for an organization."""
@@ -32,4 +36,3 @@ def test_get_balance(client: FlaskClient):
     response = client.get("/api/v1/billing/balance", headers=headers)
     assert response.status_code == 200
     assert response.json == {"credits": 0}
-

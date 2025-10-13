@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Test suite for API key rotation and admin endpoint functionality.
 """
@@ -76,7 +77,7 @@ class TestApiKeyRotation:
         """Test API key creation with proper encryption."""
         with app.app_context():
             with patch.dict(
-                os.environ, {"BRIKK_ENCRYPTION_KEY": "test_key_32_bytes_long_for_fernet"}
+                os.environ, {"BRIKK_ENCRYPTION_KEY": "Oc6MDtIw1YPyWqOYuLzCvST7dr7j1TL1NnyL7rrZVqA"}
             ):
                 api_key, secret = ApiKey.create_api_key(
                     organization_id=test_org.id,
@@ -98,7 +99,7 @@ class TestApiKeyRotation:
         """Test API key secret rotation."""
         with app.app_context():
             with patch.dict(
-                os.environ, {"BRIKK_ENCRYPTION_KEY": "test_key_32_bytes_long_for_fernet"}
+                os.environ, {"BRIKK_ENCRYPTION_KEY": "Oc6MDtIw1YPyWqOYuLzCvST7dr7j1TL1NnyL7rrZVqA"}
             ):
                 # Create initial API key
                 api_key, original_secret = ApiKey.create_api_key(
@@ -123,4 +124,3 @@ class TestApiKeyRotation:
 
                 # Verify old secret no longer works
                 assert decrypted_secret != original_secret
-

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Task Queue Service
 
@@ -27,6 +28,7 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+
 class TaskQueueService:
     """Service for managing asynchronous tasks"""
 
@@ -50,13 +52,15 @@ class TaskQueueService:
             return {
                 "id": task_id,
                 "status": result.status,
-                "result": result.result if result.successful() else str(result.info),
+                "result": result.result if result.successful() else str(
+                    result.info),
             }
         except Exception as e:
             logger.error(f"Failed to get status for task {task_id}: {e}")
             return {"id": task_id, "status": "UNKNOWN", "error": str(e)}
 
 # --- Example Tasks ---
+
 
 @celery_app.task(name="tasks.send_webhook")
 def send_webhook_task(event_id: int):
@@ -69,15 +73,16 @@ def send_webhook_task(event_id: int):
     webhook_service = WebhookService(db_session)
     webhook_service.send_webhook_event(event_id)
 
+
 @celery_app.task(name="tasks.process_analytics")
 def process_analytics_task(time_range_hours: int):
     """Celery task to process performance analytics"""
     from src.services.monitoring_service import monitoring_service
 
-    logger.info(f"Processing analytics task for time range: {time_range_hours} hours")
+    logger.info(
+        f"Processing analytics task for time range: {time_range_hours} hours")
     monitoring_service.get_performance_analytics(time_range_hours)
 
 
 # Global task queue service instance
 task_queue_service = TaskQueueService(celery_app)
-

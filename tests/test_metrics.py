@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Test suite for Prometheus metrics functionality.
 
@@ -86,6 +87,7 @@ class TestMetricsIntegration:
                 response = client.get("/metrics")
                 assert response.status_code == 404
 
+
 class TestMetricsMiddleware:
     """Test metrics middleware functionality."""
 
@@ -110,4 +112,3 @@ class TestMetricsMiddleware:
             assert "route=\"/test\"" in metrics_data
             assert "method=\"GET\"" in metrics_data
             assert "status=\"200\"" in metrics_data
-

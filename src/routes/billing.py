@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import os
@@ -49,7 +50,8 @@ def billing_portal():
     payload = _json()
     customer_id = (payload.get("customer_id") or "").strip() or None
 
-    # Try to derive the customer from the logged-in email, unless one was provided
+    # Try to derive the customer from the logged-in email, unless one was
+    # provided
     email: Optional[str] = None
     if not customer_id and HAVE_JWT:
         try:
@@ -75,7 +77,8 @@ def billing_portal():
                     customer_id = created.id
 
             if not customer_id:
-                return jsonify({"error": "No Stripe customer on file for this user"}), 400
+                return jsonify(
+                    {"error": "No Stripe customer on file for this user"}), 400
 
         sess = stripe.billing_portal.Session.create(
             customer=customer_id,
@@ -89,5 +92,6 @@ def billing_portal():
         current_app.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
     except Exception:
-        current_app.logger.exception("Unexpected error creating portal session")
+        current_app.logger.exception(
+            "Unexpected error creating portal session")
         return jsonify({"error": "Unexpected server error"}), 500

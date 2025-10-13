@@ -1,18 +1,38 @@
-import pathlib, re, sys
+# -*- coding: utf-8 -*-
+import pathlib
+import re
+import sys
 
 ROOTS = ["src", "tests", "examples", "scripts"]
 MAP = {
-    "‘": "'", "’": "'", "‚": "'",
-    "“": '"', "”": '"', "„": '"',
-    "–": "-", "—": "-", "→": "->", "➜": "->",
-    "±": "+/-", "…": "...",
-    "′": "'", "″": "'",
-    "🚨": "[ALERT]", "✅": "[OK]",
-    "🤖": "[ROBOT]", "🔑": "[KEY]", "🧪": "[TEST]", "📦": "[PACKAGE]",
-    "📤": "[OUTBOX]", "📨": "[INBOX]", "🆔": "[ID]", "📬": "[MAILBOX]", "❌": "[CROSS]"
-}
+    "'": "'",
+    "'": "'",
+    "'": "'",
+    '"': '"',
+    '"': '"',
+    '"': '"',
+    "-": "-",
+    "-": "-",
+    "->": "->",
+    "->": "->",
+    "+/-": "+/-",
+    "...": "...",
+    "'": "'",
+    "'": "'",
+    "[ALERT]": "[ALERT]",
+    "[OK]": "[OK]",
+    "[ROBOT]": "[ROBOT]",
+    "[KEY]": "[KEY]",
+    "[TEST]": "[TEST]",
+    "[PACKAGE]": "[PACKAGE]",
+    "[OUTBOX]": "[OUTBOX]",
+    "[INBOX]": "[INBOX]",
+    "[ID]": "[ID]",
+    "[MAILBOX]": "[MAILBOX]",
+    "[CROSS]": "[CROSS]"}
 REMOVE = ["\u200b", "\u200c", "\u200d", "\ufeff"]  # zero-width + BOM
 RE_NON_ASCII = re.compile(r"[^\x00-\x7F]")
+
 
 def fix_text(s: str) -> str:
     for k, v in MAP.items():
@@ -24,6 +44,7 @@ def fix_text(s: str) -> str:
     # Fallback for U+FFFD, which can result from reading files with errors
     s = s.replace("\ufffd", "'")
     return s
+
 
 def main() -> int:
     changed = 0
@@ -52,7 +73,9 @@ def main() -> int:
                 continue
             try:
                 # Final check must be strict to ensure all issues are resolved
-                for i, line in enumerate(p.read_text(encoding="utf-8", errors="strict").splitlines(), 1):
+                for i, line in enumerate(
+                    p.read_text(
+                        encoding="utf-8", errors="strict").splitlines(), 1):
                     if RE_NON_ASCII.search(line):
                         offenders.append(f"{p}:{i}: {line}")
             except Exception as e:
@@ -63,6 +86,6 @@ def main() -> int:
         return 2
     return 0
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
 
 from flask import Blueprint, jsonify
 import time
 from unittest.mock import patch
 
 health_bp = Blueprint('health', __name__)
+
 
 @health_bp.route('/healthz', methods=['GET', 'HEAD'])
 def healthz():
@@ -13,6 +15,7 @@ def healthz():
         'service': 'coordination-api',
         'timestamp': time.time()
     }), 200
+
 
 @health_bp.route('/readyz', methods=['GET', 'HEAD'])
 def readyz():
@@ -27,4 +30,3 @@ def readyz():
             'redis': True
         }
     }), 200
-

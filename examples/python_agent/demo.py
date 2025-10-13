@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Brikk Python Agent Demo
 Demonstrates sending an echo job via the coordination protocol.
@@ -9,6 +10,7 @@ import os
 import sys
 import time
 from client import BrikkClient  # assumes examples/python_agent/client.py
+
 
 def main():
     print("'- Brikk Python Agent Demo")
@@ -43,13 +45,13 @@ def main():
                 "payload": payload,
                 "timestamp": int(time.time()),
             }
-            print("\n'"' Coordination envelope:")
+            print("\n'"' Coordination envelope: ")
             print(json.dumps(envelope, indent=2))
             print("'... Demo envelope built successfully")
             return
 
         print(f"\n'"' Sending echo job to: {recipient}")
-        print("'"' Payload:", payload)
+        print("'"' Payload: ", payload)
         response = client.send(recipient, payload)
 
         print("\n'... Response received:")

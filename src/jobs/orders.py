@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # src/jobs/orders.py
 from __future__ import annotations
 
@@ -30,6 +31,8 @@ except Exception:  # pragma: no cover
 
 # We'll lazy-create the Flask app only if/when we need DB access.
 _APP_SINGLETON = None
+
+
 def _get_app():
     """Create (once) and return the Flask app for DB work inside a job."""
     global _APP_SINGLETON
@@ -101,7 +104,8 @@ def _persist_order_row(row: JSON) -> None:
 
             columns = ", ".join(fields.keys())
             placeholders = ", ".join(f":{k}" for k in fields.keys())
-            sql = text(f"INSERT INTO orders ({columns}) VALUES ({placeholders})")
+            sql = text(
+                f"INSERT INTO orders ({columns}) VALUES ({placeholders})")
 
             with db.engine.begin() as conn:
                 conn.execute(sql, fields)
@@ -135,7 +139,8 @@ def _supplier_demo(payload: JSON, cfg: SupplierConfig) -> Tuple[bool, JSON]:
     }
 
 
-def _supplier_generic_rest(payload: JSON, cfg: SupplierConfig) -> Tuple[bool, JSON]:
+def _supplier_generic_rest(
+        payload: JSON, cfg: SupplierConfig) -> Tuple[bool, JSON]:
     """
     Example of a JSON REST supplier. Customize per supplier.
     Expects env like:
@@ -233,7 +238,11 @@ def place_supplier_order(payload: JSON) -> JSON:
     except Exception:
         raise ValueError("qty must be a positive integer")
 
-    _update_job_meta(stage="validated", supplier_id=supplier_id, sku=str(sku), qty=int(qty))
+    _update_job_meta(
+        stage="validated",
+        supplier_id=supplier_id,
+        sku=str(sku),
+        qty=int(qty))
 
     # ---- Route to supplier handler
     if supplier_id not in SUPPLIERS:
@@ -249,7 +258,8 @@ def place_supplier_order(payload: JSON) -> JSON:
         "sku": str(sku),
         "qty": int(qty),
         "status": "submitted" if ok else "failed",
-        "result_json": str(supplier_result),  # store as TEXT; or use JSON column if you have one
+        # store as TEXT; or use JSON column if you have one
+        "result_json": str(supplier_result),
         "created_at": int(time.time()),
     })
 
