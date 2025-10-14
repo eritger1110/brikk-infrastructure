@@ -10,9 +10,7 @@ The Brikk API uses HMAC-SHA256 signature-based authentication with the following
 - `X-Brikk-Timestamp`: Unix timestamp (seconds)
 - `X-Brikk-Signature`: HMAC-SHA256 signature of `{timestamp}.{body}`
 
-
 Alternative: Some endpoints support `Authorization: Bearer {api_key}` for simpler authentication.
-
 
 ## Endpoints
 
@@ -71,4 +69,3 @@ Common HTTP status codes:
 - `429` - Rate Limit Exceeded
 - `500` - Internal Server Error
 - `502` - Bad Gateway (external service error)
-
