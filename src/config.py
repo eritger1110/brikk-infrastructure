@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import os
-
 
 class Config:
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
     CREDITS_PRICE_USD_CENTS = int(os.getenv("CREDITS_PRICE_USD_CENTS", 100))
     COORDINATION_COST_CREDITS = int(os.getenv("COORDINATION_COST_CREDITS", 1))
     ENABLE_ECONOMY = os.getenv("ENABLE_ECONOMY", "1") == "1"
+
