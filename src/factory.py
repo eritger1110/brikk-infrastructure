@@ -114,7 +114,8 @@ def create_app() -> Flask:
     # --- DB init ---
     with app.app_context():
         # Only auto-create tables in testing or if explicitly enabled
-        if app.config.get("TESTING") or os.getenv("BRIKK_DB_AUTOCREATE", "false").lower() == "true":
+        is_testing = app.config.get("TESTING") or os.getenv("TESTING", "false").lower() == "true"
+        if is_testing or os.getenv("BRIKK_DB_AUTOCREATE", "false").lower() == "true":
             db.create_all()
         
         # Optionally run migrations on startup (for Render deployments)
