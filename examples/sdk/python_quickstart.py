@@ -25,34 +25,34 @@ async def main():
     # 1. Initialize the client from environment variables
     try:
         client = BrikkClient()
-        print(f"✅ Client initialized for base URL: {client.base_url}")
+        print(f"[OK] Client initialized for base URL: {client.base_url}")
     except Exception as e:
-        print(f"❌ Failed to initialize client: {e}")
+        print(f"[ERROR] Failed to initialize client: {e}")
         return
 
     org_id = client.org_id
     if not org_id:
-        print("❌ BRIKK_ORG_ID environment variable not set. Aborting.")
+        print("[ERROR] BRIKK_ORG_ID environment variable not set. Aborting.")
         return
 
     try:
         # 2. Check API health
         print("\nPinging health check endpoint...")
         health = await client.health.ping()
-        print(f"✅ Health status: {health.get('status')}")
+        print(f"[OK] Health status: {health.get('status')}")
 
         # 3. Create a new agent (or use an existing one)
         print("\nCreating or getting an agent...")
         agent_name = "My Python SDK Agent"
         try:
             agent = await client.agents.create(name=agent_name, org_id=org_id)
-            print(f"✅ Created new agent: {agent['name']} (ID: {agent['id']})")
+            print(f"[OK] Created new agent: {agent['name']} (ID: {agent['id']})")
         except BrikkError as e:
             if e.status_code == 409:  # Conflict, agent likely exists
                 agents = await client.agents.list(org_id=org_id)
                 agent = next((a for a in agents if a['name'] == agent_name), None)
                 if agent:
-                    print(f"✅ Found existing agent: {agent['name']} (ID: {agent['id']})")
+                    print(f"[OK] Found existing agent: {agent['name']} (ID: {agent['id']})")
                 else:
                     raise ValueError("Could not find or create agent.")
             else:
@@ -61,7 +61,7 @@ async def main():
         # 4. List agents
         print("\nListing agents...")
         agents = await client.agents.list(org_id=org_id)
-        print(f"✅ Found {len(agents)} agent(s) in organization {org_id}.")
+        print(f"[OK] Found {len(agents)} agent(s) in organization {org_id}.")
         for a in agents[:3]:
             print(f"  - {a['name']} (ID: {a['id']})")
 
@@ -72,23 +72,23 @@ async def main():
             recipient_id=agent['id'],
             payload={"action": "self_test", "data": "hello from python"}
         )
-        print(f"✅ Message sent successfully. Receipt: {receipt}")
+        print(f"[OK] Message sent successfully. Receipt: {receipt}")
 
         # 6. Get economy balance
         print("\nFetching economy balance...")
         balance = await client.economy.get_balance(org_id=org_id)
-        print(f"✅ Current balance: {balance} credits")
+        print(f"[OK] Current balance: {balance} credits")
 
         # 7. Get reputation score
         print("\nFetching reputation score...")
         score = await client.reputation.get_agent_score(agent_id=agent['id'], org_id=org_id)
         if score:
-            print(f"✅ Reputation score for {agent['name']}: {score.get('score', 'N/A')}")
+            print(f"[OK] Reputation score for {agent['name']}: {score.get('score', 'N/A')}")
         else:
             print(f"- No reputation score found for {agent['name']}.")
 
     except BrikkError as e:
-        print(f"\n❌ An API error occurred: {e.message}")
+        print(f"\n[ERROR] An API error occurred: {e.message}")
         if e.response:
             try:
                 error_details = await e.response.json()
@@ -96,7 +96,7 @@ async def main():
             except Exception:
                 print(f"   Response: {await e.response.text()}")
     except Exception as e:
-        print(f"\n❌ An unexpected error occurred: {e}")
+        print(f"\n[ERROR] An unexpected error occurred: {e}")
 
     print("\n--- Quickstart Finished ---")
 
