@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import pytest
 from flask import Flask
-from src.factory import create_app
+from src.main import create_app
 from src.database import db
 from src.models.economy import OrgBalance, LedgerAccount, LedgerEntry, Transaction, ReputationScore
 from src.models.org import Organization
-
 
 @pytest.fixture
 def app():
@@ -22,11 +20,9 @@ def app():
         yield app
         db.drop_all()
 
-
 @pytest.fixture
 def client(app):
     return app.test_client()
-
 
 def test_db_migrations(app):
     # Check if all tables were created
@@ -39,19 +35,14 @@ def test_db_migrations(app):
         assert "transactions" in tables
         assert "reputation_scores" in tables
 
-
 def test_system_accounts_seeded(app):
     with app.app_context():
-        revenue_account = LedgerAccount.query.filter_by(
-            name="platform_revenue").first()
-        fees_account = LedgerAccount.query.filter_by(
-            name="platform_fees").first()
-        promotions_account = LedgerAccount.query.filter_by(
-            name="promotions").first()
+        revenue_account = LedgerAccount.query.filter_by(name="platform_revenue").first()
+        fees_account = LedgerAccount.query.filter_by(name="platform_fees").first()
+        promotions_account = LedgerAccount.query.filter_by(name="promotions").first()
         assert revenue_account is not None
         assert fees_account is not None
         assert promotions_account is not None
-
 
 def test_double_entry_invariant(app):
     with app.app_context():
@@ -76,3 +67,4 @@ def test_double_entry_invariant(app):
 
         entries = LedgerEntry.query.filter_by(tx_id=tx.id).all()
         assert sum(entry.amount for entry in entries) == 0
+
