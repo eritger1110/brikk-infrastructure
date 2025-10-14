@@ -1,0 +1,159 @@
+name: SDK Python
+
+on:
+  push:
+    branches: [main, stage4/sdk-packaging]
+    paths:
+      - 'sdk/python/**'
+      - '.github/workflows/sdk-python.yml'
+  pull_request:
+    paths:
+      - 'sdk/python/**'
+      - '.github/workflows/sdk-python.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: false
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        working-directory: sdk/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      
+      - name: Lint with flake8
+        working-directory: sdk/python
+        run: |
+          flake8 brikk --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 brikk --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      
+      - name: Type check with mypy
+        working-directory: sdk/python
+        run: |
+          mypy brikk --ignore-missing-imports || true
+      
+      - name: Run tests
+        working-directory: sdk/python
+        run: |
+          pytest -q tests/
+      
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.11'
+        working-directory: sdk/python
+        run: |
+          pytest --cov=brikk --cov-report=xml tests/
+      
+      - name: Upload coverage
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./sdk/python/coverage.xml
+          flags: python-sdk
+        continue-on-error: true
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: sdk/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+      
+      - name: Generate documentation
+        working-directory: sdk/python
+        run: |
+          python -m pdoc brikk -o ../../docs/sdk/python/
+      
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-sdk-docs
+          path: docs/sdk/python/
+      
+      - name: Add job summary
+        run: |
+          echo "## Python SDK Documentation Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Documentation has been generated and uploaded as an artifact." >> $GITHUB_STEP_SUMMARY
+          echo "Download the artifact to view the docs." >> $GITHUB_STEP_SUMMARY
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+    needs: [test, docs]
+    runs-on: ubuntu-latest
+    environment: pypi
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Update version
+        working-directory: sdk/python
+        run: |
+          sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
+      
+      - name: Build package
+        working-directory: sdk/python
+        run: |
+          python -m build
+      
+      - name: Check package
+        working-directory: sdk/python
+        run: |
+          twine check dist/*
+      
+      - name: Publish to PyPI
+        working-directory: sdk/python
+        env:
+          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: |
+          twine upload dist/*
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: sdk-python-v${{ github.event.inputs.version }}
+          release_name: Python SDK v${{ github.event.inputs.version }}
+          body: |
+            Python SDK release v${{ github.event.inputs.version }}
+            
+            Install with: `pip install brikk==${{ github.event.inputs.version }}`
+          draft: false
+          prerelease: false
+

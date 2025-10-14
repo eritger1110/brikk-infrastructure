@@ -1,0 +1,163 @@
+name: SDK Node
+
+on:
+  push:
+    branches: [main, stage4/sdk-packaging]
+    paths:
+      - 'sdk/node/**'
+      - '.github/workflows/sdk-node.yml'
+  pull_request:
+    paths:
+      - 'sdk/node/**'
+      - '.github/workflows/sdk-node.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: false
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18', '20', '22']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Install dependencies
+        working-directory: sdk/node
+        run: pnpm install
+      
+      - name: Lint
+        working-directory: sdk/node
+        run: pnpm lint || true
+      
+      - name: Type check
+        working-directory: sdk/node
+        run: pnpm build
+      
+      - name: Run tests
+        working-directory: sdk/node
+        run: pnpm test
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        working-directory: sdk/node
+        run: pnpm install
+      
+      - name: Build SDK
+        working-directory: sdk/node
+        run: pnpm build
+      
+      - name: Generate documentation
+        working-directory: sdk/node
+        run: |
+          mkdir -p ../../docs/sdk/node
+          pnpm exec typedoc src/index.ts --out ../../docs/sdk/node
+      
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-sdk-docs
+          path: docs/sdk/node/
+      
+      - name: Add job summary
+        run: |
+          echo "## Node.js SDK Documentation Generated" >> $GITHUB_STEP_SUMMARY
+          echo "Documentation has been generated and uploaded as an artifact." >> $GITHUB_STEP_SUMMARY
+          echo "Download the artifact to view the docs." >> $GITHUB_STEP_SUMMARY
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+    needs: [test, docs]
+    runs-on: ubuntu-latest
+    environment: npm
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      
+      - name: Install dependencies
+        working-directory: sdk/node
+        run: pnpm install
+      
+      - name: Update version
+        working-directory: sdk/node
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+      
+      - name: Build package
+        working-directory: sdk/node
+        run: pnpm build
+      
+      - name: Publish to npm
+        working-directory: sdk/node
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm publish --access public --no-git-checks
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: sdk-node-v${{ github.event.inputs.version }}
+          release_name: Node.js SDK v${{ github.event.inputs.version }}
+          body: |
+            Node.js SDK release v${{ github.event.inputs.version }}
+            
+            Install with: `npm install @brikk/sdk@${{ github.event.inputs.version }}`
+          draft: false
+          prerelease: false
+
