@@ -113,7 +113,22 @@ def create_app() -> Flask:
 
     # --- DB init ---
     with app.app_context():
-        db.create_all()
+        # Only auto-create tables in testing or if explicitly enabled
+        if app.config.get("TESTING") or os.getenv("BRIKK_DB_AUTOCREATE", "false").lower() == "true":
+            db.create_all()
+        
+        # Optionally run migrations on startup (for Render deployments)
+        if os.getenv("BRIKK_DB_MIGRATE_ON_START", "false").lower() == "true":
+            try:
+                from alembic import command
+                from alembic.config import Config
+                alembic_cfg = Config(os.path.join(app.root_path, "..", "alembic.ini"))
+                command.upgrade(alembic_cfg, "head")
+                app.logger.info("Database migrations applied successfully")
+            except Exception as e:
+                app.logger.error(f"Failed to run migrations: {e}")
+                raise
+        
         _seed_system_accounts()
 
     return app

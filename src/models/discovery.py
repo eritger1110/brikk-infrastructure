@@ -17,7 +17,7 @@ class AgentService(db.Model):
     __tablename__ = "agent_services"
 
     id = Column(Integer, primary_key=True)
-    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=False)
     name = Column(String(255), nullable=False)
     url = Column(String(2048), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
