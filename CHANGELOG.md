@@ -5,14 +5,210 @@ All notable changes to the Brikk Infrastructure project will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2025-10-10
 
-### CI / Maintenance
-- **ASCII-only source enforcement**: Added ASCII lint workflow to prevent non-ASCII characters in Python files
-- **Pydantic v2 migration**: Migrated deprecated @validator decorators to @field_validator style
-- **Smoke test fixes**: Fixed route registration and endpoint paths for proper CI validation
-- **Prometheus metrics**: Resolved registry duplication issues in test environment
-- **Code quality**: Enhanced flake8 compliance and removed unused imports
+### Added - Stage 3: Economic & Reputation Layer
+
+#### 🏦 Internal Credits Ledger
+- **CreditAccount Model**: Double-entry accounting system with organization-based accounts
+- **CreditTransaction Model**: Complete transaction tracking with audit trails
+- **Real-time Balance Tracking**: Live credit balance updates across all accounts
+- **Automated Credit Allocation**: Usage-based billing for API calls and workflows
+- **System Account Management**: Platform revenue and operational cost tracking
+
+#### 💳 Stripe Integration
+- **StripePayment Model**: Complete payment lifecycle tracking with webhook support
+- **Payment Intent Creation**: Secure client-side payment confirmation flow
+- **Webhook Processing**: Automated handling of payment events and status updates
+- **Multi-payment Method Support**: Cards, bank transfers, and digital wallets
+- **Receipt Generation**: Automated invoice and receipt management
+
+#### ⭐ Reputation System
+- **ReputationScore Model**: Multi-dimensional agent performance tracking
+- **ReputationEvent Model**: Individual feedback events with detailed metadata
+- **Real-time Score Updates**: Dynamic reputation calculation from agent interactions
+- **Weighted Feedback System**: Time-based decay algorithms for recent performance
+- **Nightly Reputation Jobs**: Automated background processing for score recalculation
+
+#### 📊 Economy Dashboard UI
+- **Professional Dark Theme**: Modern gradient backgrounds with enterprise design
+- **Real-time Credit Display**: Live balance updates with usage analytics
+- **Interactive Top-up Interface**: Stripe-powered payment with preset amounts
+- **Transaction History**: Comprehensive earnings and expenditures with visual indicators
+- **Reputation Dashboard**: 5-star rating display with performance breakdown
+- **Usage Statistics**: Service-type breakdown (API calls, workflows, data processing)
+
+#### 🔧 New API Endpoints
+- `GET /api/v1/billing/balance` - Retrieve current credit balance with usage analytics
+- `POST /api/v1/billing/topup` - Initiate Stripe payment intent for credit top-up
+- `GET /api/v1/billing/transactions` - List transaction history with filtering
+- `POST /api/v1/billing/webhooks/stripe` - Handle Stripe webhook events securely
+- `GET /api/v1/reputation/score/{agent_id}` - Get comprehensive reputation metrics
+- `POST /api/v1/reputation/feedback` - Submit agent performance feedback
+- `GET /api/v1/reputation/leaderboard` - Top-performing agents with rankings
+- `GET /api/v1/reputation/history/{agent_id}` - Historical reputation trends
+
+#### 🛠️ Enhanced Services
+- **EconomyService**: Credit transfers, balance calculations, and Stripe integration
+- **ReputationService**: Score calculations, feedback processing, and leaderboard generation
+- **Automated Background Jobs**: Nightly reputation updates and system maintenance
+
+### Enhanced Features
+
+#### 🔐 Security & Compliance
+- **PCI DSS Compliance**: Stripe integration with tokenized payment processing
+- **Enhanced Audit Logging**: Financial transactions and reputation events tracking
+- **HIPAA-Compliant Data Handling**: Secure agent coordination data management
+- **Encrypted Payment Processing**: End-to-end security with webhook verification
+- **Role-based Access Controls**: Granular permissions for financial and reputation data
+
+#### 🎨 User Experience Improvements
+- **Boxed Layout Design**: Soft, rounded edges for improved visual organization
+- **Interactive Elements**: Smooth transitions, hover states, and micro-interactions
+- **Real-time Updates**: Automatic balance and reputation refreshes without page reload
+- **Professional Typography**: Consistent design language across all interfaces
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+
+#### 📈 Analytics & Monitoring
+- **Credit Usage Analytics**: Detailed breakdown by service type and time period
+- **Reputation Trend Analysis**: Historical performance data with forecasting
+- **Payment Success Monitoring**: Automated alerting for transaction failures
+- **System Health Dashboards**: Economy service uptime and performance metrics
+- **Fraud Detection**: Anomaly monitoring with automated alerting systems
+
+### Technical Improvements
+
+#### 🏗️ Database Schema Enhancements
+- **New Economy Tables**: `credit_accounts`, `credit_transactions`, `stripe_payments`
+- **New Reputation Tables**: `reputation_scores`, `reputation_events`
+- **Enhanced Indexing**: High-performance queries for financial and reputation data
+- **Foreign Key Relationships**: Proper data integrity across all models
+- **Migration Support**: Backward-compatible schema updates with rollback capability
+
+#### 🔧 Configuration Management
+- **Stripe Environment Variables**: Secure API key and webhook secret management
+- **Economy Configuration**: Configurable credit costs and reputation parameters
+- **Automated Database Seeding**: System account creation and initial data setup
+- **Environment-specific Settings**: Development, staging, and production configurations
+
+#### 🧪 Comprehensive Testing
+- **Economy Service Tests**: Credit transfers, balance calculations, and Stripe integration
+- **Reputation System Tests**: Score calculations, feedback processing, and edge cases
+- **UI Component Tests**: React Testing Library with comprehensive coverage
+- **Integration Tests**: End-to-end payment and reputation workflows
+- **Performance Tests**: Load testing for high-volume transaction processing
+
+### API Enhancements
+
+#### 💰 Billing & Credits (`/api/v1/billing/`)
+- **Balance Endpoint**: Real-time credit balance with usage breakdown
+- **Top-up Endpoint**: Stripe payment intent creation with amount validation
+- **Transaction History**: Paginated transaction list with filtering and search
+- **Stripe Webhooks**: Secure event processing with signature verification
+
+#### ⭐ Reputation Management (`/api/v1/reputation/`)
+- **Score Retrieval**: Comprehensive reputation metrics with breakdown
+- **Feedback Submission**: Structured feedback with validation and processing
+- **Leaderboard**: Top-performing agents with ranking and statistics
+- **History Tracking**: Historical reputation trends with analytics
+
+### Configuration
+
+#### Environment Variables
+```bash
+# Stripe Configuration
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Economy Configuration
+CREDITS_PER_API_CALL=1
+CREDITS_PER_WORKFLOW_EXECUTION=10
+REPUTATION_DECAY_RATE=0.95
+NIGHTLY_REPUTATION_UPDATE_ENABLED=true
+
+# System Account Configuration
+SYSTEM_REVENUE_ACCOUNT_ID=system_revenue
+SYSTEM_OPERATIONAL_ACCOUNT_ID=system_ops
+```
+
+#### Credit Pricing Defaults
+- **API Calls**: 1 credit per request
+- **Workflow Execution**: 10 credits per workflow
+- **Data Processing**: 0.1 credits per MB processed
+- **Premium Features**: Variable pricing based on usage
+
+### Frontend Enhancements
+
+#### 🎨 Economy Dashboard
+- **Credit Balance Card**: Real-time balance with growth indicators
+- **Top-up Interface**: Stripe-powered payment with preset amounts (+100, +500, +1000)
+- **Usage Statistics**: Visual breakdown of credit consumption by service type
+- **Transaction History**: Chronological list with earnings/spending indicators
+
+#### ⭐ Reputation Dashboard
+- **Overall Score Display**: Large 4.7/5.0 rating with star visualization
+- **Performance Metrics**: Progress bars for success rate, response time, reliability
+- **Recent Feedback**: Real-time reputation updates with score deltas
+- **Reputation Trends**: Historical performance with analytics insights
+
+### Security Enhancements
+
+#### 🛡️ Financial Security
+- **PCI DSS Compliance**: Stripe integration with secure tokenization
+- **Encrypted Payment Data**: End-to-end encryption for all financial information
+- **Audit Trail Integrity**: Immutable transaction logs with cryptographic verification
+- **Fraud Detection**: Real-time anomaly detection with automated response
+- **Secure API Endpoints**: Enhanced rate limiting and authentication for financial operations
+
+#### 🔐 Data Protection
+- **HIPAA Compliance**: Secure handling of sensitive agent coordination data
+- **Access Control Matrix**: Role-based permissions for financial and reputation data
+- **Data Retention Policies**: Automated cleanup with compliance requirements
+- **Privacy Controls**: User consent management and data portability
+
+### Performance Optimizations
+
+#### ⚡ Database Performance
+- **Optimized Queries**: Efficient indexing for financial and reputation data
+- **Connection Pooling**: High-performance database connections for transaction processing
+- **Query Caching**: Redis-based caching for frequently accessed data
+- **Batch Processing**: Efficient bulk operations for reputation updates
+
+#### 🚀 Scalability Improvements
+- **Horizontal Scaling**: Stateless service design for load balancing
+- **Asynchronous Processing**: Background jobs for reputation and payment processing
+- **CDN Integration**: Static asset delivery optimization
+- **Microservice Preparation**: Modular architecture for future service separation
+
+### Breaking Changes
+- **New Required Environment Variables**: Stripe API keys and webhook secrets
+- **Database Schema Changes**: New tables require migration execution
+- **API Authentication**: Credit balance validation for paid endpoints
+- **Reputation Scoring**: Agent performance affects access to premium features
+
+### Migration Guide
+
+#### Upgrading from v0.1.0
+1. **Environment Setup**: Configure Stripe API keys and webhook endpoints
+2. **Database Migration**: Execute `flask db upgrade` to create new tables
+3. **System Accounts**: Run `seed_system_accounts()` to initialize required accounts
+4. **UI Deployment**: Deploy new React economy dashboard components
+5. **Monitoring Setup**: Configure alerts for payment failures and reputation anomalies
+
+### Known Issues
+- **Stripe Webhook Retries**: Manual retry mechanism for failed webhook processing
+- **Reputation Calculation**: Edge cases in multi-dimensional scoring algorithms
+- **UI Performance**: Large transaction histories may require pagination optimization
+
+### Upcoming in v0.3.0
+- **Advanced Workflow Engine**: Multi-step coordination with conditional logic
+- **Machine Learning Integration**: AI-powered reputation scoring and fraud detection
+- **Enterprise Billing**: Custom payment terms and automated invoicing
+- **Multi-currency Support**: Global payment processing with currency conversion
+- **Advanced Analytics**: Predictive modeling and business intelligence dashboards
+
+---
 
 ## [0.1.0] - 2025-10-10
 
