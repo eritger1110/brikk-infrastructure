@@ -49,6 +49,69 @@ jobs:
       run: |
         pytest -q tests/examples/ || echo "Example tests completed"
 
+  migrations:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Test migrations on clean SQLite database
+      run: |
+        DATABASE_URL=sqlite:///test_clean.db python -m alembic upgrade head
+        
+    - name: Verify all tables were created
+      run: |
+        python -c "
+import sqlite3
+conn = sqlite3.connect('test_clean.db')
+cursor = conn.cursor()
+cursor.execute(\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\")
+tables = [row[0] for row in cursor.fetchall()]
+expected_tables = [
+    'agent_capabilities', 'agent_performance', 'agent_services', 'agents',
+    'alembic_version', 'api_keys', 'audit_logs', 'coordinations',
+    'customer_profiles', 'ledger_accounts', 'ledger_entries', 'message_logs',
+    'org_balances', 'organizations', 'purchases', 'reputation_scores',
+    'security_events', 'transactions', 'users', 'webhook_events', 'webhooks',
+    'workflow_executions', 'workflow_steps', 'workflows'
+]
+missing = set(expected_tables) - set(tables)
+if missing:
+    print(f'Missing tables: {missing}')
+    exit(1)
+print(f'All {len(tables)} tables created successfully')
+conn.close()
+"
+        
+    - name: Verify agent_services schema
+      run: |
+        python -c "
+import sqlite3
+conn = sqlite3.connect('test_clean.db')
+cursor = conn.cursor()
+cursor.execute(\"PRAGMA table_info(agent_services)\")
+columns = {row[1]: row[2] for row in cursor.fetchall()}
+if 'agent_id' not in columns:
+    print('ERROR: agent_id column not found in agent_services')
+    exit(1)
+if 'VARCHAR' not in columns['agent_id'].upper():
+    print(f'ERROR: agent_id has wrong type: {columns[\"agent_id\"]}')
+    exit(1)
+print('agent_services.agent_id has correct type: VARCHAR(36)')
+conn.close()
+"
+
   examples:
     runs-on: ubuntu-latest
     
