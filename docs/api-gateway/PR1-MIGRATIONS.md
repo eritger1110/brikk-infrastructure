@@ -41,6 +41,7 @@ SQLAlchemy models for the 4 new tables:
 - `ApiAuditLog` - Audit logging with helper methods
 
 All models include:
+
 - Proper type hints
 - Helper methods (`is_active()`, `has_scope()`, etc.)
 - `to_dict()` for API responses
@@ -49,6 +50,7 @@ All models include:
 ## Database Requirements
 
 **PostgreSQL 12+** is required for:
+
 - `gen_random_uuid()` function (or pgcrypto extension)
 - `ARRAY` column types
 - GIN indexes
@@ -56,17 +58,20 @@ All models include:
 ## Testing
 
 ### Models Import
+
 ```bash
 python3.11 -c "from src.models import OrgApiKey, OAuthClient, OAuthToken, ApiAuditLog"
 ```
 
 ### Migration Chain
+
 ```bash
 python3.11 -m alembic history
 # Output: b07a366647c3 -> e173b895ecb0 (head)
 ```
 
 ### CI Testing
+
 The existing `migrations` job in CI will test this migration on PostgreSQL 16.
 
 ## Acceptance Criteria
