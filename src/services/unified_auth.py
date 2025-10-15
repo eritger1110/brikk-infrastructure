@@ -138,18 +138,50 @@ class UnifiedAuth:
             
         Returns:
             (success, error_response, status_code)
-            
-        Note:
-            This will be fully implemented in PR-3.
-            For now, returns 401 to indicate OAuth is not yet supported.
         """
-        # TODO: Implement in PR-3
-        # Will verify JWT signature, check expiry, validate scopes
-        return False, {
-            'error': 'oauth_not_implemented',
-            'message': 'OAuth2 authentication will be available in the next release',
-            'request_id': self.hmac_service.generate_request_id()
-        }, 501  # Not Implemented
+        from src.services.oauth2 import verify_access_token, is_token_revoked
+        
+        try:
+            # Verify and decode token
+            payload = verify_access_token(token)
+            
+            if not payload:
+                return False, {
+                    'error': 'invalid_token',
+                    'message': 'Invalid or expired access token',
+                    'request_id': self.hmac_service.generate_request_id()
+                }, 401
+            
+            # Check if token has been revoked
+            jti = payload.get('jti')
+            if jti and is_token_revoked(jti):
+                return False, {
+                    'error': 'token_revoked',
+                    'message': 'Access token has been revoked',
+                    'request_id': self.hmac_service.generate_request_id()
+                }, 401
+            
+            # Populate Flask g with auth context
+            g.auth_method = 'oauth'
+            g.org_id = payload.get('org_id')
+            g.actor_id = payload.get('sub')  # client_id
+            g.scopes = payload.get('scopes', [])
+            g.tier = 'PRO'  # Default tier for OAuth clients
+            g.oauth_payload = payload
+            
+            current_app.logger.info(
+                f"OAuth auth success: org={g.org_id} client={g.actor_id}"
+            )
+            
+            return True, None, 200
+            
+        except Exception as e:
+            current_app.logger.error(f"OAuth authentication error: {e}")
+            return False, {
+                'error': 'authentication_error',
+                'message': 'OAuth token verification failed',
+                'request_id': self.hmac_service.generate_request_id()
+            }, 500
     
     def _authenticate_hmac(self) -> Tuple[bool, Optional[Dict[str, Any]], int]:
         """
