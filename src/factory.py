@@ -11,7 +11,7 @@ from src.services.request_context import init_request_context
 from src.services.structured_logging import init_logging
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
-ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "0") == "1"
+ENABLE_DEV_ROUTES = os.getenv("BRIKK_ENABLE_DEV_ROUTES", "").lower() in ("1", "true", "yes")
 ENABLE_TALISMAN = os.getenv("ENABLE_TALISMAN", "1") == "1"  # set 0 to disable
 
 
@@ -25,16 +25,26 @@ def _normalize_db_url(url: str) -> str:
 
 def _migrate_db(app):
     """Run Alembic migrations to head using the app's DB URL."""
-    import sqlalchemy as sa
-    from alembic import command
-    from alembic.config import Config
+    from pathlib import Path
     
-    alembic_ini = os.path.join(app.root_path, "..", "alembic.ini")
-    cfg = Config(alembic_ini)
-    # Ensure Alembic uses the runtime URL, not the one in alembic.ini
+    try:
+        from alembic import command
+        from alembic.config import Config
+    except ImportError:
+        app.logger.error("Failed to run migrations: Alembic not installed")
+        return  # do not crash the process
+    
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    cfg = Config()  # in-memory config, avoid alembic.ini dependency
+    cfg.set_main_option("script_location", str(BASE_DIR / "migrations"))
     cfg.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
-    command.upgrade(cfg, "head")
-    app.logger.info("Database migrations applied successfully")
+    
+    try:
+        command.upgrade(cfg, "head")
+        app.logger.info("Database migrations applied successfully")
+    except Exception as e:
+        app.logger.error(f"Migration failed: {e}")
+        raise
 
 
 def _seed_system_accounts():
@@ -131,14 +141,14 @@ def create_app() -> Flask:
         app.register_blueprint(health.health_bp, url_prefix="/")
         app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
 
-        # Dev routes are optional
-        if ENABLE_DEV_LOGIN:
+        # Dev routes are optional (default off in prod)
+        if ENABLE_DEV_ROUTES:
             try:
                 from src.routes.dev_login import dev_bp
                 app.register_blueprint(dev_bp, url_prefix="/api")
                 app.logger.info("Registered dev_bp at /api")
             except Exception as e:
-                app.logger.warning(f"Dev routes disabled: {e}")
+                app.logger.warning(f"Dev routes disabled (import failed): {e}")
         else:
             app.logger.info("Skipped dev_bp registration")
 
