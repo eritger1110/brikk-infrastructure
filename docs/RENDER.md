@@ -16,7 +16,7 @@ This command will run the Alembic migrations to the latest version, ensuring the
 
 Set the following environment variable to ensure Alembic can find the application modules:
 
-```
+```ini
 PYTHONPATH=/opt/render/project/src
 ```
 
