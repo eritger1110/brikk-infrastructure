@@ -30,4 +30,3 @@ models and configurations.
 As a fallback, the application is also configured to run migrations at startup if the
 `BRIKK_DB_MIGRATE_ON_START` environment variable is set to `true`. However, using the pre-deploy command
 is the recommended approach for a cleaner and more reliable deployment process.
-
