@@ -73,18 +73,36 @@ def init_rate_limiter(app):
     """
     Initialize Flask-Limiter with the app.
     
+    Gracefully falls back to in-memory storage if Redis is unavailable.
+    
     Args:
         app: Flask application instance
     
     Returns:
         Configured Limiter instance
     """
+    import os
+    
+    # Try Redis first, fall back to memory if unavailable
+    redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+    storage_uri = redis_url
+    
+    # Test Redis connection
+    try:
+        import redis
+        r = redis.from_url(redis_url, socket_connect_timeout=2)
+        r.ping()
+        app.logger.info(f"Rate limiter using Redis: {redis_url}")
+    except Exception as e:
+        app.logger.warning(f"Redis unavailable ({e}), using in-memory storage for rate limiting")
+        storage_uri = "memory://"  # Fall back to in-memory storage
+    
     limiter = Limiter(
         app=app,
         key_func=get_actor_identifier,
         default_limits=[get_rate_limit],
-        storage_uri="redis://localhost:6379",  # Use Redis for distributed limiting
-        storage_options={"socket_connect_timeout": 30},
+        storage_uri=storage_uri,
+        storage_options={"socket_connect_timeout": 2},
         strategy="fixed-window",
         headers_enabled=True,  # Add X-RateLimit-* headers
         on_breach=rate_limit_exceeded_handler
