@@ -1,0 +1,378 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Brikk API Gateway",
+    "description": "Production-ready API Gateway for Brikk platform with authentication, rate limiting, and comprehensive monitoring.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Brikk Support",
+      "url": "https://api.getbrikk.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.getbrikk.com",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    },
+    {
+      "BearerAuth": []
+    },
+    {
+      "HMACAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key authentication (brk_live_* or brk_test_*)"
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "OAuth2 Bearer token authentication"
+      },
+      "HMACAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Brikk-Signature",
+        "description": "HMAC signature authentication (legacy)"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "RateLimitError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "rate_limit_exceeded"
+          },
+          "message": {
+            "type": "string"
+          },
+          "retry_after": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "RateLimitExceeded": {
+        "description": "Rate limit exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RateLimitError"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/oauth/token": {
+      "post": {
+        "summary": "OAuth2 Token Endpoint",
+        "description": "Request an access token using client credentials grant",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["grant_type", "client_id", "client_secret"],
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "enum": ["client_credentials"]
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "example": "cli_abc123"
+                  },
+                  "client_secret": {
+                    "type": "string",
+                    "example": "cs_live_..."
+                  },
+                  "scope": {
+                    "type": "string",
+                    "example": "agents:read workflows:*"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "example": "Bearer"
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 3600
+                    },
+                    "scope": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/keys": {
+      "post": {
+        "summary": "Create API Key",
+        "description": "Create a new scoped API key for the organization",
+        "tags": ["API Keys"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "scopes"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Production Key"
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": ["agents:read", "workflows:*"]
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": ["FREE", "PRO", "ENT"],
+                    "default": "FREE"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "key_id": {
+                      "type": "string"
+                    },
+                    "api_key": {
+                      "type": "string",
+                      "description": "Only shown once"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "tier": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "get": {
+        "summary": "List API Keys",
+        "description": "List all API keys for the organization",
+        "tags": ["API Keys"],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/telemetry/events": {
+      "post": {
+        "summary": "Collect Telemetry Events",
+        "description": "Collect telemetry events from SDKs and client applications",
+        "tags": ["Telemetry"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "event_type": {
+                          "type": "string"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "metadata": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  },
+                  "sdk_info": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Events accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "events_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "OAuth2 and authentication endpoints"
+    },
+    {
+      "name": "API Keys",
+      "description": "API key management"
+    },
+    {
+      "name": "Telemetry",
+      "description": "SDK telemetry collection"
+    }
+  ]
+}
+

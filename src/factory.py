@@ -115,13 +115,28 @@ def create_app() -> Flask:
     init_logging(app)
     init_request_context(app)
     init_metrics(app)
+    
+    # --- Initialize API Gateway services ---
+    from src.services.gateway_metrics import init_gateway_metrics
+    from src.services.audit_logger import init_audit_logging
+    from src.services.rate_limiter import init_rate_limiter
+    
+    init_gateway_metrics(app)
+    init_audit_logging(app)
+    # Note: Rate limiter requires Redis, will gracefully degrade if unavailable
+    try:
+        limiter = init_rate_limiter(app)
+        app.extensions['limiter'] = limiter
+    except Exception as e:
+        app.logger.warning(f"Rate limiter initialization failed: {e}. Rate limiting disabled.")
 
     # --- Mount blueprints ---
     with app.app_context():
         from src.routes import (
             auth, app as app_routes, agents, billing, coordination, auth_admin,
             workflows, monitoring, alerting, webhooks, discovery, reputation,
-            connectors_zendesk, health, inbound, api_keys, auth_test, oauth
+            connectors_zendesk, health, inbound, api_keys, auth_test, oauth,
+            telemetry, docs
         )
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
@@ -143,6 +158,9 @@ def create_app() -> Flask:
         app.register_blueprint(api_keys.api_keys_bp, url_prefix="/api")
         app.register_blueprint(auth_test.auth_test_bp, url_prefix="/api/v1/auth-test")
         app.register_blueprint(oauth.oauth_bp, url_prefix="/oauth")
+        app.register_blueprint(telemetry.telemetry_bp, url_prefix="/telemetry")
+        app.register_blueprint(docs.docs_bp)
+        app.register_blueprint(docs.swaggerui_blueprint, url_prefix=docs.SWAGGER_URL)
 
         # Dev routes are optional (default off in prod)
         if ENABLE_DEV_ROUTES:
