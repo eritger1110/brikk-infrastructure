@@ -57,7 +57,7 @@ Failure to comply with this policy may result in disciplinary action, up to and 
 
 ## 6. References
 
-- [ITIL Change Management](https://www.axelos.com/best-practice-solutions/itil)
+- [ITIL Change Management](https://www.axelos.com/certifications/itil-service-management)
 - [NIST Special Publication 800-53 (CM-3)](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)
 
 ## 7. Revision History
