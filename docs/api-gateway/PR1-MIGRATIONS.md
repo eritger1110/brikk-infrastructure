@@ -93,4 +93,3 @@ The existing `migrations` job in CI will test this migration on PostgreSQL 16.
 - This PR is safe to merge - it only adds schema, no code changes
 - The new tables will be empty until PR-2 adds the auth endpoints
 - HMAC authentication continues to work unchanged
-
