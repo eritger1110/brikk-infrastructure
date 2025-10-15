@@ -5,6 +5,7 @@ Audit Logging Service for API Gateway.
 Logs all API requests to the api_audit_log table for compliance and debugging.
 Includes request details, authentication info, and response status.
 """
+import time
 import uuid
 from datetime import datetime
 from flask import g, request, current_app
@@ -63,24 +64,18 @@ def init_audit_logging(app):
     Args:
         app: Flask application instance
     """
-    @app.before_request
-    def before_request():
-        """Set up request tracking."""
-        g.request_id = str(uuid.uuid4())
-        g.request_start_time = datetime.utcnow()
+    # Note: request_id and request_start_time are set by RequestContextMiddleware
+    # We don't need to set them here to avoid conflicts
     
     @app.after_request
     def after_request(response):
         """Log the request after processing."""
         if hasattr(g, 'request_start_time'):
-            # Calculate response time
-            response_time = (datetime.utcnow() - g.request_start_time).total_seconds() * 1000
+            # Calculate response time (request_start_time is a float from time.time())
+            response_time = (time.time() - g.request_start_time) * 1000
             
             # Log to audit table
             log_api_request(response.status_code, response_time)
-            
-            # Add request ID to response headers
-            response.headers['X-Request-ID'] = g.request_id
         
         return response
 
