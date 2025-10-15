@@ -121,7 +121,7 @@ def create_app() -> Flask:
         from src.routes import (
             auth, app as app_routes, agents, billing, coordination, auth_admin,
             workflows, monitoring, alerting, webhooks, discovery, reputation,
-            connectors_zendesk, health, inbound
+            connectors_zendesk, health, inbound, api_keys, auth_test
         )
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
@@ -140,6 +140,8 @@ def create_app() -> Flask:
             url_prefix="/api")
         app.register_blueprint(health.health_bp, url_prefix="/")
         app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
+        app.register_blueprint(api_keys.api_keys_bp, url_prefix="/api")
+        app.register_blueprint(auth_test.auth_test_bp, url_prefix="/api/v1/auth-test")
 
         # Dev routes are optional (default off in prod)
         if ENABLE_DEV_ROUTES:
