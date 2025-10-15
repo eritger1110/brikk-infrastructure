@@ -2,7 +2,8 @@
 
 ## Overview
 
-This PR implements the authentication layer for the API Gateway, supporting multiple authentication methods with scope-based authorization.
+This PR implements the authentication layer for the API Gateway, supporting multiple
+authentication methods with scope-based authorization.
 
 ## What's Included
 
@@ -55,7 +56,7 @@ Demonstration endpoints for testing auth flows:
 
 ## Authentication Flow
 
-```
+```text
 Request with X-API-Key header
     ↓
 Unified Auth Middleware
@@ -90,7 +91,8 @@ Scopes follow a hierarchical pattern:
 - `workflows:*` - All workflow operations
 - `admin:*` - Admin operations
 
-The `@require_auth(scopes=[...])` decorator accepts a list of acceptable scopes. If the authenticated actor has ANY of the required scopes, access is granted.
+The `@require_auth(scopes=[...])` decorator accepts a list of acceptable scopes.
+If the authenticated actor has ANY of the required scopes, access is granted.
 
 ## Rate Limit Tiers
 
@@ -197,4 +199,3 @@ curl http://localhost:5000/api/v1/auth-test/admin \
 - No configuration changes needed
 - App boots with no behavior changes
 - New endpoints available but optional
-- Existing auth methods continue to work
