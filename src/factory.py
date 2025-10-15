@@ -131,9 +131,16 @@ def create_app() -> Flask:
         app.register_blueprint(health.health_bp, url_prefix="/")
         app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
 
+        # Dev routes are optional
         if ENABLE_DEV_LOGIN:
-            from src.routes import dev_login
-            app.register_blueprint(dev_bp, url_prefix="/api")
+            try:
+                from src.routes.dev_login import dev_bp
+                app.register_blueprint(dev_bp, url_prefix="/api")
+                app.logger.info("Registered dev_bp at /api")
+            except Exception as e:
+                app.logger.warning(f"Dev routes disabled: {e}")
+        else:
+            app.logger.info("Skipped dev_bp registration")
 
         if ENABLE_SECURITY_ROUTES:
             from src.routes import security
