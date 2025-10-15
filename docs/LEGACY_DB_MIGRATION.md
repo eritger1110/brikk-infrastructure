@@ -61,4 +61,3 @@ python3.11 -m alembic upgrade head
 ```
 
 This will bring your legacy database schema up-to-date and ensure that it stays in sync with future changes.
-
