@@ -7,9 +7,10 @@ from unittest.mock import patch
 health_bp = Blueprint('health', __name__)
 
 
+@health_bp.route('/health', methods=['GET', 'HEAD'])
 @health_bp.route('/healthz', methods=['GET', 'HEAD'])
 def healthz():
-    """Health check endpoint."""
+    """Health check endpoint (available at both /health and /healthz)."""
     return jsonify({
         'status': 'healthy',
         'service': 'coordination-api',
