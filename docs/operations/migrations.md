@@ -115,7 +115,6 @@ If migrations fail to apply:
 
 ## References
 
-- Alembic Documentation: https://alembic.sqlalchemy.org/
-- SQLAlchemy Documentation: https://docs.sqlalchemy.org/
+- Alembic Documentation: <https://alembic.sqlalchemy.org/>
+- SQLAlchemy Documentation: <https://docs.sqlalchemy.org/>
 - Legacy Migration Guide: `docs/LEGACY_DB_MIGRATION.md`
-
