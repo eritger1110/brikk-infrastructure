@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
-
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-
 from src.database import db
 
 # Observability imports
@@ -25,9 +23,36 @@ def _normalize_db_url(url: str) -> str:
     return url
 
 
+def _migrate_db(app):
+    """Run Alembic migrations to head using the app's DB URL."""
+    import sqlalchemy as sa
+    from alembic import command
+    from alembic.config import Config
+    
+    alembic_ini = os.path.join(app.root_path, "..", "alembic.ini")
+    cfg = Config(alembic_ini)
+    # Ensure Alembic uses the runtime URL, not the one in alembic.ini
+    cfg.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
+    command.upgrade(cfg, "head")
+    app.logger.info("Database migrations applied successfully")
+
+
 def _seed_system_accounts():
     """Creates the default system ledger accounts if they don't exist."""
     from src.models.economy import LedgerAccount
+    from flask import current_app
+    import sqlalchemy as sa
+    
+    # Check if ledger_accounts table exists before attempting to seed
+    eng = db.engine
+    insp = sa.inspect(eng)
+    
+    if not insp.has_table("ledger_accounts"):
+        current_app.logger.warning(
+            "Skipping system account seeding: ledger_accounts table missing "
+            "(migrate will create it)."
+        )
+        return
 
     system_accounts = [
         {"name": "platform_revenue", "type": "system"},
@@ -43,6 +68,7 @@ def _seed_system_accounts():
                 type=acc_data["type"])
             db.session.add(new_acc)
     db.session.commit()
+    current_app.logger.info(f"Seeded {len(system_accounts)} system accounts")
 
 
 def create_app() -> Flask:
@@ -104,9 +130,11 @@ def create_app() -> Flask:
             url_prefix="/api")
         app.register_blueprint(health.health_bp, url_prefix="/")
         app.register_blueprint(inbound.inbound_bp, url_prefix="/api")
+
         if ENABLE_DEV_LOGIN:
             from src.routes import dev_login
-            app.register_blueprint(dev_login.dev_bp, url_prefix="/api")
+            app.register_blueprint(dev_bp, url_prefix="/api")
+
         if ENABLE_SECURITY_ROUTES:
             from src.routes import security
             app.register_blueprint(security.security_bp, url_prefix="/api")
@@ -118,18 +146,17 @@ def create_app() -> Flask:
         if is_testing or os.getenv("BRIKK_DB_AUTOCREATE", "false").lower() == "true":
             db.create_all()
         
-        # Optionally run migrations on startup (for Render deployments)
-        if os.getenv("BRIKK_DB_MIGRATE_ON_START", "false").lower() == "true":
+        # Run migrations BEFORE seeding (default on in prod; can disable with env)
+        # Skip migrations in test mode since db.create_all() already creates correct schema
+        if not is_testing and os.getenv("BRIKK_DB_MIGRATE_ON_START", "true").lower() == "true":
             try:
-                from alembic import command
-                from alembic.config import Config
-                alembic_cfg = Config(os.path.join(app.root_path, "..", "alembic.ini"))
-                command.upgrade(alembic_cfg, "head")
-                app.logger.info("Database migrations applied successfully")
+                _migrate_db(app)
             except Exception as e:
                 app.logger.error(f"Failed to run migrations: {e}")
                 raise
         
+        # Seed system accounts (safe if tables don't exist)
         _seed_system_accounts()
 
     return app
+
