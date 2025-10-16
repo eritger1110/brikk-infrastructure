@@ -3,7 +3,7 @@ Trust layer routes for reputation, attestations, and risk management.
 """
 
 from flask import Blueprint, request, jsonify, g
-from src.services.auth_middleware import require_auth, require_scope
+from src.services.auth_middleware import require_scope
 from src.models.trust import ReputationSnapshot, Attestation, RiskEvent
 from src.services.reputation_engine import ReputationEngine
 from src.database import db
@@ -13,7 +13,7 @@ trust_bp = Blueprint('trust', __name__, url_prefix='/api/v1/trust')
 
 
 @trust_bp.route('/reputation/<subject_type>/<subject_id>', methods=['GET'])
-@require_auth
+@require_scope('trust:read')
 def get_reputation(subject_type, subject_id):
     """Get reputation score for an org or agent."""
     window_days = request.args.get('window_days', 30, type=int)
@@ -39,7 +39,7 @@ def get_reputation(subject_type, subject_id):
 
 
 @trust_bp.route('/attestations', methods=['GET', 'POST'])
-@require_auth
+@require_scope('trust:read')
 def attestations():
     """List or create attestations."""
     if request.method == 'GET':
