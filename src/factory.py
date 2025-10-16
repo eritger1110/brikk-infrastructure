@@ -140,11 +140,12 @@ def create_app() -> Flask:
     # --- Mount blueprints ---
     with app.app_context():
         from src.routes import (
-            auth, app_routes, agents, billing, coordination, auth_admin, workflows,
+            auth, agents, billing, coordination, auth_admin, workflows,
             monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk,
             health, inbound, api_keys, auth_test, oauth,
             telemetry, docs, agent_registry, deprecations, trust
         )
+        from src.routes import app as app_routes
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
         app.register_blueprint(agents.agents_bp)
