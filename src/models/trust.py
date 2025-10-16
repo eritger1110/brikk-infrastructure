@@ -7,11 +7,11 @@ Reputation, Attestations, and Risk Events for network intelligence.
 from sqlalchemy import Column, String, Integer, Text, DateTime, CheckConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.sql import func
-from src.models.base import Base
+from src.database import db
 import uuid
 
 
-class ReputationSnapshot(Base):
+class ReputationSnapshot(db.Model):
     """Reputation score snapshot for an org or agent over a time window."""
     __tablename__ = 'reputation_snapshots'
     
@@ -66,7 +66,7 @@ class ReputationSnapshot(Base):
         return snapshot
 
 
-class Attestation(Base):
+class Attestation(db.Model):
     """Attestation (web-of-trust) from one org vouching for another org/agent."""
     __tablename__ = 'attestations'
     
@@ -124,7 +124,7 @@ class Attestation(Base):
         return attestation
 
 
-class RiskEvent(Base):
+class RiskEvent(db.Model):
     """Risk event tracking for security and abuse detection."""
     __tablename__ = 'risk_events'
     
