@@ -5,6 +5,68 @@ All notable changes to the Brikk Infrastructure project will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - Architectural Cleanup
+
+### Added
+
+#### 🚩 Feature Flags System (PR-6)
+- **FeatureFlagManager**: Dynamic feature toggling without deployments
+- **Environment Variable Support**: Override flags via env vars
+- **Redis Backend**: Optional dynamic runtime configuration
+- **Priority System**: env vars > Redis > defaults
+- **Type-Safe Definitions**: Enum-based flag definitions
+- **RESTful API**: Manage flags via HTTP endpoints
+- **TTL Support**: Temporary flag changes with auto-expiry
+- **9 Comprehensive Tests**: Full test coverage for all functionality
+
+#### 🐳 Docker Compose Setup (PR-5)
+- **Full Stack Configuration**: PostgreSQL, Redis, Flask API
+- **Multi-stage Dockerfile**: Optimized production builds
+- **Test Environment**: Separate docker-compose.test.yml
+- **Development Tools**: Hot reload and debugging support
+- **Makefile Commands**: Easy-to-use docker shortcuts
+- **Environment Examples**: .env.docker.example for quick setup
+
+#### 🛡️ CI Guards (PR-4)
+- **Import Validation**: Prevents import errors before deployment
+- **Blueprint Registration Checks**: Validates route registration
+- **Python Issue Detection**: Syntax and undefined variable checks
+- **6 Validation Checks**: Comprehensive pre-deployment testing
+- **ASCII-Safe Output**: Terminal-friendly status reporting
+- **Would have prevented PR-1 incident**: Catches import errors early
+
+#### 📦 Blueprint Registration Helper (PR-2)
+- **Centralized Registration**: Standardized blueprint registration utility
+- **Validation & Error Handling**: Robust blueprint registration
+- **Consistent Logging**: Automatic route registration logging
+- **Debug Support**: Easy route map printing for troubleshooting
+- **Comprehensive Tests**: Full test coverage
+
+#### 🏗️ Infrastructure Package (PR-1)
+- **src/infra Package**: Centralized infrastructure utilities
+- **Standardized Logging**: Consistent logging imports across codebase
+- **Modular Organization**: Better code organization and maintainability
+
+### Changed
+
+- **Logging Imports**: Migrated from `src.services.structured_logging` to `src.infra.log` (PR-1)
+- **Blueprint Registration**: Enhanced with validation and error handling (PR-2)
+- **CI/CD Pipeline**: Added automated validation checks (PR-4)
+- **Development Workflow**: Improved with Docker Compose (PR-5)
+
+### Fixed
+
+- **Production Deployment Failure**: Fixed logging import errors (Hotfix #96)
+- **Import Errors**: Corrected `setup_logging` import issues (Hotfix #96)
+- **Broken Documentation Links**: Fixed invalid references (PR-5, PR-6)
+- **Markdown Lint Issues**: Resolved formatting across all docs (PR-2, PR-4, PR-5, PR-6)
+- **Deprecation Guide**: Fixed markdown formatting (PR-2)
+
+### Security
+
+- **CI Validation**: Prevents deployment of broken code (PR-4)
+- **Feature Flag Security**: Environment variable priority prevents unauthorized changes (PR-6)
+
 ## [0.2.0] - 2025-10-10
 
 ### Added - Stage 3: Economic & Reputation Layer
