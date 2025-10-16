@@ -27,11 +27,11 @@ class UsageLedger(db.Model):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     # Organization and Actor
-    org_id = Column(String(36), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, index=True)
     actor_id = Column(Text, nullable=False)  # API key or OAuth client ID
     
     # Optional Agent Reference
-    agent_id = Column(String(36), ForeignKey('agents.id', ondelete='SET NULL'), nullable=True, index=True)
+    agent_id = Column(Integer, ForeignKey('agents.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Usage Details
     route = Column(Text, nullable=False)
@@ -76,12 +76,12 @@ class UsageLedger(db.Model):
     
     @classmethod
     def record_usage(cls,
-                     org_id: str,
+                     org_id: int,
                      actor_id: str,
                      route: str,
                      unit_cost: Decimal,
                      usage_units: int = 1,
-                     agent_id: Optional[str] = None) -> 'UsageLedger':
+                     agent_id: Optional[int] = None) -> 'UsageLedger':
         """
         Record a usage entry in the ledger.
         
@@ -114,7 +114,7 @@ class UsageLedger(db.Model):
         return entry
     
     @classmethod
-    def get_unbilled(cls, org_id: Optional[str] = None, 
+    def get_unbilled(cls, org_id: Optional[int] = None, 
                      start_date: Optional[datetime] = None,
                      end_date: Optional[datetime] = None) -> List['UsageLedger']:
         """
