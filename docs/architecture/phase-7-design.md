@@ -164,7 +164,7 @@ CREATE TABLE user_analytics_daily (
 - **Response System** - Publishers can respond to reviews
 - **Moderation** - Flag inappropriate reviews
 
-#### Database Schema
+#### Reviews Database Schema
 
 ```sql
 -- Agent ratings and reviews
@@ -213,7 +213,8 @@ CREATE TABLE agent_rating_summary (
 
 ### 4. Enhanced Discovery
 
-#### Features
+#### Enhanced Discovery Features
+
 - **Full-Text Search** - Search agent names, descriptions, tags
 - **Advanced Filtering** - Filter by category, rating, price, etc.
 - **Sorting Options** - Sort by popularity, rating, recent, trending
@@ -222,6 +223,7 @@ CREATE TABLE agent_rating_summary (
 - **Trending Calculation** - Identify rapidly growing agents
 
 #### Implementation
+
 - Use PostgreSQL full-text search for agent discovery
 - Implement recommendation engine based on user behavior
 - Calculate trending scores using time-weighted metrics
@@ -231,7 +233,7 @@ CREATE TABLE agent_rating_summary (
 
 ### Marketplace Endpoints
 
-```
+```http
 GET    /api/v1/marketplace/agents              # List marketplace agents
 GET    /api/v1/marketplace/agents/:id          # Get agent details
 POST   /api/v1/marketplace/agents              # Publish new agent
@@ -250,7 +252,7 @@ GET    /api/v1/marketplace/installed           # Get user's installed agents
 
 ### Analytics Endpoints
 
-```
+```http
 GET    /api/v1/analytics/agents/:id            # Get agent analytics
 GET    /api/v1/analytics/agents/:id/usage      # Get usage metrics
 GET    /api/v1/analytics/agents/:id/performance # Get performance metrics
@@ -260,7 +262,7 @@ GET    /api/v1/analytics/trending              # Get trending analytics
 
 ### Review Endpoints
 
-```
+```http
 GET    /api/v1/reviews/agents/:id              # Get agent reviews
 POST   /api/v1/reviews/agents/:id              # Submit review
 PUT    /api/v1/reviews/:id                     # Update review
@@ -273,7 +275,7 @@ POST   /api/v1/reviews/:id/respond             # Publisher response
 
 ### Search & Discovery Endpoints
 
-```
+```http
 GET    /api/v1/search/agents                   # Search agents
 GET    /api/v1/discover/recommended            # Get recommendations
 GET    /api/v1/discover/similar/:id            # Get similar agents
