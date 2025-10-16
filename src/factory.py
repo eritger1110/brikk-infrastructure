@@ -120,9 +120,11 @@ def create_app() -> Flask:
     from src.services.gateway_metrics import init_gateway_metrics
     from src.services.audit_logger import init_audit_logging
     from src.services.rate_limiter import init_rate_limiter
+    from src.services.usage_metering import init_usage_metering
     
     init_gateway_metrics(app)
     init_audit_logging(app)
+    init_usage_metering(app)  # Phase 6: Usage metering for billing
     # Note: Rate limiter requires Redis, will gracefully degrade if unavailable
     try:
         limiter = init_rate_limiter(app)
