@@ -336,6 +336,7 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 - Regular VACUUM and ANALYZE operations
 
 ### Background Jobs
+
 - Analytics aggregation (hourly)
 - Trending calculation (every 15 minutes)
 - Recommendation updates (daily)
@@ -344,24 +345,28 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Migration Strategy
 
 ### Phase 1: Database Schema
+
 1. Create new tables for marketplace, analytics, reviews
 2. Add indexes and constraints
 3. Migrate existing agent_registry data to marketplace_listings
 4. Validate data integrity
 
 ### Phase 2: Core Functionality
+
 1. Implement marketplace listing endpoints
 2. Add agent publishing workflow
 3. Implement basic analytics tracking
 4. Deploy with feature flags disabled
 
 ### Phase 3: Advanced Features
+
 1. Enable marketplace feature flag
 2. Implement review system
 3. Add enhanced discovery
 4. Enable analytics feature flag
 
 ### Phase 4: Optimization
+
 1. Monitor performance metrics
 2. Optimize slow queries
 3. Implement caching
@@ -370,18 +375,21 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Testing Strategy
 
 ### Unit Tests
+
 - Test all business logic functions
 - Test database models and relationships
 - Test API endpoint handlers
 - Test analytics calculations
 
 ### Integration Tests
+
 - Test full marketplace workflow
 - Test analytics data flow
 - Test review submission and moderation
 - Test search and discovery
 
 ### Performance Tests
+
 - Load test marketplace listing endpoints
 - Stress test analytics aggregation
 - Test search performance with large datasets
@@ -390,6 +398,7 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Monitoring & Observability
 
 ### Metrics to Track
+
 - Marketplace listing views and installs
 - Agent usage and performance metrics
 - Review submission rate and quality
@@ -397,6 +406,7 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 - API endpoint latency and error rates
 
 ### Alerts
+
 - High error rate on marketplace endpoints
 - Slow analytics aggregation
 - Unusual review patterns (spam detection)
@@ -405,12 +415,14 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Documentation Requirements
 
 ### User Documentation
+
 - Marketplace user guide
 - Agent publishing guide
 - Analytics dashboard guide
 - Review guidelines
 
 ### Developer Documentation
+
 - API reference for all endpoints
 - Database schema documentation
 - Analytics data model
@@ -419,26 +431,31 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Timeline
 
 ### Week 1: Foundation
+
 - Database schema implementation
 - Core marketplace models
 - Basic API endpoints
 
 ### Week 2: Marketplace
+
 - Agent listing and publishing
 - Category and tag management
 - Installation tracking
 
 ### Week 3: Analytics
+
 - Usage event tracking
 - Analytics aggregation
 - Dashboard endpoints
 
 ### Week 4: Reviews & Discovery
+
 - Review system implementation
 - Enhanced search
 - Recommendations engine
 
 ### Week 5: Testing & Polish
+
 - Integration testing
 - Performance optimization
 - Documentation
@@ -447,18 +464,21 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Success Metrics
 
 ### Marketplace Adoption
+
 - Number of published agents
 - Number of agent installations
 - Active marketplace users
 - Featured agent engagement
 
 ### Analytics Usage
+
 - Dashboard views
 - Analytics API usage
 - Trending agent views
 - Performance insights accessed
 
 ### Community Engagement
+
 - Number of reviews submitted
 - Review helpfulness votes
 - Publisher responses
@@ -467,6 +487,7 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Future Enhancements
 
 ### Phase 8 Considerations
+
 - Paid agent marketplace
 - Agent bundles and collections
 - Advanced analytics (ML-powered insights)
