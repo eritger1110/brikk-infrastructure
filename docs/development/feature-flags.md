@@ -341,6 +341,6 @@ class FeatureFlag(str, Enum):
 
 ## Related Documentation
 
-- [Environment Variables](../operations/environment-variables.md)
-- [Redis Configuration](../operations/redis.md)
-- [API Documentation](../api/README.md)
+- Environment Variables - See `.env.example` for configuration
+- Redis Configuration - See `docker-compose.yml` for setup
+- API Documentation - See `/api/docs` endpoint
