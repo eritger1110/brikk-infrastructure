@@ -1,15 +1,15 @@
 -- Phase 7: Marketplace, Analytics, and Reviews
 -- Migration script to create all Phase 7 tables
--- Run this after Phase 6 agent_registry table exists
+-- Run this after Phase 6 agents table exists
 
 -- =============================================================================
 -- MARKETPLACE TABLES
 -- =============================================================================
 
--- Marketplace listings (extends agent_registry from Phase 6)
+-- Marketplace listings (extends agents from Phase 6)
 CREATE TABLE IF NOT EXISTS marketplace_listings (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL REFERENCES agent_registry(id) ON DELETE CASCADE,
+    agent_id VARCHAR(36) NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
     publisher_id VARCHAR(36) NOT NULL,
     
     -- Status and visibility
@@ -92,7 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_tags_usage_count ON agent_tags(usage_count DESC);
 -- Agent installations
 CREATE TABLE IF NOT EXISTS agent_installations (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL REFERENCES agent_registry(id),
+    agent_id VARCHAR(36) NOT NULL REFERENCES agents(id),
     user_id VARCHAR(36) NOT NULL,
     installed_version VARCHAR(50),
     installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -113,7 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_installations_active ON agent_installations(agent
 -- Agent usage events (high-volume table)
 CREATE TABLE IF NOT EXISTS agent_usage_events (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL REFERENCES agent_registry(id),
+    agent_id VARCHAR(36) NOT NULL REFERENCES agents(id),
     user_id VARCHAR(36),
     
     -- Event details
@@ -136,7 +136,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_events_type ON agent_usage_events(event_typ
 -- Agent analytics daily aggregates
 CREATE TABLE IF NOT EXISTS agent_analytics_daily (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL REFERENCES agent_registry(id),
+    agent_id VARCHAR(36) NOT NULL REFERENCES agents(id),
     date DATE NOT NULL,
     
     -- Volume metrics
@@ -181,7 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_user_analytics_daily_date ON user_analytics_daily
 -- Agent trending scores
 CREATE TABLE IF NOT EXISTS agent_trending_scores (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL UNIQUE REFERENCES agent_registry(id),
+    agent_id VARCHAR(36) NOT NULL UNIQUE REFERENCES agents(id),
     
     -- Trending metrics
     trending_score NUMERIC(10, 4) DEFAULT 0.0,
@@ -209,7 +209,7 @@ CREATE INDEX IF NOT EXISTS idx_trending_scores_agent_id ON agent_trending_scores
 -- Agent reviews and ratings
 CREATE TABLE IF NOT EXISTS agent_reviews (
     id VARCHAR(36) PRIMARY KEY,
-    agent_id VARCHAR(36) NOT NULL REFERENCES agent_registry(id),
+    agent_id VARCHAR(36) NOT NULL REFERENCES agents(id),
     user_id VARCHAR(36) NOT NULL,
     
     -- Rating and review content
@@ -260,7 +260,7 @@ CREATE INDEX IF NOT EXISTS idx_review_votes_user_id ON review_votes(user_id);
 
 -- Agent rating summary (pre-computed)
 CREATE TABLE IF NOT EXISTS agent_rating_summary (
-    agent_id VARCHAR(36) PRIMARY KEY REFERENCES agent_registry(id) ON DELETE CASCADE,
+    agent_id VARCHAR(36) PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
     
     -- Aggregate metrics
     total_reviews INTEGER DEFAULT 0,
