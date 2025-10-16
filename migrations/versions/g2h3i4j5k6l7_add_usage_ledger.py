@@ -24,17 +24,31 @@ def upgrade() -> None:
     op.create_table(
         'usage_ledger',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-        sa.Column('org_id', sa.String(36), nullable=False, index=True),  # String to match existing orgs table
+        sa.Column('org_id', sa.String(36), nullable=False),  # String to match existing orgs table
         sa.Column('actor_id', sa.Text(), nullable=False),  # API key or OAuth client ID
-        sa.Column('agent_id', sa.String(36), nullable=True, index=True),  # Optional, String to match agents table
+        sa.Column('agent_id', sa.String(36), nullable=True),  # Optional, String to match agents table
         sa.Column('route', sa.Text(), nullable=False),
         sa.Column('usage_units', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('unit_cost', sa.Numeric(10, 4), nullable=False),
         sa.Column('total_cost', sa.Numeric(10, 4), nullable=False),
         sa.Column('created_at', sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text('now()')),
         sa.Column('billed_at', sa.TIMESTAMP(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(['org_id'], ['organizations.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ondelete='SET NULL'),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
+    # Add foreign keys separately to avoid constraint issues
+    op.create_foreign_key(
+        'fk_usage_ledger_org_id',
+        'usage_ledger', 'organizations',
+        ['org_id'], ['id'],
+        ondelete='CASCADE'
+    )
+    
+    op.create_foreign_key(
+        'fk_usage_ledger_agent_id',
+        'usage_ledger', 'agents',
+        ['agent_id'], ['id'],
+        ondelete='SET NULL'
     )
     
     # Create indexes for efficient querying
@@ -55,6 +69,10 @@ def downgrade() -> None:
     op.drop_index('ix_usage_ledger_created_at', table_name='usage_ledger')
     op.drop_index('ix_usage_ledger_agent_id', table_name='usage_ledger')
     op.drop_index('ix_usage_ledger_org_id', table_name='usage_ledger')
+    
+    # Drop foreign keys
+    op.drop_constraint('fk_usage_ledger_agent_id', 'usage_ledger', type_='foreignkey')
+    op.drop_constraint('fk_usage_ledger_org_id', 'usage_ledger', type_='foreignkey')
     
     # Drop table
     op.drop_table('usage_ledger')
