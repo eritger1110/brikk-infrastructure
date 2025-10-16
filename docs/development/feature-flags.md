@@ -2,7 +2,8 @@
 
 ## Overview
 
-The feature flags system allows you to enable or disable features dynamically without code deployments. This is essential for:
+The feature flags system allows you to enable or disable features dynamically without code
+deployments. This is essential for:
 
 - **Safe rollouts**: Gradually enable features for a subset of users
 - **A/B testing**: Test different features with different user groups
@@ -343,4 +344,3 @@ class FeatureFlag(str, Enum):
 - [Environment Variables](../operations/environment-variables.md)
 - [Redis Configuration](../operations/redis.md)
 - [API Documentation](../api/README.md)
-
