@@ -10,13 +10,61 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from typing import Optional
 
-# Tier-based rate limits (requests per minute)
+# Tier-based rate limits (PR-K: Expanded granular limits)
 RATE_LIMITS = {
+    # Free tier - Basic usage
+    'FREE': {
+        'minute': '60/minute',
+        'hour': '1000/hour',
+        'day': '10000/day'
+    },
+    # Hacker tier - For developers
+    'HACKER': {
+        'minute': '120/minute',
+        'hour': '5000/hour',
+        'day': '50000/day'
+    },
+    # Starter tier - Small teams
+    'STARTER': {
+        'minute': '300/minute',
+        'hour': '15000/hour',
+        'day': '200000/day'
+    },
+    # Pro tier - Growing businesses
+    'PRO': {
+        'minute': '600/minute',
+        'hour': '30000/hour',
+        'day': '500000/day'
+    },
+    # Enterprise tier - Large organizations
+    'ENT': {
+        'minute': '10000/minute',
+        'hour': '500000/hour',
+        'day': '10000000/day'
+    },
+    # Internal tier - HMAC/system-to-system
+    'INTERNAL': {
+        'minute': '10000/minute',
+        'hour': '500000/hour',
+        'day': '10000000/day'
+    },
+    # Default for unauthenticated
+    'DEFAULT': {
+        'minute': '60/minute',
+        'hour': '500/hour',
+        'day': '2000/day'
+    }
+}
+
+# Legacy single-value limits for backward compatibility
+LEGACY_RATE_LIMITS = {
     'FREE': '60/minute',
+    'HACKER': '120/minute',
+    'STARTER': '300/minute',
     'PRO': '600/minute',
-    'ENT': '10000/minute',  # Enterprise tier
-    'INTERNAL': '10000/minute',  # HMAC/internal use
-    'DEFAULT': '60/minute'  # Unauthenticated requests
+    'ENT': '10000/minute',
+    'INTERNAL': '10000/minute',
+    'DEFAULT': '60/minute'
 }
 
 
@@ -44,14 +92,17 @@ def get_rate_limit() -> str:
     Get rate limit for current request based on actor tier.
     
     Returns:
-        Rate limit string (e.g., "60/minute", "600/minute")
+        Rate limit string with multiple time windows (e.g., "60/minute;1000/hour;10000/day")
     """
-    if hasattr(g, 'tier'):
-        tier = g.tier
-        return RATE_LIMITS.get(tier, RATE_LIMITS['DEFAULT'])
+    tier = getattr(g, 'tier', 'DEFAULT')
+    limits = RATE_LIMITS.get(tier, RATE_LIMITS['DEFAULT'])
     
-    # Unauthenticated requests get default limit
-    return RATE_LIMITS['DEFAULT']
+    # Return combined limits for multiple time windows
+    if isinstance(limits, dict):
+        return ';'.join([limits['minute'], limits['hour'], limits['day']])
+    
+    # Fallback to legacy format
+    return LEGACY_RATE_LIMITS.get(tier, LEGACY_RATE_LIMITS['DEFAULT'])
 
 
 def rate_limit_exceeded_handler(e):
