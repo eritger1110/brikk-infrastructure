@@ -143,7 +143,8 @@ def create_app() -> Flask:
             auth, agents, billing, coordination, auth_admin, workflows,
             monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk,
             health, inbound, api_keys, auth_test, oauth,
-            telemetry, docs, agent_registry, deprecations, trust
+            telemetry, docs, agent_registry, deprecations, trust,
+            marketplace, analytics, agent_discovery, reviews
         )
         from src.routes import app as app_routes
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
@@ -169,11 +170,17 @@ def create_app() -> Flask:
         app.register_blueprint(telemetry.telemetry_bp, url_prefix="/telemetry")
         app.register_blueprint(docs.docs_bp)
         app.register_blueprint(docs.swaggerui_blueprint, url_prefix=docs.SWAGGER_URL)
-        app.register_blueprint(agent_registry.agent_registry_bp)
+        app.register_blueprint(agent_registry.agent_registry_bp, url_prefix="/api/v1")
         app.register_blueprint(deprecations.deprecations_bp, url_prefix="/api")
-        app.register_blueprint(trust.trust_bp)
+        app.register_blueprint(trust.trust_bp, url_prefix="/api/v1/trust")
+        
+        # Phase 7: Marketplace & Analytics
+        app.register_blueprint(marketplace.marketplace_bp, url_prefix="/api/v1/marketplace")
+        app.register_blueprint(analytics.analytics_bp, url_prefix="/api/v1/analytics")
+        app.register_blueprint(agent_discovery.agent_discovery_bp, url_prefix="/api/v1/agent-discovery")
+        app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
 
-        # Dev routes are optional (default off in prod)
+        # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
             try:
                 from src.routes.dev_login import dev_bp
