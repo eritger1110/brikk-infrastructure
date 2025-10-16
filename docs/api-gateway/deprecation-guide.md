@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Brikk API Gateway includes a comprehensive deprecation framework to support graceful API evolution. This guide explains how to use deprecation warnings and migrate to newer endpoints.
+The Brikk API Gateway includes a comprehensive deprecation framework to
+support graceful API evolution. This guide explains how to use deprecation
+warnings and migrate to newer endpoints.
 
 ## Deprecation Headers
 
@@ -93,7 +95,7 @@ def old_endpoint():
 3. **Test Replacements**: Validate replacement endpoints before sunset
 4. **Update Dependencies**: Ensure all SDKs and clients are updated
 
-### For API Developers
+### For Platform Developers
 
 1. **Announce Early**: Give users at least 12 months notice
 2. **Provide Alternatives**: Always specify a replacement endpoint
@@ -118,5 +120,5 @@ curl -X GET https://api.getbrikk.com/api/v2/new-endpoint \
 
 ## Support
 
-If you need help migrating from a deprecated endpoint, contact support at support@getbrikk.com.
-
+If you need help migrating from a deprecated endpoint, contact support at
+<support@getbrikk.com>.
