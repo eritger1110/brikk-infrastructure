@@ -37,15 +37,15 @@ def print_header(text):
 
 def print_success(text):
     """Print a success message."""
-    print(f"{Colors.GREEN}✓ {text}{Colors.RESET}")
+    print(f"{Colors.GREEN}[PASS] {text}{Colors.RESET}")
 
 def print_error(text):
     """Print an error message."""
-    print(f"{Colors.RED}✗ {text}{Colors.RESET}")
+    print(f"{Colors.RED}[FAIL] {text}{Colors.RESET}")
 
 def print_warning(text):
     """Print a warning message."""
-    print(f"{Colors.YELLOW}⚠ {text}{Colors.RESET}")
+    print(f"{Colors.YELLOW}[WARN] {text}{Colors.RESET}")
 
 def check_critical_imports():
     """
@@ -338,10 +338,10 @@ def main():
     print(f"\n{Colors.BOLD}Results: {passed}/{total} checks passed{Colors.RESET}\n")
     
     if passed == total:
-        print(f"{Colors.GREEN}{Colors.BOLD}✓ All CI guards passed! Safe to deploy.{Colors.RESET}\n")
+        print(f"{Colors.GREEN}{Colors.BOLD}[SUCCESS] All CI guards passed! Safe to deploy.{Colors.RESET}\n")
         return 0
     else:
-        print(f"{Colors.RED}{Colors.BOLD}✗ Some CI guards failed. Fix issues before deploying.{Colors.RESET}\n")
+        print(f"{Colors.RED}{Colors.BOLD}[FAILURE] Some CI guards failed. Fix issues before deploying.{Colors.RESET}\n")
         return 1
 
 if __name__ == "__main__":

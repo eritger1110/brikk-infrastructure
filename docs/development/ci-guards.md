@@ -104,27 +104,27 @@ Running pre-deployment validation checks...
 1. Critical Import Validation
 ================================================================================
 
-✓ Import successful: src.infra.log
-✓ Import successful: src.services.structured_logging
-✓ Import successful: src.database
-✓ Import successful: src.models
+[PASS] Import successful: src.infra.log
+[PASS] Import successful: src.services.structured_logging
+[PASS] Import successful: src.database
+[PASS] Import successful: src.models
 
-✓ All 4 critical imports validated
+[PASS] All 4 critical imports validated
 
 ================================================================================
 CI Guards Summary
 ================================================================================
 
-✓ Critical Imports: PASSED
-✓ Python Syntax: PASSED
-✓ Route Files: PASSED
-✓ Infrastructure Package: PASSED
-✓ Environment Variables: PASSED
-✓ Utils Package: PASSED
+[PASS] Critical Imports: PASSED
+[PASS] Python Syntax: PASSED
+[PASS] Route Files: PASSED
+[PASS] Infrastructure Package: PASSED
+[PASS] Environment Variables: PASSED
+[PASS] Utils Package: PASSED
 
 Results: 6/6 checks passed
 
-✓ All CI guards passed! Safe to deploy.
+[SUCCESS] All CI guards passed! Safe to deploy.
 ```
 
 ## Exit Codes
