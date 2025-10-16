@@ -9,6 +9,7 @@ from src.database import db
 from src.services.metrics import init_metrics
 from src.services.request_context import init_request_context
 from src.services.structured_logging import init_logging
+from src.services.size_limit_middleware import SizeLimitMiddleware
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_ROUTES = os.getenv("BRIKK_ENABLE_DEV_ROUTES", "").lower() in ("1", "true", "yes")
@@ -115,6 +116,10 @@ def create_app() -> Flask:
     init_logging(app)
     init_request_context(app)
     init_metrics(app)
+    
+    # --- Initialize size limit middleware (PR-L) ---
+    size_limit = SizeLimitMiddleware()
+    size_limit.init_app(app)
     
     # --- Initialize API Gateway services ---
     from src.services.gateway_metrics import init_gateway_metrics
