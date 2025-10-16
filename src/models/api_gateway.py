@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Integer, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from src.database import db
 
 
@@ -79,6 +80,9 @@ class OAuthClient(db.Model):
     scopes = Column(ARRAY(String()), nullable=False, default=list)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     revoked_at = Column(DateTime, nullable=True)
+    
+    # Phase 6: Relationship to agents
+    agents = relationship('Agent', back_populates='oauth_client', foreign_keys='Agent.oauth_client_id')
     
     def __repr__(self):
         return f'<OAuthClient {self.client_id} org={self.org_id}>'
