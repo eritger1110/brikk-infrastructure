@@ -16,3 +16,8 @@ from .workflow import Workflow
 from .workflow_execution import WorkflowExecution
 from .workflow_step import WorkflowStep
 from .api_gateway import OrgApiKey, OAuthClient, OAuthToken, ApiAuditLog
+
+# Phase 7: Marketplace, Analytics, and Reviews
+from .marketplace import MarketplaceListing, AgentCategory, AgentTag, AgentInstallation
+from .analytics import AgentUsageEvent, AgentAnalyticsDaily, UserAnalyticsDaily, AgentTrendingScore
+from .reviews import AgentReview, ReviewVote, AgentRatingSummary
