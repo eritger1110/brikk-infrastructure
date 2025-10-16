@@ -348,7 +348,7 @@ jobs:
 
 - [Dockerfile Reference](https://docs.docker.com/engine/reference/builder/)
 - [Docker Compose Reference](https://docs.docker.com/compose/compose-file/)
-- [Flask Docker Guide](https://flask.palletsprojects.com/en/2.3.x/deploying/docker/)
+- [Flask Deployment Guide](https://flask.palletsprojects.com/en/latest/deploying/)
 - [PostgreSQL Docker Image](https://hub.docker.com/_/postgres)
 - [Redis Docker Image](https://hub.docker.com/_/redis)
 
