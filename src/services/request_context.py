@@ -15,7 +15,8 @@ Request IDs are UUIDs that help trace requests across logs and systems.
 import uuid
 import time
 from typing import Optional
-from flask import Flask, request, g, Response
+from flask import Flask, g, request, Response
+from src.config.api_version import API_VERSION, API_REVISION
 
 
 class RequestContextMiddleware:
@@ -58,6 +59,10 @@ class RequestContextMiddleware:
         if hasattr(g, 'request_start_time'):
             duration_ms = round((time.time() - g.request_start_time) * 1000, 2)
             response.headers['X-Response-Time'] = f"{duration_ms}ms"
+        
+        # Add API versioning headers (PR-J)
+        response.headers['X-API-Version'] = API_VERSION
+        response.headers['X-API-Revision'] = API_REVISION
 
         return response
 
