@@ -126,6 +126,11 @@ class Agent(db.Model):
         nullable=False,
         index=True)
     organization = db.relationship("Organization", back_populates="agents")
+    
+    # Phase 6: Agent Registry fields
+    category = db.Column(db.Text, nullable=True, index=True)
+    oauth_client_id = db.Column(db.Text, db.ForeignKey("oauth_clients.client_id", ondelete="SET NULL"), nullable=True)
+    active = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True)
     api_keys = db.relationship(
         "ApiKey",
         back_populates="agent",
@@ -142,6 +147,9 @@ class Agent(db.Model):
         "AgentPerformance",
         back_populates="agent",
         cascade="all, delete-orphan")
+    
+    # Phase 6: OAuth relationship
+    oauth_client = db.relationship("OAuthClient", foreign_keys=[oauth_client_id])
 
     def __init__(self, name: str, language: str, **kwargs):
         self.name = name
@@ -193,13 +201,13 @@ class Agent(db.Model):
         self.last_seen = datetime.now(timezone.utc)
         self.updated_at = datetime.now(timezone.utc)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self, include_sensitive: bool = False) -> Dict[str, Any]:
         # success rate rounded but safe if totals are zero
         success_rate = (
             (self.successful_coordinations / self.total_coordinations) * 100.0
             if self.total_coordinations else 0.0
         )
-        return {
+        data = {
             "id": self.id,
             "name": self.name,
             "language": self.language,
@@ -210,7 +218,6 @@ class Agent(db.Model):
             "tags": self.tags or [],
             "specialization": self.specialization,
             "performance_score": round(self.performance_score or 0.0, 2),
-            "endpoint_url": self.endpoint_url,
             "last_seen": self.last_seen.isoformat() if self.last_seen else None,
             "total_coordinations": self.total_coordinations,
             "successful_coordinations": self.successful_coordinations,
@@ -218,8 +225,68 @@ class Agent(db.Model):
             "average_response_time": round(self.average_response_time or 0.0, 2),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            # Phase 6: Agent Registry fields
+            "category": self.category,
+            "oauth_client_id": self.oauth_client_id,
+            "active": self.active if hasattr(self, 'active') else True,
+            "organization_id": self.organization_id,
         }
+        
+        # Include endpoint_url only if requested (sensitive data)
+        if include_sensitive:
+            data["endpoint_url"] = self.endpoint_url
+            data["api_key"] = self.api_key
+        
+        return data
 
+    @classmethod
+    def search(cls,
+               query: Optional[str] = None,
+               category: Optional[str] = None,
+               tags: Optional[List[str]] = None,
+               org_id: Optional[str] = None,
+               active_only: bool = True) -> List['Agent']:
+        """
+        Search agents with filters for Agent Registry.
+        
+        Args:
+            query: Text search in name and description
+            category: Filter by category
+            tags: Filter by tags (any match)
+            org_id: Filter by organization
+            active_only: Only return active agents
+            
+        Returns:
+            List of matching agents
+        """
+        filters = []
+        
+        if active_only:
+            filters.append(cls.active == True)
+            
+        if org_id:
+            filters.append(cls.organization_id == org_id)
+            
+        if category:
+            filters.append(cls.category == category)
+            
+        if tags:
+            # Match any of the provided tags (tags stored as JSON list in TEXT)
+            for tag in tags:
+                filters.append(cls.tags.like(f'%"{tag}"%'))
+            
+        if query:
+            # Search in name and description
+            search_term = f"%{query}%"
+            filters.append(
+                db.or_(
+                    cls.name.ilike(search_term),
+                    cls.description.ilike(search_term)
+                )
+            )
+        
+        return cls.query.filter(*filters).order_by(cls.created_at.desc()).all()
+    
     def __repr__(self) -> str:  # nice for logs
         return f"<Agent {self.id} {self.name!r}>"
 
