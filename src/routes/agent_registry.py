@@ -21,6 +21,9 @@ from src.schemas.agent_schemas import (
     AgentListResponseSchema,
     ErrorResponseSchema
 )
+from src.models.trust import ReputationSnapshot
+from src.services.reputation_engine import ReputationEngine
+from sqlalchemy import desc
 
 agent_registry_bp = Blueprint('agent_registry', __name__, url_prefix='/api')
 
@@ -87,12 +90,14 @@ def list_agents():
     Query Parameters:
         - search: Text search query (searches name and description)
         - category: Filter by category
+        - sort: Sort order (reputation|recency|name, default: reputation)
         - page: Page number (default: 1)
         - per_page: Items per page (default: 20, max: 100)
     """
     # Get query parameters
     search = request.args.get('search')
     category = request.args.get('category')
+    sort = request.args.get('sort', 'reputation')
     page = int(request.args.get('page', 1))
     per_page = min(int(request.args.get('per_page', 20)), 100)
     
@@ -116,16 +121,40 @@ def list_agents():
     if category:
         query = query.filter_by(category=category)
     
+    # Apply sorting
+    if sort == 'reputation':
+        # Join with reputation_snapshots and sort by score DESC
+        query = query.outerjoin(
+            ReputationSnapshot,
+            db.and_(
+                ReputationSnapshot.subject_type == 'agent',
+                ReputationSnapshot.subject_id == Agent.id,
+                ReputationSnapshot.window_days == 30
+            )
+        ).order_by(desc(ReputationSnapshot.score).nullslast(), desc(Agent.created_at))
+    elif sort == 'recency':
+        query = query.order_by(desc(Agent.created_at))
+    elif sort == 'name':
+        query = query.order_by(Agent.name.asc())
+    
     # Paginate
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # Serialize response
+    # Serialize response with reputation enrichment
     response_schema = AgentResponseSchema(many=True)
+    agents_data = response_schema.dump(pagination.items)
+    
+    # Enrich with reputation score buckets
+    for agent_data, agent in zip(agents_data, pagination.items):
+        snapshot = ReputationSnapshot.get_latest('agent', agent.id, 30)
+        agent_data['reputation_score_bucket'] = ReputationEngine.bucket_score(snapshot.score) if snapshot else None
+    
     return jsonify({
-        'agents': response_schema.dump(pagination.items),
+        'agents': agents_data,
         'total': pagination.total,
         'page': page,
-        'per_page': per_page
+        'per_page': per_page,
+        'sort': sort
     }), 200
 
 

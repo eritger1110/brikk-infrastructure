@@ -50,6 +50,21 @@ class GatewayMetrics:
             registry=self.registry
         )
         
+        # Risk scoring metrics (Phase 7)
+        self.risk_score_computed = Counter(
+            "brikk_risk_score_computed_total",
+            "Total risk scores computed",
+            ["org_id"],
+            registry=self.registry
+        )
+        
+        self.risk_events_total = Counter(
+            "brikk_risk_events_total",
+            "Total risk events recorded",
+            ["severity", "event_type"],
+            registry=self.registry
+        )
+        
         # Request tracking by tier
         self.requests_by_tier_total = Counter(
             "brikk_requests_by_tier_total",
