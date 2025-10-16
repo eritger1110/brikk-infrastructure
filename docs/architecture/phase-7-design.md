@@ -299,18 +299,21 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Security Considerations
 
 ### Authentication & Authorization
+
 - All marketplace operations require authentication
 - Publishers can only modify their own agents
 - Admin role for marketplace moderation
 - Rate limiting on all API endpoints
 
 ### Data Privacy
+
 - Analytics data is anonymized where possible
 - User IDs are hashed in public-facing analytics
 - GDPR compliance for user data
 - Option to opt-out of analytics tracking
 
 ### Content Moderation
+
 - Review flagging system
 - Automated spam detection
 - Manual moderation queue
@@ -319,12 +322,14 @@ AGENT_RECOMMENDATIONS = "agent_recommendations"
 ## Performance Optimization
 
 ### Caching Strategy
+
 - Cache popular agent listings (Redis, 5 min TTL)
 - Cache category and tag lists (Redis, 1 hour TTL)
 - Cache trending agents (Redis, 15 min TTL)
 - Cache user recommendations (Redis, 30 min TTL)
 
 ### Database Optimization
+
 - Indexes on frequently queried columns
 - Materialized views for complex analytics
 - Partitioning for large event tables
