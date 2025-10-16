@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Trust Layer Routes (Phase 7 PR-1 stub).
+Trust Layer Routes (Phase 7).
 
 Reputation, attestations, and risk management endpoints.
 """
@@ -110,60 +110,258 @@ def recompute_reputation():
     }), 200
 
 
+# ==================== ATTESTATIONS CRUD ====================
+
+@trust_bp.route('/attestations', methods=['POST'])
+@require_scope('trust:write')
+def create_attestation():
+    """
+    Create a new attestation (vouch for an org or agent).
+    
+    Requires trust:write scope.
+    """
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['subject_type', 'subject_id', 'weight', 'statement']
+    missing_fields = [f for f in required_fields if f not in data]
+    if missing_fields:
+        return jsonify({
+            'error': 'missing_fields',
+            'message': f'Missing required fields: {", ".join(missing_fields)}',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    # Validate subject_type
+    if data['subject_type'] not in ['org', 'agent']:
+        return jsonify({
+            'error': 'invalid_subject_type',
+            'message': 'subject_type must be "org" or "agent"',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    # Validate weight (0.0-1.0)
+    try:
+        weight = float(data['weight'])
+        if not 0.0 <= weight <= 1.0:
+            raise ValueError
+    except (ValueError, TypeError):
+        return jsonify({
+            'error': 'invalid_weight',
+            'message': 'weight must be a number between 0.0 and 1.0',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    # Get attester org_id from request context
+    attester_org_id = getattr(g, 'org_id', None)
+    if not attester_org_id:
+        return jsonify({
+            'error': 'unauthorized',
+            'message': 'Attestations require authenticated organization',
+            'request_id': getattr(g, 'request_id', None)
+        }), 401
+    
+    # Prevent self-attestation
+    if data['subject_type'] == 'org' and data['subject_id'] == str(attester_org_id):
+        return jsonify({
+            'error': 'self_attestation',
+            'message': 'Organizations cannot attest to themselves',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    # Create attestation
+    db = next(get_db())
+    attestation = Attestation.create_attestation(
+        db,
+        attester_org_id=str(attester_org_id),
+        subject_type=data['subject_type'],
+        subject_id=data['subject_id'],
+        weight=weight,
+        statement=data['statement'],
+        evidence_url=data.get('evidence_url')
+    )
+    
+    return jsonify({
+        'attestation_id': attestation.id,
+        'attester_org_id': attestation.attester_org_id,
+        'subject_type': attestation.subject_type,
+        'subject_id': attestation.subject_id,
+        'weight': attestation.weight,
+        'statement': attestation.statement,
+        'evidence_url': attestation.evidence_url,
+        'created_at': attestation.created_at.isoformat(),
+        'request_id': getattr(g, 'request_id', None)
+    }), 201
+
+
 @trust_bp.route('/attestations', methods=['GET'])
 def list_attestations():
     """
-    List attestations for a subject.
+    List all attestations for a subject (org or agent).
     
     Query params: subject_type, subject_id
+    Public endpoint - no auth required.
     """
-    # Stub implementation - will be completed in PR-4
     subject_type = request.args.get('subject_type')
     subject_id = request.args.get('subject_id')
     
     if not subject_type or not subject_id:
         return jsonify({
             'error': 'missing_parameters',
-            'message': 'subject_type and subject_id are required',
+            'message': 'subject_type and subject_id are required query parameters',
             'request_id': getattr(g, 'request_id', None)
         }), 400
     
+    # Validate subject_type
+    if subject_type not in ['org', 'agent']:
+        return jsonify({
+            'error': 'invalid_subject_type',
+            'message': 'subject_type must be "org" or "agent"',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    db = next(get_db())
+    attestations = Attestation.get_attestations(db, subject_type, subject_id)
+    
+    # Format attestations for response
+    attestations_data = [
+        {
+            'attestation_id': att.id,
+            'attester_org_id': att.attester_org_id,
+            'weight': att.weight,
+            'statement': att.statement,
+            'evidence_url': att.evidence_url,
+            'created_at': att.created_at.isoformat()
+        }
+        for att in attestations
+    ]
+    
+    # Compute aggregate trust metrics
+    total_weight = sum(att.weight for att in attestations)
+    avg_weight = total_weight / len(attestations) if attestations else 0.0
+    
     return jsonify({
-        'attestations': [],
-        'total': 0,
         'subject_type': subject_type,
         'subject_id': subject_id,
-        'message': 'Attestations CRUD not yet implemented (PR-4)',
+        'attestations': attestations_data,
+        'count': len(attestations),
+        'total_weight': round(total_weight, 2),
+        'avg_weight': round(avg_weight, 2),
         'request_id': getattr(g, 'request_id', None)
     }), 200
 
 
-@trust_bp.route('/attestations', methods=['POST'])
-@require_scope('trust:write')
-def create_attestation():
+@trust_bp.route('/attestations/<attestation_id>', methods=['GET'])
+def get_attestation(attestation_id):
     """
-    Create a new attestation.
+    Get a specific attestation by ID.
     
-    Requires trust:write scope.
+    Public endpoint - no auth required.
     """
-    # Stub implementation - will be completed in PR-4
+    db = next(get_db())
+    attestation = db.query(Attestation).filter(Attestation.id == attestation_id).first()
+    
+    if not attestation:
+        return jsonify({
+            'error': 'not_found',
+            'message': f'Attestation {attestation_id} not found',
+            'request_id': getattr(g, 'request_id', None)
+        }), 404
+    
     return jsonify({
-        'message': 'Attestation creation not yet implemented (PR-4)',
+        'attestation_id': attestation.id,
+        'attester_org_id': attestation.attester_org_id,
+        'subject_type': attestation.subject_type,
+        'subject_id': attestation.subject_id,
+        'weight': attestation.weight,
+        'statement': attestation.statement,
+        'evidence_url': attestation.evidence_url,
+        'created_at': attestation.created_at.isoformat(),
         'request_id': getattr(g, 'request_id', None)
-    }), 501
+    }), 200
 
 
 @trust_bp.route('/attestations/<attestation_id>', methods=['DELETE'])
 @require_scope('trust:write')
-def delete_attestation(attestation_id):
+def revoke_attestation(attestation_id):
     """
-    Delete an attestation.
+    Revoke an attestation.
     
-    Requires trust:write scope and issuer ownership.
+    Only the attester can revoke their own attestation.
+    Requires trust:write scope.
     """
-    # Stub implementation - will be completed in PR-4
+    # Get attester org_id from request context
+    attester_org_id = getattr(g, 'org_id', None)
+    if not attester_org_id:
+        return jsonify({
+            'error': 'unauthorized',
+            'message': 'Attestation revocation requires authenticated organization',
+            'request_id': getattr(g, 'request_id', None)
+        }), 401
+    
+    db = next(get_db())
+    attestation = db.query(Attestation).filter(Attestation.id == attestation_id).first()
+    
+    if not attestation:
+        return jsonify({
+            'error': 'not_found',
+            'message': f'Attestation {attestation_id} not found',
+            'request_id': getattr(g, 'request_id', None)
+        }), 404
+    
+    # Verify ownership
+    if attestation.attester_org_id != str(attester_org_id):
+        return jsonify({
+            'error': 'forbidden',
+            'message': 'You can only revoke your own attestations',
+            'request_id': getattr(g, 'request_id', None)
+        }), 403
+    
+    # Delete attestation
+    db.delete(attestation)
+    db.commit()
+    
     return jsonify({
-        'message': 'Attestation deletion not yet implemented (PR-4)',
+        'message': 'Attestation revoked successfully',
+        'attestation_id': attestation_id,
         'request_id': getattr(g, 'request_id', None)
-    }), 501
+    }), 200
+
+
+# ==================== RISK EVENTS ====================
+
+@trust_bp.route('/risk-events/<org_id>', methods=['GET'])
+@require_scope('admin')
+def list_risk_events(org_id):
+    """
+    List recent risk events for an organization.
+    
+    Requires admin scope.
+    """
+    limit = request.args.get('limit', 50, type=int)
+    limit = min(limit, 100)  # Cap at 100
+    
+    db = next(get_db())
+    events = db.query(RiskEvent).filter(
+        RiskEvent.org_id == org_id
+    ).order_by(RiskEvent.created_at.desc()).limit(limit).all()
+    
+    events_data = [
+        {
+            'event_id': event.id,
+            'type': event.type,
+            'severity': event.severity,
+            'actor_id': event.actor_id,
+            'meta': event.meta,
+            'created_at': event.created_at.isoformat()
+        }
+        for event in events
+    ]
+    
+    return jsonify({
+        'org_id': org_id,
+        'events': events_data,
+        'count': len(events),
+        'request_id': getattr(g, 'request_id', None)
+    }), 200
 
