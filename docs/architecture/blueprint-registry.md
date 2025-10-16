@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Blueprint Registration Helper provides a centralized, validated approach to registering Flask blueprints in the Brikk API Gateway. It addresses common issues with blueprint registration including:
+The Blueprint Registration Helper provides a centralized, validated approach to
+registering Flask blueprints in the Brikk API Gateway. It addresses common
+issues with blueprint registration including:
 
 - Missing error handling
 - Inconsistent logging
@@ -26,6 +28,7 @@ registry.register(my_blueprint, url_prefix="/api")
 ```
 
 **Features:**
+
 - Automatic validation of blueprint instances
 - Consistent error handling and logging
 - Route inventory tracking
@@ -85,7 +88,8 @@ if app.debug:
 ```
 
 Output:
-```
+
+```text
 ================================================================================
 REGISTERED BLUEPRINTS AND ROUTES
 ================================================================================
@@ -144,6 +148,7 @@ registry.register(valid_bp)  # Returns True, logs success
 ### 4. Centralized Management
 
 All blueprint registration happens in one place, making it easier to:
+
 - Understand the application's route structure
 - Debug routing issues
 - Add conditional blueprint registration
@@ -179,6 +184,7 @@ pytest tests/test_blueprint_registry.py -v
 ```
 
 Tests cover:
+
 - Successful registration
 - Invalid blueprint handling
 - Custom URL prefixes
@@ -206,4 +212,3 @@ Potential improvements for future PRs:
 
 - [Flask Blueprints Documentation](https://flask.palletsprojects.com/en/latest/blueprints/)
 - [Brikk Architecture Documentation](../README.md)
-
