@@ -18,7 +18,7 @@ class AgentCreateSchema(Schema):
         required=True,
         validate=validate.OneOf(['automation', 'analytics', 'communication', 'integration', 'other'])
     )
-    capabilities = fields.List(fields.Str(), missing=[])
+    capabilities = fields.List(fields.Str(), load_default=[])
     oauth_client_id = fields.Str(required=False, allow_none=True)
 
 
