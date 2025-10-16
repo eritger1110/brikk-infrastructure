@@ -126,10 +126,12 @@ def create_app() -> Flask:
     from src.services.audit_logger import init_audit_logging
     from src.services.rate_limiter import init_rate_limiter
     from src.services.usage_metering import init_usage_metering
+    from src.services.risk_middleware import risk_middleware
     
     init_gateway_metrics(app)
     init_audit_logging(app)
     init_usage_metering(app)  # Phase 6: Usage metering for billing
+    risk_middleware.init_app(app)  # Phase 7: Risk scoring and adaptive limits
     # Note: Rate limiter requires Redis, will gracefully degrade if unavailable
     try:
         limiter = init_rate_limiter(app)
