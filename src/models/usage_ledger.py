@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional
 from sqlalchemy import Column, String, Text, Integer, TIMESTAMP, ForeignKey, Index, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from src.database import db
+from src.infra.db import db
 
 
 class UsageLedger(db.Model):

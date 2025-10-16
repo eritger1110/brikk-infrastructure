@@ -5,7 +5,7 @@ Trust layer models for reputation, attestations, and risk management.
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, Integer, Text, DateTime, Boolean, CheckConstraint, Index
 from sqlalchemy.dialects.postgresql import JSONB
-from src.database import db
+from src.infra.db import db
 import uuid
 
 

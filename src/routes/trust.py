@@ -3,7 +3,7 @@ Trust layer routes for reputation, attestations, and risk management.
 """
 
 from flask import Blueprint, request, jsonify, g
-from src.services.auth_middleware import require_scope
+from src.infra.auth import require_scope
 from src.models.trust import ReputationSnapshot, Attestation, RiskEvent
 from src.services.reputation_engine import ReputationEngine
 from src.database import db

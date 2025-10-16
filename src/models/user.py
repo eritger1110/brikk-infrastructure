@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
-from src.database import db
+from src.infra.db import db
 
 
 class User(db.Model):

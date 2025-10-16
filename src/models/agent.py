@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from src.database import db
+from src.infra.db import db
 from sqlalchemy.types import TypeDecorator
 
 

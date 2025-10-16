@@ -9,7 +9,7 @@ from sqlalchemy import Column, String, DateTime
 from sqlalchemy.types import JSON as SA_JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Text
-from src.database import db
+from src.infra.db import db
 
 
 class AuditLog(db.Model):

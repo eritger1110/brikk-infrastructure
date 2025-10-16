@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # src/models/purchase.py
 import datetime as dt
-from src.database import db
+from src.infra.db import db
 
 
 class Purchase(db.Model):

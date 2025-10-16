@@ -13,7 +13,7 @@ from marshmallow import ValidationError
 from src.database import db
 from src.models.agent import Agent
 from src.models.org import Organization
-from src.services.auth_middleware import require_scope
+from src.infra.auth import require_scope
 from src.schemas.agent_schemas import (
     AgentCreateSchema,
     AgentUpdateSchema,

@@ -13,7 +13,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Foreign
 from sqlalchemy.orm import relationship
 from cryptography.fernet import Fernet
 
-from src.database import db
+from src.infra.db import db
 
 
 def get_fernet():

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer
 from sqlalchemy.orm import relationship
-from src.database import db
+from src.infra.db import db
 
 
 class Organization(db.Model):

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from src.database import db
+from src.infra.db import db
 
 from .agent import Agent
 from .api_key import ApiKey
