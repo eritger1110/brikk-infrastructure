@@ -9,7 +9,7 @@ import uuid
 from flask import Blueprint, request, jsonify, g
 from src.database import db
 from src.models.agent import Agent
-from src.models.organization import Organization
+from src.models.org import Organization
 from src.services.auth_middleware import require_scope
 from typing import List, Optional
 
