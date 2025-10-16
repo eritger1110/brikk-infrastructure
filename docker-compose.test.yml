@@ -1,0 +1,72 @@
+# docker-compose.test.yml
+# Use this file to run tests in Docker:
+#   docker-compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit
+
+version: '3.8'
+
+services:
+  # Test database (separate from development)
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: brikk-postgres-test
+    environment:
+      POSTGRES_DB: brikk_test
+      POSTGRES_USER: brikk_test
+      POSTGRES_PASSWORD: brikk_test_password
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brikk_test -d brikk_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - brikk-test-network
+
+  # Test runner
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brikk-test-runner
+    environment:
+      TESTING: "true"
+      DATABASE_URL: postgresql://brikk_test:brikk_test_password@postgres-test:5432/brikk_test
+      REDIS_URL: redis://redis-test:6379/0
+      SECRET_KEY: test-secret-key
+      JWT_SECRET_KEY: test-jwt-secret
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - brikk-test-network
+    command: >
+      sh -c "
+        echo 'Running tests...' &&
+        pytest tests/ -v --tb=short
+      "
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: brikk-redis-test
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - brikk-test-network
+
+networks:
+  brikk-test-network:
+    driver: bridge
+
