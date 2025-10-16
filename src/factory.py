@@ -143,7 +143,7 @@ def create_app() -> Flask:
             auth, app as app_routes, agents, billing, coordination, auth_admin,
             workflows, monitoring, alerting, webhooks, discovery, reputation,
             connectors_zendesk, health, inbound, api_keys, auth_test, oauth,
-            telemetry, docs, agent_registry
+            telemetry, docs, agent_registry, deprecations
         )
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
@@ -169,6 +169,7 @@ def create_app() -> Flask:
         app.register_blueprint(docs.docs_bp)
         app.register_blueprint(docs.swaggerui_blueprint, url_prefix=docs.SWAGGER_URL)
         app.register_blueprint(agent_registry.agent_registry_bp)
+        app.register_blueprint(deprecations.deprecations_bp, url_prefix="/api")
 
         # Dev routes are optional (default off in prod)
         if ENABLE_DEV_ROUTES:
