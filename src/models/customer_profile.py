@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # src/models/customer_profile.py
-from src.database import db
+from src.infra.db import db
 
 
 class CustomerProfile(db.Model):

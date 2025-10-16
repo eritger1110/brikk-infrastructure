@@ -13,7 +13,7 @@ from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Integer, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
-from src.database import db
+from src.infra.db import db
 
 
 class OrgApiKey(db.Model):

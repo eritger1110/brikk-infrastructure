@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from src.database import db
+from src.infra.db import db
 
 
 class AgentPerformance(db.Model):
