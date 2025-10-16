@@ -1,122 +1,131 @@
 # -*- coding: utf-8 -*-
 """
-Agent Registry Routes (Phase 6).
+Agent Registry Routes (Phase 6 PR-I).
 
-Provides CRUD operations for the Agent Registry with ownership enforcement
-and OAuth2 scope-based access control.
+Provides CRUD operations for the Agent Registry with:
+- Proper request validation using Marshmallow schemas
+- Consistent error responses with request_id
+- Ownership enforcement and OAuth2 scope-based access control
+- Pagination support
 """
-import uuid
 from flask import Blueprint, request, jsonify, g
+from marshmallow import ValidationError
 from src.database import db
 from src.models.agent import Agent
 from src.models.org import Organization
 from src.services.auth_middleware import require_scope
-from typing import List, Optional
+from src.schemas.agent_schemas import (
+    AgentCreateSchema,
+    AgentUpdateSchema,
+    AgentResponseSchema,
+    AgentListResponseSchema,
+    ErrorResponseSchema
+)
 
-agent_registry_bp = Blueprint('agent_registry', __name__)
+agent_registry_bp = Blueprint('agent_registry', __name__, url_prefix='/api')
 
 
-@agent_registry_bp.route('/v1/agents/register', methods=['POST'])
+def error_response(error: str, message: str, status_code: int = 400, details: dict = None):
+    """Generate consistent error response with request_id."""
+    response = {
+        'error': error,
+        'message': message,
+        'request_id': getattr(g, 'request_id', None)
+    }
+    if details:
+        response['details'] = details
+    return jsonify(response), status_code
+
+
+@agent_registry_bp.route('/v1/agents', methods=['POST'])
 @require_scope('agents:write')
-def register_agent():
+def create_agent():
     """
-    Register a new agent in the registry.
+    Create a new agent in the registry.
     
     Requires: agents:write scope
-    
-    Request Body:
-        {
-            "name": "My Agent",
-            "description": "Agent description",
-            "category": "utility",
-            "endpoint_url": "https://api.example.com/agent",
-            "version": "1.0.0",
-            "tags": ["search", "nlp"],
-            "capabilities": {"max_tokens": 4000},
-            "oauth_client_id": "optional_client_id"
-        }
     """
-    data = request.get_json()
-    
-    # Validate required fields
-    if not data.get('name'):
-        return jsonify({'error': 'name is required'}), 400
-    if not data.get('endpoint_url'):
-        return jsonify({'error': 'endpoint_url is required'}), 400
-    
     # Get org_id from authenticated context
-    org_id = g.org_id if hasattr(g, 'org_id') else None
+    org_id = getattr(g, 'org_id', None)
     if not org_id:
-        return jsonify({'error': 'Organization context required'}), 403
+        return error_response('forbidden', 'Organization context required', 403)
+    
+    # Validate request body
+    schema = AgentCreateSchema()
+    try:
+        data = schema.load(request.get_json() or {})
+    except ValidationError as err:
+        return error_response('validation_error', 'Invalid request data', 400, err.messages)
     
     # Create agent
     agent = Agent(
         name=data['name'],
-        language=data.get('language', 'en'),  # Default language for backward compat
-        organization_id=org_id,
-        description=data.get('description'),
-        category=data.get('category'),
-        endpoint_url=data['endpoint_url'],
-        version=data.get('version', '1.0.0'),
+        description=data['description'],
+        category=data['category'],
+        capabilities=data.get('capabilities', []),
         oauth_client_id=data.get('oauth_client_id'),
+        organization_id=org_id,
         active=True
     )
-    
-    # Set tags and capabilities (JSON stored in TEXT)
-    if data.get('tags'):
-        agent.set_capabilities(data['tags'])  # Using existing method
-        agent.tags = data['tags']
-    
-    if data.get('capabilities'):
-        agent.capabilities = data['capabilities']
     
     db.session.add(agent)
     db.session.commit()
     
-    return jsonify({
-        'message': 'Agent registered successfully',
-        'agent': agent.to_dict(include_sensitive=True)
-    }), 201
+    # Serialize response
+    response_schema = AgentResponseSchema()
+    return jsonify(response_schema.dump(agent)), 201
 
 
 @agent_registry_bp.route('/v1/agents', methods=['GET'])
 @require_scope('agents:read')
 def list_agents():
     """
-    List agents with optional filters.
+    List agents with optional filters and pagination.
     
     Requires: agents:read scope
     
     Query Parameters:
-        - q: Text search query
+        - search: Text search query (searches name and description)
         - category: Filter by category
-        - tag: Filter by tag (can be repeated)
-        - org_id: Filter by organization (admin only)
-        - active: Filter by active status (default: true)
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 20, max: 100)
     """
     # Get query parameters
-    query = request.args.get('q')
+    search = request.args.get('search')
     category = request.args.get('category')
-    tags = request.args.getlist('tag')
-    org_id = request.args.get('org_id')
-    active_only = request.args.get('active', 'true').lower() == 'true'
+    page = int(request.args.get('page', 1))
+    per_page = min(int(request.args.get('per_page', 20)), 100)
     
-    # Enforce org ownership unless admin
-    if not org_id and hasattr(g, 'org_id'):
-        org_id = g.org_id
+    # Enforce org ownership
+    org_id = getattr(g, 'org_id', None)
+    if not org_id:
+        return error_response('forbidden', 'Organization context required', 403)
     
-    # Search agents
-    agents = Agent.search(
-        query=query,
-        category=category,
-        tags=tags if tags else None,
-        org_id=org_id,
-        active_only=active_only
-    )
+    # Build query
+    query = Agent.query.filter_by(organization_id=org_id, active=True)
     
+    if search:
+        search_filter = f'%{search}%'
+        query = query.filter(
+            db.or_(
+                Agent.name.ilike(search_filter),
+                Agent.description.ilike(search_filter)
+            )
+        )
+    
+    if category:
+        query = query.filter_by(category=category)
+    
+    # Paginate
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Serialize response
+    response_schema = AgentResponseSchema(many=True)
     return jsonify({
-        'agents': [agent.to_dict() for agent in agents],
-        'count': len(agents)
+        'agents': response_schema.dump(pagination.items),
+        'total': pagination.total,
+        'page': page,
+        'per_page': per_page
     }), 200
 
 
@@ -131,19 +140,19 @@ def get_agent(agent_id: str):
     agent = Agent.query.filter_by(id=agent_id).first()
     
     if not agent:
-        return jsonify({'error': 'Agent not found'}), 404
+        return error_response('not_found', 'Agent not found', 404)
     
-    # Check if requester owns the agent or has admin access
-    include_sensitive = False
-    if hasattr(g, 'org_id') and str(agent.organization_id) == str(g.org_id):
-        include_sensitive = True
+    # Check ownership
+    org_id = getattr(g, 'org_id', None)
+    if agent.organization_id != org_id:
+        return error_response('forbidden', 'You do not have access to this agent', 403)
     
-    return jsonify({
-        'agent': agent.to_dict(include_sensitive=include_sensitive)
-    }), 200
+    # Serialize response
+    response_schema = AgentResponseSchema()
+    return jsonify(response_schema.dump(agent)), 200
 
 
-@agent_registry_bp.route('/v1/agents/<agent_id>', methods=['PATCH'])
+@agent_registry_bp.route('/v1/agents/<agent_id>', methods=['PUT'])
 @require_scope('agents:write')
 def update_agent(agent_id: str):
     """
@@ -155,47 +164,37 @@ def update_agent(agent_id: str):
     agent = Agent.query.filter_by(id=agent_id).first()
     
     if not agent:
-        return jsonify({'error': 'Agent not found'}), 404
+        return error_response('not_found', 'Agent not found', 404)
     
     # Enforce ownership
-    if hasattr(g, 'org_id') and str(agent.organization_id) != str(g.org_id):
-        return jsonify({'error': 'Forbidden: You do not own this agent'}), 403
+    org_id = getattr(g, 'org_id', None)
+    if agent.organization_id != org_id:
+        return error_response('forbidden', 'You do not own this agent', 403)
     
-    data = request.get_json()
+    # Validate request body
+    schema = AgentUpdateSchema()
+    try:
+        data = schema.load(request.get_json() or {})
+    except ValidationError as err:
+        return error_response('validation_error', 'Invalid request data', 400, err.messages)
     
-    # Update allowed fields
-    if 'name' in data:
-        agent.name = data['name']
-    if 'description' in data:
-        agent.description = data['description']
-    if 'category' in data:
-        agent.category = data['category']
-    if 'endpoint_url' in data:
-        agent.endpoint_url = data['endpoint_url']
-    if 'version' in data:
-        agent.version = data['version']
-    if 'tags' in data:
-        agent.tags = data['tags']
-    if 'capabilities' in data:
-        agent.capabilities = data['capabilities']
-    if 'oauth_client_id' in data:
-        agent.oauth_client_id = data['oauth_client_id']
-    if 'active' in data:
-        agent.active = data['active']
+    # Update fields
+    for field in ['name', 'description', 'category', 'capabilities', 'active']:
+        if field in data:
+            setattr(agent, field, data[field])
     
     db.session.commit()
     
-    return jsonify({
-        'message': 'Agent updated successfully',
-        'agent': agent.to_dict(include_sensitive=True)
-    }), 200
+    # Serialize response
+    response_schema = AgentResponseSchema()
+    return jsonify(response_schema.dump(agent)), 200
 
 
 @agent_registry_bp.route('/v1/agents/<agent_id>', methods=['DELETE'])
 @require_scope('agents:write')
 def delete_agent(agent_id: str):
     """
-    Soft delete an agent (sets active=False).
+    Delete an agent (soft delete by setting active=False).
     
     Requires: agents:write scope
     Ownership: Only the owning organization can delete
@@ -203,18 +202,16 @@ def delete_agent(agent_id: str):
     agent = Agent.query.filter_by(id=agent_id).first()
     
     if not agent:
-        return jsonify({'error': 'Agent not found'}), 404
+        return error_response('not_found', 'Agent not found', 404)
     
     # Enforce ownership
-    if hasattr(g, 'org_id') and str(agent.organization_id) != str(g.org_id):
-        return jsonify({'error': 'Forbidden: You do not own this agent'}), 403
+    org_id = getattr(g, 'org_id', None)
+    if agent.organization_id != org_id:
+        return error_response('forbidden', 'You do not own this agent', 403)
     
     # Soft delete
     agent.active = False
     db.session.commit()
     
-    return jsonify({
-        'message': 'Agent deleted successfully',
-        'agent_id': agent_id
-    }), 200
+    return '', 204
 
