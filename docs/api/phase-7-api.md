@@ -715,4 +715,3 @@ Phase 7 features can be enabled/disabled via feature flags:
 - `REVIEWS_RATINGS` - Review and rating system
 
 When a feature is disabled, endpoints return `503 Service Unavailable`.
-
