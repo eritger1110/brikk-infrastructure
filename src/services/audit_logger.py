@@ -30,22 +30,26 @@ def log_api_request(response_status: int, response_time_ms: float):
         # Extract authentication details
         org_id = getattr(g, 'org_id', None)
         actor_id = getattr(g, 'actor_id', None)
-        auth_method = getattr(g, 'auth_method', None)
+        actor_type = getattr(g, 'actor_type', 'anon')  # api_key|oauth|hmac|anon
+        auth_method = getattr(g, 'auth_method', 'api_key')
         
-        # Create audit log entry
+        # Skip if missing required fields
+        if not org_id or not actor_id:
+            return
+        
+        # Create audit log entry with correct field names
         audit_entry = ApiAuditLog(
             request_id=request_id,
             org_id=org_id,
+            actor_type=actor_type,
             actor_id=actor_id,
             auth_method=auth_method,
-            endpoint=request.endpoint,
             method=request.method,
             path=request.path,
-            query_params=dict(request.args) if request.args else None,
-            request_ip=request.remote_addr,
-            user_agent=request.headers.get('User-Agent'),
-            response_status=response_status,
-            response_time_ms=response_time_ms
+            status=response_status,
+            cost_units=0,  # Will be updated by usage metering
+            ip=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
         )
         
         db.session.add(audit_entry)
