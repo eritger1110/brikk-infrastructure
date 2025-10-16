@@ -121,6 +121,10 @@ def create_app() -> Flask:
     size_limit = SizeLimitMiddleware()
     size_limit.init_app(app)
     
+    # --- Initialize Phase 7 error handlers ---
+    from src.middleware.phase7_errors import register_phase7_error_handlers
+    register_phase7_error_handlers(app)
+    
     # --- Initialize API Gateway services ---
     from src.services.gateway_metrics import init_gateway_metrics
     from src.services.audit_logger import init_audit_logging

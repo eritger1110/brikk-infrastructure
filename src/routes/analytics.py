@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone, timedelta, date
 from sqlalchemy import func, and_, or_
 
-from src.infra.db import db
+from src.database import db
 from src.models.analytics import (
     AgentUsageEvent,
     AgentAnalyticsDaily,
