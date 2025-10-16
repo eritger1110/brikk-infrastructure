@@ -1,4 +1,4 @@
-.PHONY: help up down logs test clean venv install install-dev lint format run check-python dev-run
+.PHONY: help up down logs test clean venv install install-dev lint format run check-python dev-run docker-up docker-down docker-logs docker-build docker-test docker-migrate docker-shell
 
 # Default target
 help: ## Show this help message
@@ -148,3 +148,67 @@ dev-setup-new: venv install-dev
 	@echo "1. Activate virtual environment: source .venv/bin/activate"
 	@echo "2. Run tests: make test"
 	@echo "3. Start development server: make dev-run"
+
+# Docker Compose Commands (Full Stack)
+# =====================================
+
+docker-build: ## Build Docker images for full stack
+	@echo "🏗️  Building Docker images..."
+	docker-compose build
+	@echo "✅ Docker images built successfully"
+
+docker-up: ## Start full stack (API + PostgreSQL + Redis)
+	@echo "🚀 Starting full stack with Docker Compose..."
+	docker-compose up -d
+	@echo "✅ Full stack started:"
+	@echo "   - API: http://localhost:5000"
+	@echo "   - PostgreSQL: localhost:5432"
+	@echo "   - Redis: localhost:6379"
+	@echo "💡 Run 'make docker-logs' to view logs"
+
+docker-down: ## Stop full stack
+	@echo "🛑 Stopping full stack..."
+	docker-compose down
+	@echo "✅ Full stack stopped"
+
+docker-logs: ## View logs from all Docker services
+	@echo "📋 Showing logs from all services..."
+	docker-compose logs -f
+
+docker-logs-api: ## View API logs only
+	@echo "📋 Showing API logs..."
+	docker-compose logs -f api
+
+docker-test: ## Run tests in Docker
+	@echo "🧪 Running tests in Docker..."
+	docker-compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit
+	docker-compose -f docker-compose.yml -f docker-compose.test.yml down
+	@echo "✅ Tests completed"
+
+docker-migrate: ## Run database migrations in Docker
+	@echo "🔄 Running database migrations..."
+	docker-compose exec api alembic upgrade head
+	@echo "✅ Migrations completed"
+
+docker-shell: ## Open shell in API container
+	@echo "🐚 Opening shell in API container..."
+	docker-compose exec api bash
+
+docker-db-shell: ## Open PostgreSQL shell
+	@echo "🐘 Opening PostgreSQL shell..."
+	docker-compose exec postgres psql -U brikk -d brikk_dev
+
+docker-redis-shell: ## Open Redis CLI
+	@echo "📮 Opening Redis CLI..."
+	docker-compose exec redis redis-cli
+
+docker-clean: ## Remove all Docker containers and volumes
+	@echo "🧹 Cleaning up Docker resources..."
+	docker-compose down -v --rmi local
+	@echo "✅ Docker resources cleaned"
+
+docker-restart: docker-down docker-up ## Restart full stack
+
+docker-status: ## Show status of Docker services
+	@echo "📊 Docker Services Status"
+	docker-compose ps
