@@ -13,6 +13,8 @@ from src.schemas.trust_schemas import (
     AttestationResponseSchema,
     AttestationListResponseSchema
 )
+from src.services.reputation_engine import ReputationEngine
+from src.database import get_db
 
 trust_bp = Blueprint('trust', __name__, url_prefix='/v1/trust')
 
@@ -24,18 +26,51 @@ def get_reputation(subject_type, subject_id):
     
     Returns bucketed score for privacy (e.g., 80-90) with top factors.
     """
-    # Stub implementation - will be completed in PR-2
+    # Validate subject_type
+    if subject_type not in ['org', 'agent']:
+        return jsonify({
+            'error': 'invalid_subject_type',
+            'message': 'subject_type must be "org" or "agent"',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    window = request.args.get('window', '30d')
+    if window not in ['7d', '30d', '90d']:
+        return jsonify({
+            'error': 'invalid_window',
+            'message': 'window must be "7d", "30d", or "90d"',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    db = next(get_db())
+    engine = ReputationEngine(db)
+    
+    # Check for cached snapshot first
+    snapshot = ReputationSnapshot.get_latest(db, subject_type, subject_id, window)
+    
+    if snapshot:
+        # Use cached snapshot
+        score = snapshot.score
+        reason = snapshot.reason
+        last_updated = snapshot.created_at
+    else:
+        # Compute on-demand
+        score, reason = engine.compute_score(subject_type, subject_id, window)
+        last_updated = None
+    
+    # Bucket score for privacy
+    score_bucket = engine.bucket_score(score)
+    
+    # Get top 3 factors
+    top_factors = engine.get_top_factors(reason, limit=3)
+    
     return jsonify({
         'subject_type': subject_type,
         'subject_id': subject_id,
-        'score_bucket': '70-80',
-        'window': request.args.get('window', '30d'),
-        'top_factors': [
-            {'factor': 'reliability', 'weight': 0.4, 'value': 'high'},
-            {'factor': 'attestations', 'weight': 0.3, 'value': 'medium'},
-            {'factor': 'usage_steadiness', 'weight': 0.2, 'value': 'high'}
-        ],
-        'message': 'Reputation engine not yet implemented (PR-2)',
+        'score_bucket': score_bucket,
+        'window': window,
+        'top_factors': top_factors,
+        'last_updated': last_updated.isoformat() if last_updated else None,
         'request_id': getattr(g, 'request_id', None)
     }), 200
 
@@ -48,15 +83,31 @@ def recompute_reputation():
     
     Requires admin scope.
     """
-    # Stub implementation - will be completed in PR-2
     window = request.args.get('window', '30d')
+    subject_type = request.args.get('subject_type')
+    subject_id = request.args.get('subject_id')
+    
+    if window not in ['7d', '30d', '90d']:
+        return jsonify({
+            'error': 'invalid_window',
+            'message': 'window must be "7d", "30d", or "90d"',
+            'request_id': getattr(g, 'request_id', None)
+        }), 400
+    
+    db = next(get_db())
+    engine = ReputationEngine(db)
+    
+    # Recompute (batch or specific subject)
+    results = engine.recompute_all(window, subject_type, subject_id)
     
     return jsonify({
-        'message': f'Reputation recompute triggered for window: {window}',
-        'status': 'queued',
-        'note': 'Batch job not yet implemented (PR-2)',
+        'message': f'Reputation recompute completed for window: {window}',
+        'window': window,
+        'subject_type': subject_type,
+        'subject_id': subject_id,
+        'computed_count': len(results),
         'request_id': getattr(g, 'request_id', None)
-    }), 202
+    }), 200
 
 
 @trust_bp.route('/attestations', methods=['GET'])
