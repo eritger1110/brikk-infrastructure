@@ -1,0 +1,50 @@
+# CI Guards Workflow
+# 
+# This file should be manually added to .github/workflows/ci-guards.yml
+# after PR-4 is merged, as GitHub Apps cannot create workflow files directly.
+#
+# To add this workflow:
+# 1. Copy this file to .github/workflows/ci-guards.yml
+# 2. Commit and push to main branch
+# 3. The workflow will run automatically on future PRs
+
+name: CI Guards
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  ci-guards:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run CI Guards
+      run: |
+        python3.11 scripts/ci_guards.py
+      env:
+        TESTING: true
+        DATABASE_URL: sqlite:///:memory:
