@@ -66,5 +66,3 @@ See [docker-setup.md](./docker-setup.md) for complete documentation.
 **Database issues?** Reset: `make docker-clean && make docker-up`
 
 **Still stuck?** Check logs: `make docker-logs`
-
-

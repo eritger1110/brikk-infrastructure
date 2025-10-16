@@ -360,5 +360,3 @@ For issues or questions:
 1. Review Docker logs: `docker-compose logs`
 1. Check service health: `docker-compose ps`
 1. Create an issue in the repository
-
-
