@@ -87,14 +87,20 @@ def list_agents():
     Query Parameters:
         - search: Text search query (searches name and description)
         - category: Filter by category
+        - sort: Sort order (reputation, recency, name) - default: reputation
         - page: Page number (default: 1)
         - per_page: Items per page (default: 20, max: 100)
     """
     # Get query parameters
     search = request.args.get('search')
     category = request.args.get('category')
+    sort = request.args.get('sort', 'reputation')  # reputation, recency, name
     page = int(request.args.get('page', 1))
     per_page = min(int(request.args.get('per_page', 20)), 100)
+    
+    # Validate sort parameter
+    if sort not in ['reputation', 'recency', 'name']:
+        return error_response('invalid_sort', 'sort must be "reputation", "recency", or "name"', 400)
     
     # Enforce org ownership
     org_id = getattr(g, 'org_id', None)
@@ -116,16 +122,56 @@ def list_agents():
     if category:
         query = query.filter_by(category=category)
     
+    # Apply sorting
+    if sort == 'reputation':
+        # Join with reputation_snapshots and sort by score DESC
+        from src.models.trust import ReputationSnapshot
+        query = query.outerjoin(
+            ReputationSnapshot,
+            db.and_(
+                ReputationSnapshot.subject_type == 'agent',
+                ReputationSnapshot.subject_id == Agent.id,
+                ReputationSnapshot.window == '30d'
+            )
+        ).order_by(ReputationSnapshot.score.desc().nullslast(), Agent.created_at.desc())
+    elif sort == 'recency':
+        query = query.order_by(Agent.created_at.desc())
+    elif sort == 'name':
+        query = query.order_by(Agent.name.asc())
+    
     # Paginate
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # Serialize response
-    response_schema = AgentResponseSchema(many=True)
+    # Enrich agents with reputation scores
+    from src.models.trust import ReputationSnapshot
+    agents_data = []
+    for agent in pagination.items:
+        agent_dict = AgentResponseSchema().dump(agent)
+        
+        # Get reputation score if available
+        snapshot = db.session.query(ReputationSnapshot).filter(
+            ReputationSnapshot.subject_type == 'agent',
+            ReputationSnapshot.subject_id == agent.id,
+            ReputationSnapshot.window == '30d'
+        ).first()
+        
+        if snapshot:
+            # Bucket score for privacy
+            from src.services.reputation_engine import ReputationEngine
+            engine = ReputationEngine(db.session)
+            score_bucket = engine.bucket_score(snapshot.score)
+            agent_dict['reputation_score_bucket'] = score_bucket
+        else:
+            agent_dict['reputation_score_bucket'] = None
+        
+        agents_data.append(agent_dict)
+    
     return jsonify({
-        'agents': response_schema.dump(pagination.items),
+        'agents': agents_data,
         'total': pagination.total,
         'page': page,
-        'per_page': per_page
+        'per_page': per_page,
+        'sort': sort
     }), 200
 
 
