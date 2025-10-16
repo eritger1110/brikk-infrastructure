@@ -183,6 +183,7 @@ class ApiAuditLog(db.Model):
     org_id = Column(UUID(as_uuid=True), index=True, nullable=False)
     actor_type = Column(String(16), nullable=False)  # api_key|oauth|hmac|anon
     actor_id = Column(String(120), nullable=False, index=True)
+    auth_method = Column(String(16), nullable=False, server_default='api_key')  # api_key|oauth|hmac
     request_id = Column(String(64), nullable=False)
     method = Column(String(8), nullable=False)
     path = Column(String(256), nullable=False)
@@ -202,6 +203,7 @@ class ApiAuditLog(db.Model):
             'org_id': str(self.org_id),
             'actor_type': self.actor_type,
             'actor_id': self.actor_id,
+            'auth_method': self.auth_method,
             'request_id': self.request_id,
             'method': self.method,
             'path': self.path,
@@ -214,12 +216,13 @@ class ApiAuditLog(db.Model):
     
     @classmethod
     def log_request(cls, org_id, actor_type, actor_id, request_id, method, path, 
-                    status, cost_units=0, ip=None, user_agent=None):
+                    status, cost_units=0, ip=None, user_agent=None, auth_method='api_key'):
         """Create a new audit log entry."""
         log = cls(
             org_id=org_id,
             actor_type=actor_type,
             actor_id=actor_id,
+            auth_method=auth_method or actor_type,  # Use auth_method if provided, else actor_type
             request_id=request_id,
             method=method,
             path=path[:256],  # Truncate if needed
