@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('org_id', sa.Integer(), nullable=False),  # Integer to match actual production orgs table
         sa.Column('actor_id', sa.Text(), nullable=False),  # API key or OAuth client ID
-        sa.Column('agent_id', sa.Integer(), nullable=True),  # Optional, Integer to match actual production agents table
+        sa.Column('agent_id', sa.String(36), nullable=True),  # Optional, String to match actual production agents table
         sa.Column('route', sa.Text(), nullable=False),
         sa.Column('usage_units', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('unit_cost', sa.Numeric(10, 4), nullable=False),

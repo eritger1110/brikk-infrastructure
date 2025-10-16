@@ -31,7 +31,7 @@ class UsageLedger(db.Model):
     actor_id = Column(Text, nullable=False)  # API key or OAuth client ID
     
     # Optional Agent Reference
-    agent_id = Column(Integer, ForeignKey('agents.id', ondelete='SET NULL'), nullable=True, index=True)
+    agent_id = Column(String(36), ForeignKey('agents.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Usage Details
     route = Column(Text, nullable=False)
@@ -81,7 +81,7 @@ class UsageLedger(db.Model):
                      route: str,
                      unit_cost: Decimal,
                      usage_units: int = 1,
-                     agent_id: Optional[int] = None) -> 'UsageLedger':
+                     agent_id: Optional[str] = None) -> 'UsageLedger':
         """
         Record a usage entry in the ledger.
         
