@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func, or_, and_, desc
 
-from src.infra.db import db
+from src.database import db
 from src.models.marketplace import MarketplaceListing, AgentTag, AgentInstallation
 from src.models.analytics import AgentAnalyticsDaily, AgentTrendingScore
 from src.models.reviews import AgentRatingSummary

@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify
 from typing import Optional
 from datetime import datetime, timezone
 
-from src.infra.db import db
+from src.database import db
 from src.models.reviews import AgentReview, ReviewVote, AgentRatingSummary
 from src.models.marketplace import MarketplaceListing, AgentInstallation
 from src.utils.feature_flags import FeatureFlagManager, FeatureFlag

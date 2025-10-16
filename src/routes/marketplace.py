@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
-from src.infra.db import db
+from src.database import db
 from src.models.marketplace import (
     MarketplaceListing,
     AgentCategory,
