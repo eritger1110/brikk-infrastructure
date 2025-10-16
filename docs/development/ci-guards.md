@@ -154,7 +154,7 @@ def check_my_new_validation():
         return False
 ```
 
-2. Add the check to the `checks` list in `main()`:
+1. Add the check to the `checks` list in `main()`:
 
 ```python
 checks = [
@@ -163,7 +163,7 @@ checks = [
 ]
 ```
 
-3. Update this documentation with the new check.
+1. Update this documentation with the new check.
 
 ## Best Practices
 
@@ -193,4 +193,3 @@ checks = [
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Python AST Module](https://docs.python.org/3/library/ast.html)
 - [Brikk Development Guide](../README.md)
-
