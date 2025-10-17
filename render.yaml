@@ -3,7 +3,7 @@ services:
     name: brikk-api-infrastructure
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT src.main:app
     envVars:
       - key: FLASK_ENV
