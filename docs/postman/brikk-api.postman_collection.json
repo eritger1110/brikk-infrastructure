@@ -1,0 +1,296 @@
+{
+  "info": {
+    "name": "Brikk AI Infrastructure API",
+    "description": "Complete Postman collection for the Brikk AI Infrastructure API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.getbrikk.com",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "your_api_key_here",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "List Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents?page=1&per_page=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "per_page", "value": "20"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register Agent",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My AI Agent\",\n  \"description\": \"An intelligent agent for task automation\",\n  \"endpoint_url\": \"https://my-agent.example.com/invoke\",\n  \"capabilities\": [\"text-generation\", \"data-analysis\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Marketplace",
+      "item": [
+        {
+          "name": "List Marketplace Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/marketplace/agents?category=AI/ML&sort=popular&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "marketplace", "agents"],
+              "query": [
+                {"key": "category", "value": "AI/ML"},
+                {"key": "sort", "value": "popular"},
+                {"key": "page", "value": "1"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/marketplace/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "marketplace", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get Tags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/marketplace/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "marketplace", "tags"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Track Usage Event",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agent_id\": \"agent-123\",\n  \"event_type\": \"invocation\",\n  \"duration_ms\": 150,\n  \"success\": true,\n  \"metadata\": {\n    \"model\": \"gpt-4\",\n    \"tokens\": 500\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "events"]
+            }
+          }
+        },
+        {
+          "name": "Get Agent Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/agents/:agentId/metrics?period=7d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "agents", ":agentId", "metrics"],
+              "query": [{"key": "period", "value": "7d"}],
+              "variable": [{"key": "agentId", "value": "agent-123"}]
+            }
+          }
+        },
+        {
+          "name": "Get Trending Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/trending?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "trending"],
+              "query": [{"key": "limit", "value": "10"}]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discovery",
+      "item": [
+        {
+          "name": "Search Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agent-discovery/search?q=data+analysis&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agent-discovery", "search"],
+              "query": [
+                {"key": "q", "value": "data analysis"},
+                {"key": "limit", "value": "10"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "X-User-ID", "value": "user-123"}],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agent-discovery/recommendations?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agent-discovery", "recommendations"],
+              "query": [{"key": "limit", "value": "5"}]
+            }
+          }
+        },
+        {
+          "name": "Get Similar Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agent-discovery/similar/:agentId?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agent-discovery", "similar", ":agentId"],
+              "query": [{"key": "limit", "value": "5"}],
+              "variable": [{"key": "agentId", "value": "agent-123"}]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get Agent Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/agents/:agentId?page=1&per_page=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "agents", ":agentId"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "per_page", "value": "10"}
+              ],
+              "variable": [{"key": "agentId", "value": "agent-123"}]
+            }
+          }
+        },
+        {
+          "name": "Submit Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "X-User-ID", "value": "user-123"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"title\": \"Excellent agent!\",\n  \"comment\": \"This agent works perfectly for my use case.\",\n  \"pros\": \"Fast, accurate, easy to integrate\",\n  \"cons\": \"None so far\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/agents/:agentId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "agents", ":agentId"],
+              "variable": [{"key": "agentId", "value": "agent-123"}]
+            }
+          }
+        },
+        {
+          "name": "Vote on Review",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "X-User-ID", "value": "user-123"}],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/:reviewId/vote/helpful",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", ":reviewId", "vote", "helpful"],
+              "variable": [{"key": "reviewId", "value": "review-456"}]
+            }
+          }
+        },
+        {
+          "name": "Get Rating Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/agents/:agentId/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "agents", ":agentId", "summary"],
+              "variable": [{"key": "agentId", "value": "agent-123"}]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

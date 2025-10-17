@@ -1,0 +1,415 @@
+openapi: 3.0.3
+info:
+  title: Brikk AI Infrastructure API
+  version: 1.0.0
+  description: |
+    The Brikk AI Infrastructure API provides a comprehensive platform for building, deploying, and managing AI agents.
+    
+    ## Features
+    - **Agent Registry**: Register and discover AI agents
+    - **Marketplace**: Browse and install agents from the marketplace
+    - **Analytics**: Track usage and performance metrics
+    - **Discovery**: Search and get recommendations for agents
+    - **Reviews**: Rate and review agents
+    
+    ## Authentication
+    All API requests require authentication using an API key or OAuth token.
+    Include your API key in the `Authorization` header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+    
+    ## Rate Limiting
+    - **Free tier**: 100 requests/minute
+    - **Pro tier**: 1000 requests/minute
+    - **Enterprise**: Custom limits
+    
+    ## Support
+    - Documentation: https://docs.getbrikk.com
+    - Support: support@getbrikk.com
+    - Status: https://status.getbrikk.com
+    
+  contact:
+    name: Brikk Support
+    email: support@getbrikk.com
+    url: https://getbrikk.com/support
+  license:
+    name: Proprietary
+    url: https://getbrikk.com/terms
+
+servers:
+  - url: https://api.getbrikk.com
+    description: Production server
+  - url: https://api-staging.getbrikk.com
+    description: Staging server
+  - url: http://localhost:5000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Agents
+    description: Agent registry and management
+  - name: Marketplace
+    description: Agent marketplace
+  - name: Analytics
+    description: Usage analytics and metrics
+  - name: Discovery
+    description: Agent search and recommendations
+  - name: Reviews
+    description: Agent ratings and reviews
+  - name: Auth
+    description: Authentication and authorization
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Check if the API is healthy and operational
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: coordination-api
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: number
+                    example: 1760639209.998622
+
+  /api/v1/agents:
+    get:
+      tags: [Agents]
+      summary: List all agents
+      description: Get a list of all registered agents
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/marketplace/agents:
+    get:
+      tags: [Marketplace]
+      summary: List marketplace agents
+      description: Browse agents available in the marketplace
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [popular, recent, rating]
+            default: popular
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of marketplace agents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MarketplaceListing'
+                  total:
+                    type: integer
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+  /api/v1/analytics/events:
+    post:
+      tags: [Analytics]
+      summary: Track usage event
+      description: Record an agent usage event for analytics
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, event_type]
+              properties:
+                agent_id:
+                  type: string
+                event_type:
+                  type: string
+                  enum: [invocation, error, timeout]
+                duration_ms:
+                  type: integer
+                success:
+                  type: boolean
+                error_message:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Event tracked successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '503':
+          $ref: '#/components/responses/FeatureDisabled'
+
+  /api/v1/agent-discovery/search:
+    get:
+      tags: [Discovery]
+      summary: Search agents
+      description: Search for agents by keyword
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agent'
+                  total:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/v1/reviews/agents/{agent_id}:
+    get:
+      tags: [Reviews]
+      summary: Get agent reviews
+      description: Get all reviews for a specific agent
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+    post:
+      tags: [Reviews]
+      summary: Submit review
+      description: Submit a review for an agent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating, title, comment]
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                title:
+                  type: string
+                comment:
+                  type: string
+                pros:
+                  type: string
+                cons:
+                  type: string
+      responses:
+        '201':
+          description: Review submitted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: string
+        endpoint_url:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, deprecated]
+        created_at:
+          type: string
+          format: date-time
+
+    MarketplaceListing:
+      type: object
+      properties:
+        id:
+          type: string
+        agent_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        price:
+          type: number
+        rating:
+          type: number
+        install_count:
+          type: integer
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+        agent_id:
+          type: string
+        user_id:
+          type: string
+        rating:
+          type: integer
+        title:
+          type: string
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: auth_required
+              message:
+                type: string
+                example: Authentication required
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: validation_error
+              message:
+                type: string
+
+    FeatureDisabled:
+      description: Feature is disabled
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+              message:
+                type: string
+              feature:
+                type: string
+              enabled:
+                type: boolean
+                example: false
+
