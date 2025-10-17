@@ -41,6 +41,20 @@ def _migrate_db(app):
     cfg.set_main_option("sqlalchemy.url", app.config["SQLALCHEMY_DATABASE_URI"])
     
     try:
+        # Fix alembic_version if it references deleted migrations
+        from sqlalchemy import text
+        deleted_migrations = ['1e7218c37956', 'c11e90940a8c', 'f3bf1d525d95']
+        try:
+            with db.engine.connect() as conn:
+                result = conn.execute(text("SELECT version_num FROM alembic_version"))
+                current_version = result.scalar()
+                if current_version in deleted_migrations:
+                    app.logger.info(f"Fixing alembic_version from {current_version} to p7_comprehensive")
+                    conn.execute(text("UPDATE alembic_version SET version_num = 'p7_comprehensive'"))
+                    conn.commit()
+        except Exception as fix_error:
+            app.logger.warning(f"Could not fix alembic_version: {fix_error}")
+        
         command.upgrade(cfg, "head")
         app.logger.info("Database migrations applied successfully")
     except Exception as e:
