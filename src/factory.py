@@ -185,7 +185,16 @@ def create_app() -> Flask:
         app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
         
         # Phase 8: Developer Experience
-        app.register_blueprint(usage_stats.usage_stats_bp, url_prefix="/api")
+        app.register_blueprint(usage_stats.usage_stats_bp, url_prefix="/api/v1")
+        
+        # Static files for developer dashboards
+        from flask import send_from_directory
+        @app.route('/static/<path:filename>')
+        def serve_static(filename):
+            """Serve static files (developer dashboards, etc.)"""
+            import os
+            static_dir = os.path.join(app.root_path, '..', 'static')
+            return send_from_directory(static_dir, filename)
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
