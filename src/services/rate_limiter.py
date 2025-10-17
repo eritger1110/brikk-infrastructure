@@ -111,10 +111,12 @@ def rate_limit_exceeded_handler(e):
     
     Returns JSON response with rate limit information.
     """
+    # Get retry_after from the exception if available
+    retry_after = getattr(e, 'description', None) or getattr(e, 'retry_after', 60)
     return jsonify({
         'error': 'rate_limit_exceeded',
         'message': 'Rate limit exceeded. Please try again later.',
-        'retry_after': e.description,
+        'retry_after': retry_after,
         'limit': get_rate_limit(),
         'tier': getattr(g, 'tier', 'DEFAULT')
     }), 429
