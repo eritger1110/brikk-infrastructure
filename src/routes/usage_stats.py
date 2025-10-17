@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 from src.database import db
-from src.models import APIKey
+from src.models import ApiKey
 
 usage_stats_bp = Blueprint('usage_stats', __name__, url_prefix='/api/v1/usage')
 
