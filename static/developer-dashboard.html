@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brikk Developer Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #111;
+            border-bottom: 2px solid #222;
+            padding: 20px 0;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .section {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-danger {
+            background: #dc2626;
+        }
+        
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .api-key-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .api-key-item {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .api-key-info {
+            flex: 1;
+        }
+        
+        .api-key-name {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        
+        .api-key-prefix {
+            font-family: 'Courier New', monospace;
+            color: #888;
+            font-size: 13px;
+        }
+        
+        .api-key-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+        
+        .api-key-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 24px;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background: #065f46;
+            border: 1px solid #047857;
+            color: #d1fae5;
+        }
+        
+        .alert-error {
+            background: #7f1d1d;
+            border: 1px solid #991b1b;
+            color: #fecaca;
+        }
+        
+        .alert-warning {
+            background: #78350f;
+            border: 1px solid #92400e;
+            color: #fef3c7;
+        }
+        
+        .code-block {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #10b981;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        
+        .copy-btn {
+            background: #374151;
+            color: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        .copy-btn:hover {
+            background: #4b5563;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🔧 Brikk Developer Dashboard</h1>
+            <p class="subtitle">Manage your API keys and monitor usage</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <!-- Stats Section -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Active API Keys</div>
+                <div class="stat-value" id="stat-active-keys">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Requests</div>
+                <div class="stat-value" id="stat-total-requests">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Current Tier</div>
+                <div class="stat-value" id="stat-tier">-</div>
+            </div>
+        </div>
+        
+        <!-- API Keys Section -->
+        <div class="section">
+            <div class="section-header">
+                <h2>API Keys</h2>
+                <button class="btn" onclick="showCreateKeyModal()">+ Create New Key</button>
+            </div>
+            
+            <div id="api-keys-container" class="loading">
+                Loading API keys...
+            </div>
+        </div>
+        
+        <!-- Quick Start Section -->
+        <div class="section">
+            <h2>Quick Start</h2>
+            <p style="color: #888; margin: 16px 0;">Get started with the Brikk API in minutes:</p>
+            
+            <div style="margin-top: 20px;">
+                <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">1. Create an API Key</h3>
+                <p style="color: #888; font-size: 14px; margin-bottom: 16px;">Click "Create New Key" above to generate your first API key.</p>
+                
+                <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">2. Make Your First Request</h3>
+                <div class="code-block">curl -H "Authorization: Bearer YOUR_API_KEY" https://api.getbrikk.com/api/v1/agents</div>
+                
+                <h3 style="color: #fff; font-size: 16px; margin-bottom: 12px;">3. Explore the Documentation</h3>
+                <p style="color: #888; font-size: 14px;">
+                    <a href="/docs/quickstart/python.md" style="color: #2563eb;">Python Quickstart</a> •
+                    <a href="/docs/quickstart/javascript.md" style="color: #2563eb;">JavaScript Quickstart</a> •
+                    <a href="/docs/api/openapi.yaml" style="color: #2563eb;">API Reference</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Key Modal -->
+    <div id="create-key-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New API Key</h3>
+            </div>
+            
+            <form id="create-key-form">
+                <div class="form-group">
+                    <label for="key-name">Key Name</label>
+                    <input type="text" id="key-name" placeholder="Production Key" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="key-tier">Tier</label>
+                    <select id="key-tier">
+                        <option value="FREE">Free (100 req/min)</option>
+                        <option value="PRO">Pro (1000 req/min)</option>
+                        <option value="ENT">Enterprise (Custom)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="key-test">Environment</label>
+                    <select id="key-test">
+                        <option value="false">Production</option>
+                        <option value="true">Test</option>
+                    </select>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn" style="background: #374151;" onclick="hideCreateKeyModal()">Cancel</button>
+                    <button type="submit" class="btn">Create Key</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Show Key Modal -->
+    <div id="show-key-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Save Your API Key</h3>
+            </div>
+            
+            <div class="alert alert-warning">
+                <strong>Important:</strong> This is the only time you'll see this key. Save it securely now!
+            </div>
+            
+            <div class="form-group">
+                <label>Your API Key</label>
+                <div style="display: flex; align-items: center;">
+                    <div class="code-block" style="flex: 1; margin: 0;" id="new-api-key"></div>
+                    <button class="copy-btn" onclick="copyApiKey()">Copy</button>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn" onclick="hideShowKeyModal()">I've Saved My Key</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://api.getbrikk.com';
+        const ORG_ID = 'demo-org-id'; // TODO: Get from auth
+        
+        // Load API keys on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadApiKeys();
+        });
+        
+        async function loadApiKeys() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/keys?org_id=${ORG_ID}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayApiKeys(data.keys);
+                    updateStats(data.keys);
+                } else {
+                    showAlert('error', `Failed to load API keys: ${data.message}`);
+                }
+            } catch (error) {
+                showAlert('error', `Error loading API keys: ${error.message}`);
+            }
+        }
+        
+        function displayApiKeys(keys) {
+            const container = document.getElementById('api-keys-container');
+            
+            if (keys.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔑</div>
+                        <p>No API keys yet. Create your first key to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            container.className = 'api-key-list';
+            
+            keys.forEach(key => {
+                const keyItem = document.createElement('div');
+                keyItem.className = 'api-key-item';
+                keyItem.innerHTML = `
+                    <div class="api-key-info">
+                        <div class="api-key-name">${key.name}</div>
+                        <div class="api-key-prefix">${key.key_prefix}...</div>
+                        <div class="api-key-meta">
+                            Created: ${new Date(key.created_at).toLocaleDateString()} •
+                            Tier: ${key.tier} •
+                            ${key.is_active ? '<span style="color: #10b981;">Active</span>' : '<span style="color: #ef4444;">Revoked</span>'}
+                        </div>
+                    </div>
+                    <div class="api-key-actions">
+                        ${key.is_active ? `<button class="btn btn-danger btn-small" onclick="revokeKey('${key.id}')">Revoke</button>` : ''}
+                    </div>
+                `;
+                container.appendChild(keyItem);
+            });
+        }
+        
+        function updateStats(keys) {
+            document.getElementById('stat-active-keys').textContent = keys.filter(k => k.is_active).length;
+            document.getElementById('stat-tier').textContent = keys.length > 0 ? keys[0].tier : 'FREE';
+            // TODO: Get actual request count from analytics
+            document.getElementById('stat-total-requests').textContent = '-';
+        }
+        
+        function showCreateKeyModal() {
+            document.getElementById('create-key-modal').classList.add('active');
+        }
+        
+        function hideCreateKeyModal() {
+            document.getElementById('create-key-modal').classList.remove('active');
+            document.getElementById('create-key-form').reset();
+        }
+        
+        function showShowKeyModal(apiKey) {
+            document.getElementById('new-api-key').textContent = apiKey;
+            document.getElementById('show-key-modal').classList.add('active');
+        }
+        
+        function hideShowKeyModal() {
+            document.getElementById('show-key-modal').classList.remove('active');
+            loadApiKeys(); // Refresh the list
+        }
+        
+        document.getElementById('create-key-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('key-name').value;
+            const tier = document.getElementById('key-tier').value;
+            const isTest = document.getElementById('key-test').value === 'true';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/keys`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        tier,
+                        is_test: isTest,
+                        scopes: ['*'],
+                        org_id: ORG_ID
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    hideCreateKeyModal();
+                    showShowKeyModal(data.api_key);
+                    showAlert('success', 'API key created successfully!');
+                } else {
+                    showAlert('error', `Failed to create API key: ${data.message}`);
+                }
+            } catch (error) {
+                showAlert('error', `Error creating API key: ${error.message}`);
+            }
+        });
+        
+        async function revokeKey(keyId) {
+            if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/keys/${keyId}?org_id=${ORG_ID}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('success', 'API key revoked successfully');
+                    loadApiKeys();
+                } else {
+                    showAlert('error', `Failed to revoke API key: ${data.message}`);
+                }
+            } catch (error) {
+                showAlert('error', `Error revoking API key: ${error.message}`);
+            }
+        }
+        
+        function copyApiKey() {
+            const keyText = document.getElementById('new-api-key').textContent;
+            navigator.clipboard.writeText(keyText).then(() => {
+                showAlert('success', 'API key copied to clipboard!');
+            });
+        }
+        
+        function showAlert(type, message) {
+            const container = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+
