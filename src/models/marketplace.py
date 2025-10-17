@@ -64,14 +64,7 @@ class MarketplaceListing(db.Model):
     
     # Relationships
     agent = db.relationship('Agent', backref='marketplace_listing', lazy=True)
-    installations = db.relationship(
-        'AgentInstallation',
-        primaryjoin='MarketplaceListing.agent_id==AgentInstallation.agent_id',
-        foreign_keys='[AgentInstallation.agent_id]',
-        backref='listing',
-        lazy=True,
-        viewonly=True
-    )
+    # Note: installations can be queried via AgentInstallation.query.filter_by(agent_id=listing.agent_id)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert listing to dictionary"""
