@@ -45,6 +45,8 @@ class FeatureFlag(str, Enum):
     # Phase 7: Planned features
     AGENT_MARKETPLACE = "agent_marketplace"
     AGENT_ANALYTICS = "agent_analytics"
+    ENHANCED_DISCOVERY = "enhanced_discovery"
+    REVIEWS_RATINGS = "reviews_ratings"
     
     # Infrastructure features
     RATE_LIMITING = "rate_limiting"
@@ -66,6 +68,8 @@ DEFAULT_FLAGS = {
     # Phase 7 features - disabled by default
     FeatureFlag.AGENT_MARKETPLACE: False,
     FeatureFlag.AGENT_ANALYTICS: False,
+    FeatureFlag.ENHANCED_DISCOVERY: False,
+    FeatureFlag.REVIEWS_RATINGS: False,
     
     # Infrastructure - enabled by default
     FeatureFlag.RATE_LIMITING: True,

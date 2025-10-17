@@ -185,7 +185,7 @@ def create_app() -> Flask:
         app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
         
         # Phase 8: Developer Experience
-        app.register_blueprint(usage_stats.usage_stats_bp, url_prefix="/api/v1")
+        app.register_blueprint(usage_stats.usage_stats_bp)
         
         # Static files for developer dashboards
         from flask import send_from_directory
