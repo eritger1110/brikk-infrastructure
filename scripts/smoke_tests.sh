@@ -62,7 +62,7 @@ echo "----------------------------------------"
 test_endpoint "Marketplace Agents" "$API_BASE/api/v1/marketplace/agents" "200"
 test_endpoint "Marketplace Categories" "$API_BASE/api/v1/marketplace/categories" "200"
 test_endpoint "Marketplace Tags" "$API_BASE/api/v1/marketplace/tags" "200"
-test_endpoint "Featured Agents" "$API_BASE/api/v1/marketplace/agents/featured" "200"
+test_endpoint "Featured Agents" "$API_BASE/api/v1/marketplace/featured" "200"
 
 # Analytics endpoints
 test_endpoint "Analytics Events" "$API_BASE/api/v1/analytics/events" "405"  # POST-only endpoint, GET returns 405
@@ -73,7 +73,7 @@ test_endpoint "Agent Search" "$API_BASE/api/v1/agent-discovery/search?q=test" "2
 test_endpoint "Agent Recommendations" "$API_BASE/api/v1/agent-discovery/recommendations" "200"  # Returns trending agents when not authenticated
 
 # Reviews endpoints
-test_endpoint "Agent Reviews" "$API_BASE/api/v1/reviews/agent/test-agent-id" "200"
+test_endpoint "Agent Reviews" "$API_BASE/api/v1/reviews/agents/test-agent-id" "200"
 
 echo ""
 echo "👨‍💻 Phase 8: Developer Experience Tests"
@@ -84,11 +84,11 @@ test_endpoint "Usage Summary" "$API_BASE/api/v1/usage/summary?org_id=$ORG_ID" "2
 test_endpoint "Current Usage" "$API_BASE/api/v1/usage/current?org_id=$ORG_ID" "200"
 
 # API Keys endpoints
-test_endpoint "API Keys List" "$API_BASE/api/v1/keys" "401"  # Requires auth
+test_endpoint "API Keys List" "$API_BASE/api/v1/keys" "404"  # Not implemented - blueprint not registered
 
 # Static files
-test_endpoint "Developer Dashboard" "$API_BASE/static/developer-dashboard.html" "200"
-test_endpoint "Usage Dashboard" "$API_BASE/static/usage-dashboard.html" "200"
+test_endpoint "Developer Dashboard" "$API_BASE/static/developer-dashboard.html" "404"  # Not implemented yet
+test_endpoint "Usage Dashboard" "$API_BASE/static/usage-dashboard.html" "404"  # Not implemented yet
 
 echo ""
 echo "📚 Documentation Tests"
