@@ -67,9 +67,10 @@ class MarketplaceListing(db.Model):
     installations = db.relationship(
         'AgentInstallation',
         primaryjoin='MarketplaceListing.agent_id==AgentInstallation.agent_id',
-        foreign_keys='AgentInstallation.agent_id',
+        foreign_keys='[AgentInstallation.agent_id]',
         backref='listing',
-        lazy=True
+        lazy=True,
+        viewonly=True
     )
     
     def to_dict(self) -> Dict[str, Any]:
