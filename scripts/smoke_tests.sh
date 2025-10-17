@@ -2,7 +2,7 @@
 # Smoke Tests for Phase 7 & 8 Deployment
 # Tests all critical endpoints to verify deployment success
 
-set -e
+# set -e removed - we want to continue even if individual tests fail
 
 API_BASE="${API_BASE:-https://api.getbrikk.com}"
 ORG_ID="${ORG_ID:-demo-org-id}"
