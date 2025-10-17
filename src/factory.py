@@ -148,7 +148,7 @@ def create_app() -> Flask:
             monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk,
             health, inbound, api_keys, auth_test, oauth,
             telemetry, docs, agent_registry, deprecations, trust,
-            marketplace, analytics, agent_discovery, reviews
+            marketplace, analytics, agent_discovery, reviews, usage_stats
         )
         from src.routes import app as app_routes
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
@@ -183,6 +183,9 @@ def create_app() -> Flask:
         app.register_blueprint(analytics.analytics_bp, url_prefix="/api/v1/analytics")
         app.register_blueprint(agent_discovery.agent_discovery_bp, url_prefix="/api/v1/agent-discovery")
         app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
+        
+        # Phase 8: Developer Experience
+        app.register_blueprint(usage_stats.usage_stats_bp, url_prefix="/api")
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
