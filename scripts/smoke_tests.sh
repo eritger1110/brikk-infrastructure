@@ -65,12 +65,12 @@ test_endpoint "Marketplace Tags" "$API_BASE/api/v1/marketplace/tags" "200"
 test_endpoint "Featured Agents" "$API_BASE/api/v1/marketplace/agents/featured" "200"
 
 # Analytics endpoints
-test_endpoint "Analytics Events" "$API_BASE/api/v1/analytics/events" "401"  # Requires auth
+test_endpoint "Analytics Events" "$API_BASE/api/v1/analytics/events" "405"  # POST-only endpoint, GET returns 405
 test_endpoint "Trending Agents" "$API_BASE/api/v1/analytics/trending" "200"
 
 # Discovery endpoints
 test_endpoint "Agent Search" "$API_BASE/api/v1/agent-discovery/search?q=test" "200"
-test_endpoint "Agent Recommendations" "$API_BASE/api/v1/agent-discovery/recommendations" "401"  # Requires auth
+test_endpoint "Agent Recommendations" "$API_BASE/api/v1/agent-discovery/recommendations" "200"  # Returns trending agents when not authenticated
 
 # Reviews endpoints
 test_endpoint "Agent Reviews" "$API_BASE/api/v1/reviews/agent/test-agent-id" "200"
@@ -95,7 +95,7 @@ echo "📚 Documentation Tests"
 echo "----------------------------------------"
 
 # API docs
-test_endpoint "API Docs" "$API_BASE/api/docs/" "200"
+test_endpoint "API Docs" "$API_BASE/docs" "200"
 
 echo ""
 echo "=========================================="
