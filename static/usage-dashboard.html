@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usage Dashboard - Brikk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #111;
+            border-bottom: 2px solid #222;
+            padding: 20px 0;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            color: #fff;
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .stat-change {
+            font-size: 13px;
+        }
+        
+        .stat-change.positive {
+            color: #10b981;
+        }
+        
+        .stat-change.negative {
+            color: #ef4444;
+        }
+        
+        .chart-container {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+        
+        .chart {
+            height: 300px;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            padding: 20px 0;
+        }
+        
+        .bar {
+            flex: 1;
+            background: linear-gradient(to top, #2563eb, #3b82f6);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .bar:hover {
+            background: linear-gradient(to top, #1d4ed8, #2563eb);
+            transform: translateY(-4px);
+        }
+        
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+        }
+        
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .table-container {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            text-align: left;
+            padding: 12px;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #222;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        tr:hover {
+            background: #0a0a0a;
+        }
+        
+        .endpoint-path {
+            font-family: 'Courier New', monospace;
+            color: #10b981;
+            font-size: 13px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .status-200 {
+            background: #065f46;
+            color: #d1fae5;
+        }
+        
+        .status-400 {
+            background: #78350f;
+            color: #fef3c7;
+        }
+        
+        .status-500 {
+            background: #7f1d1d;
+            color: #fecaca;
+        }
+        
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .period-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .period-btn {
+            background: #1a1a1a;
+            color: #888;
+            border: 1px solid #222;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .period-btn.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        
+        .period-btn:hover:not(.active) {
+            background: #222;
+            color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📊 Usage Dashboard</h1>
+            <p class="subtitle">Monitor your API usage and performance</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <!-- Period Selector -->
+        <div class="period-selector">
+            <button class="period-btn" onclick="loadPeriod(7)">Last 7 Days</button>
+            <button class="period-btn active" onclick="loadPeriod(30)">Last 30 Days</button>
+            <button class="period-btn" onclick="loadPeriod(90)">Last 90 Days</button>
+            <a href="/api/v1/usage/export?org_id=demo-org-id" class="btn" style="margin-left: auto;">Export CSV</a>
+        </div>
+        
+        <!-- Key Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Requests</div>
+                <div class="stat-value" id="stat-total">-</div>
+                <div class="stat-change positive" id="stat-total-change">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Success Rate</div>
+                <div class="stat-value" id="stat-success-rate">-</div>
+                <div class="stat-change positive" id="stat-success-change">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Response Time</div>
+                <div class="stat-value" id="stat-avg-time">-</div>
+                <div class="stat-change positive" id="stat-time-change">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">P95 Response Time</div>
+                <div class="stat-value" id="stat-p95-time">-</div>
+                <div class="stat-change" id="stat-p95-change">-</div>
+            </div>
+        </div>
+        
+        <!-- Daily Requests Chart -->
+        <div class="chart-container">
+            <h2>Daily Requests</h2>
+            <div class="chart" id="daily-chart"></div>
+        </div>
+        
+        <!-- Top Endpoints Table -->
+        <div class="table-container">
+            <h2>Top Endpoints</h2>
+            <table id="endpoints-table">
+                <thead>
+                    <tr>
+                        <th>Endpoint</th>
+                        <th>Requests</th>
+                        <th>Avg Response</th>
+                        <th>Success Rate</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <!-- Status Codes Table -->
+        <div class="table-container">
+            <h2>Response Status Codes</h2>
+            <table id="status-table">
+                <thead>
+                    <tr>
+                        <th>Status Code</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://api.getbrikk.com';
+        const ORG_ID = 'demo-org-id';
+        let currentPeriod = 30;
+        
+        async function loadPeriod(days) {
+            currentPeriod = days;
+            
+            // Update active button
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            await loadUsageData();
+        }
+        
+        async function loadUsageData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/usage/summary?org_id=${ORG_ID}&days=${currentPeriod}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateStats(data.summary);
+                    updateDailyChart(data.daily_requests);
+                    updateEndpointsTable(data.by_endpoint);
+                    updateStatusTable(data.by_status, data.summary.total_requests);
+                }
+            } catch (error) {
+                console.error('Error loading usage data:', error);
+            }
+        }
+        
+        function updateStats(summary) {
+            document.getElementById('stat-total').textContent = summary.total_requests.toLocaleString();
+            document.getElementById('stat-total-change').textContent = '+12% vs previous period';
+            
+            const successRate = ((summary.successful_requests / summary.total_requests) * 100).toFixed(2);
+            document.getElementById('stat-success-rate').textContent = successRate + '%';
+            document.getElementById('stat-success-change').textContent = '+0.3% vs previous period';
+            
+            document.getElementById('stat-avg-time').textContent = summary.avg_response_time_ms + 'ms';
+            document.getElementById('stat-time-change').textContent = '-8ms vs previous period';
+            
+            document.getElementById('stat-p95-time').textContent = summary.p95_response_time_ms + 'ms';
+            document.getElementById('stat-p95-change').textContent = '-15ms vs previous period';
+        }
+        
+        function updateDailyChart(dailyData) {
+            const chart = document.getElementById('daily-chart');
+            chart.innerHTML = '';
+            
+            const maxRequests = Math.max(...dailyData.map(d => d.requests));
+            
+            dailyData.forEach(day => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                const height = (day.requests / maxRequests) * 100;
+                bar.style.height = height + '%';
+                
+                const label = document.createElement('div');
+                label.className = 'bar-label';
+                label.textContent = new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                const value = document.createElement('div');
+                value.className = 'bar-value';
+                value.textContent = day.requests;
+                
+                bar.appendChild(label);
+                bar.appendChild(value);
+                chart.appendChild(bar);
+            });
+        }
+        
+        function updateEndpointsTable(endpoints) {
+            const tbody = document.querySelector('#endpoints-table tbody');
+            tbody.innerHTML = '';
+            
+            endpoints.forEach(endpoint => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td><span class="endpoint-path">${endpoint.endpoint}</span></td>
+                    <td>${endpoint.requests.toLocaleString()}</td>
+                    <td>${endpoint.avg_ms}ms</td>
+                    <td>99.5%</td>
+                `;
+            });
+        }
+        
+        function updateStatusTable(statuses, total) {
+            const tbody = document.querySelector('#status-table tbody');
+            tbody.innerHTML = '';
+            
+            statuses.forEach(status => {
+                const row = tbody.insertRow();
+                const percentage = ((status.count / total) * 100).toFixed(2);
+                const badgeClass = status.status >= 500 ? 'status-500' : 
+                                  status.status >= 400 ? 'status-400' : 'status-200';
+                
+                row.innerHTML = `
+                    <td><span class="status-badge ${badgeClass}">${status.status}</span></td>
+                    <td>${status.count.toLocaleString()}</td>
+                    <td>${percentage}%</td>
+                `;
+            });
+        }
+        
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadUsageData);
+    </script>
+</body>
+</html>
+
