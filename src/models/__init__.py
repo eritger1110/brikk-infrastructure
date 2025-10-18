@@ -21,3 +21,6 @@ from .api_gateway import OrgApiKey, OAuthClient, OAuthToken, ApiAuditLog
 from .marketplace import MarketplaceListing, AgentCategory, AgentTag, AgentInstallation
 from .analytics import AgentUsageEvent, AgentAnalyticsDaily, UserAnalyticsDaily, AgentTrendingScore
 from .reviews import AgentReview, ReviewVote, AgentRatingSummary
+
+# Beta Program
+from .beta_application import BetaApplication

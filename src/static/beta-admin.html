@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beta Program Admin - Brikk AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #0F0F0F 0%, #1A1A1A 100%);
+            color: #E0E0E0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #1E1E1E 0%, #2A2A2A 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #4D82E8, #A355E8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #1E1E1E 0%, #252525 100%);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            border: 1px solid #333;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(77, 130, 232, 0.2);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #4D82E8, #A355E8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .filters {
+            background: #1E1E1E;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 10px 20px;
+            border: 2px solid #333;
+            background: #252525;
+            color: #E0E0E0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+        
+        .filter-btn:hover {
+            border-color: #4D82E8;
+            background: #2A2A2A;
+        }
+        
+        .filter-btn.active {
+            background: linear-gradient(45deg, #4D82E8, #A355E8);
+            border-color: transparent;
+            color: white;
+        }
+        
+        .applications-list {
+            background: #1E1E1E;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .application-card {
+            padding: 25px;
+            border-bottom: 1px solid #2A2A2A;
+            transition: background 0.2s;
+        }
+        
+        .application-card:hover {
+            background: #252525;
+        }
+        
+        .application-card:last-child {
+            border-bottom: none;
+        }
+        
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        
+        .app-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+        
+        .app-info p {
+            color: #999;
+            font-size: 0.95rem;
+        }
+        
+        .app-status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-pending {
+            background: rgba(255, 193, 7, 0.2);
+            color: #FFC107;
+        }
+        
+        .status-approved {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        
+        .status-rejected {
+            background: rgba(244, 67, 54, 0.2);
+            color: #F44336;
+        }
+        
+        .app-details {
+            margin: 15px 0;
+            padding: 15px;
+            background: #252525;
+            border-radius: 8px;
+            border-left: 3px solid #4D82E8;
+        }
+        
+        .app-details p {
+            line-height: 1.6;
+            color: #CCC;
+        }
+        
+        .app-meta {
+            display: flex;
+            gap: 20px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .app-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .app-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-approve {
+            background: linear-gradient(45deg, #4CAF50, #66BB6A);
+            color: white;
+        }
+        
+        .btn-approve:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .btn-reject {
+            background: linear-gradient(45deg, #F44336, #E57373);
+            color: white;
+        }
+        
+        .btn-reject:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
+        }
+        
+        .btn-view {
+            background: #2A2A2A;
+            color: #E0E0E0;
+            border: 1px solid #444;
+        }
+        
+        .btn-view:hover {
+            background: #333;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        
+        .empty-state h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #1E1E1E;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-content h2 {
+            margin-bottom: 20px;
+        }
+        
+        .modal-content textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 15px;
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #E0E0E0;
+            font-family: inherit;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .success-message {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .success-message.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Beta Program Admin</h1>
+            <p>Manage beta applications and invite developers to the platform</p>
+        </header>
+        
+        <div id="successMessage" class="success-message"></div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">Total Applications</div>
+                <div class="stat-value" id="statTotal">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pending Review</div>
+                <div class="stat-value" id="statPending">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Approved</div>
+                <div class="stat-value" id="statApproved">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last 7 Days</div>
+                <div class="stat-value" id="statRecent">-</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <button class="filter-btn active" data-status="all">All Applications</button>
+            <button class="filter-btn" data-status="pending">Pending</button>
+            <button class="filter-btn" data-status="approved">Approved</button>
+            <button class="filter-btn" data-status="rejected">Rejected</button>
+        </div>
+        
+        <div class="applications-list" id="applicationsList">
+            <div class="loading">Loading applications...</div>
+        </div>
+    </div>
+    
+    <!-- Approve Modal -->
+    <div id="approveModal" class="modal">
+        <div class="modal-content">
+            <h2>Approve Application</h2>
+            <p style="margin-bottom: 20px; color: #999;">Add optional notes before approving this application.</p>
+            <textarea id="approveNotes" placeholder="Admin notes (optional)..."></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-view" onclick="closeModal('approveModal')">Cancel</button>
+                <button class="btn btn-approve" onclick="confirmApprove()">Approve & Generate API Key</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reject Modal -->
+    <div id="rejectModal" class="modal">
+        <div class="modal-content">
+            <h2>Reject Application</h2>
+            <p style="margin-bottom: 20px; color: #999;">Add optional notes before rejecting this application.</p>
+            <textarea id="rejectNotes" placeholder="Reason for rejection (optional)..."></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-view" onclick="closeModal('rejectModal')">Cancel</button>
+                <button class="btn btn-reject" onclick="confirmReject()">Reject Application</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentFilter = 'all';
+        let currentApplicationId = null;
+        
+        // Load stats and applications on page load
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/v1/beta/admin/stats', {
+                    headers: {
+                        'Authorization': 'Bearer ' + getApiKey()
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('statTotal').textContent = data.stats.total;
+                    document.getElementById('statPending').textContent = data.stats.by_status.pending;
+                    document.getElementById('statApproved').textContent = data.stats.by_status.approved;
+                    document.getElementById('statRecent').textContent = data.stats.recent_7_days;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function loadApplications(status = null) {
+            const url = status && status !== 'all' 
+                ? `/api/v1/beta/admin/applications?status=${status}&limit=100`
+                : '/api/v1/beta/admin/applications?limit=100';
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + getApiKey()
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderApplications(data.applications);
+                } else {
+                    document.getElementById('applicationsList').innerHTML = 
+                        '<div class="empty-state"><h2>Failed to load applications</h2><p>Please check your API key and try again.</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                document.getElementById('applicationsList').innerHTML = 
+                    '<div class="empty-state"><h2>Error loading applications</h2></div>';
+            }
+        }
+        
+        function renderApplications(applications) {
+            const container = document.getElementById('applicationsList');
+            
+            if (applications.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h2>No applications found</h2><p>Check back later for new submissions.</p></div>';
+                return;
+            }
+            
+            container.innerHTML = applications.map(app => `
+                <div class="application-card">
+                    <div class="app-header">
+                        <div class="app-info">
+                            <h3>${escapeHtml(app.name)}</h3>
+                            <p>${escapeHtml(app.email)}${app.company ? ' • ' + escapeHtml(app.company) : ''}</p>
+                        </div>
+                        <span class="app-status status-${app.status}">${app.status}</span>
+                    </div>
+                    
+                    <div class="app-details">
+                        <p><strong>Use Case:</strong> ${escapeHtml(app.use_case)}</p>
+                    </div>
+                    
+                    <div class="app-meta">
+                        <span>📅 ${formatDate(app.created_at)}</span>
+                        ${app.source ? `<span>🔗 Source: ${escapeHtml(app.source)}</span>` : ''}
+                    </div>
+                    
+                    ${app.admin_notes ? `
+                        <div class="app-details" style="border-left-color: #A355E8;">
+                            <p><strong>Admin Notes:</strong> ${escapeHtml(app.admin_notes)}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${app.status === 'pending' ? `
+                        <div class="app-actions">
+                            <button class="btn btn-approve" onclick="openApproveModal(${app.id})">✓ Approve</button>
+                            <button class="btn btn-reject" onclick="openRejectModal(${app.id})">✗ Reject</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function openApproveModal(id) {
+            currentApplicationId = id;
+            document.getElementById('approveNotes').value = '';
+            document.getElementById('approveModal').classList.add('active');
+        }
+        
+        function openRejectModal(id) {
+            currentApplicationId = id;
+            document.getElementById('rejectNotes').value = '';
+            document.getElementById('rejectModal').classList.add('active');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            currentApplicationId = null;
+        }
+        
+        async function confirmApprove() {
+            const notes = document.getElementById('approveNotes').value;
+            
+            try {
+                const response = await fetch(`/api/v1/beta/admin/applications/${currentApplicationId}/approve`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + getApiKey(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ admin_notes: notes })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showSuccess(`Application approved! API Key: ${data.api_key}`);
+                    closeModal('approveModal');
+                    loadStats();
+                    loadApplications(currentFilter);
+                }
+            } catch (error) {
+                alert('Error approving application: ' + error.message);
+            }
+        }
+        
+        async function confirmReject() {
+            const notes = document.getElementById('rejectNotes').value;
+            
+            try {
+                const response = await fetch(`/api/v1/beta/admin/applications/${currentApplicationId}/reject`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + getApiKey(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ admin_notes: notes })
+                });
+                
+                if (response.ok) {
+                    showSuccess('Application rejected successfully');
+                    closeModal('rejectModal');
+                    loadStats();
+                    loadApplications(currentFilter);
+                }
+            } catch (error) {
+                alert('Error rejecting application: ' + error.message);
+            }
+        }
+        
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 5000);
+        }
+        
+        function getApiKey() {
+            // In production, this would come from a secure login system
+            // For now, we'll use localStorage
+            let key = localStorage.getItem('brikk_admin_key');
+            if (!key) {
+                key = prompt('Enter your admin API key:');
+                if (key) localStorage.setItem('brikk_admin_key', key);
+            }
+            return key;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        }
+        
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentFilter = btn.dataset.status;
+                loadApplications(currentFilter === 'all' ? null : currentFilter);
+            });
+        });
+        
+        // Initialize
+        loadStats();
+        loadApplications();
+        
+        // Refresh every 30 seconds
+        setInterval(() => {
+            loadStats();
+            loadApplications(currentFilter === 'all' ? null : currentFilter);
+        }, 30000);
+    </script>
+</body>
+</html>
+

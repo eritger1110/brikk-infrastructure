@@ -1,0 +1,143 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Brikk API Gateway - v2",
+    "description": "The Brikk API allows you to build, manage, and coordinate AI agents. This comprehensive documentation provides everything you need to get started.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Brikk Support",
+      "url": "https://www.getbrikk.com/contact"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.getbrikk.com",
+      "description": "Production Environment"
+    },
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "All API requests must be authenticated with a Bearer token. See the Authentication guide for details on how to obtain a token."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A short string identifying the error code."
+          },
+          "message": {
+            "type": "string",
+            "description": "A human-readable description of the error."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "A unique ID for the request, which can be used for debugging."
+          }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the agent.",
+            "example": "agt_abc123"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the agent."
+          },
+          "description": {
+            "type": "string",
+            "description": "A short description of the agent\'s capabilities."
+          },
+          "category": {
+            "type": "string",
+            "description": "The category the agent belongs to.",
+            "enum": ["automation", "analytics", "communication", "integration", "other"]
+          },
+          "capabilities": {
+            "type": "array",
+            "description": "A list of the agent\'s capabilities.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/marketplace/agents": {
+      "get": {
+        "summary": "List Marketplace Agents",
+        "description": "Retrieve a list of all agents available in the Brikk marketplace. Agents can be filtered by category, tags, and other criteria.",
+        "tags": ["Marketplace"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter agents by category.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tags",
+            "in": "query",
+            "description": "Filter agents by a comma-separated list of tags.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of marketplace agents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Agent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-code-samples": [
+          {
+            "lang": "cURL",
+            "source": "curl -X GET \"https://api.getbrikk.com/api/v1/marketplace/agents?category=automation\""
+          },
+          {
+            "lang": "Python",
+            "source": "import requests\n\nresponse = requests.get(\"https://api.getbrikk.com/api/v1/marketplace/agents?category=automation\")\nprint(response.json())"
+          },
+          {
+            "lang": "JavaScript",
+            "source": "fetch(\"https://api.getbrikk.com/api/v1/marketplace/agents?category=automation\")\n  .then(response => response.json())\n  .then(data => console.log(data));"
+          }
+        ]
+      }
+    }
+  }
+}
+

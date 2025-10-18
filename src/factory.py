@@ -198,6 +198,10 @@ def create_app() -> Flask:
         app.register_blueprint(agent_discovery.agent_discovery_bp, url_prefix="/api/v1/agent-discovery")
         app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
         
+        # Beta Program
+        from src.routes import beta
+        app.register_blueprint(beta.bp)
+        
         # Phase 8: Developer Experience
         app.register_blueprint(usage_stats.usage_stats_bp)
         
