@@ -7,10 +7,14 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 import secrets
 import hashlib
+import logging
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from src.infra.db import db
 from src.models.beta_application import BetaApplication
 from src.models.api_key import ApiKey
 from src.routes.auth_admin import require_admin_token as require_admin
+from src.services.email_service import get_email_service
 
 # Temporary: No auth required for public submission endpoint
 def require_auth(f):
@@ -18,8 +22,32 @@ def require_auth(f):
 
 bp = Blueprint('beta', __name__, url_prefix='/api/v1/beta')
 
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per hour"],
+    storage_uri="memory://"
+)
+
+# Set up audit logger
+audit_logger = logging.getLogger('beta_audit')
+audit_logger.setLevel(logging.INFO)
+
+def log_audit_event(action, application_id=None, user=None, metadata=None):
+    """Log structured audit event"""
+    event = {
+        'timestamp': datetime.utcnow().isoformat(),
+        'action': action,
+        'application_id': application_id,
+        'user': user,
+        'metadata': metadata or {}
+    }
+    audit_logger.info(f"AUDIT: {event}")
+    return event
+
 
 @bp.route('/applications', methods=['POST'])
+@limiter.limit("10 per minute")
 def submit_application():
     """
     Submit a beta program application
@@ -67,6 +95,29 @@ def submit_application():
         
         db.session.add(application)
         db.session.commit()
+        
+        # Log audit event
+        log_audit_event(
+            action='application_submitted',
+            application_id=application.id,
+            metadata={
+                'email': application.email,
+                'source': source,
+                'ip_address': ip_address
+            }
+        )
+        
+        # Send confirmation email
+        email_service = get_email_service()
+        email_service.send_application_received(
+            to_email=application.email,
+            name=application.name,
+            application_id=application.id,
+            queue_position=BetaApplication.query.filter(
+                BetaApplication.status == 'pending',
+                BetaApplication.created_at <= application.created_at
+            ).count()
+        )
         
         # Get queue position
         queue_position = BetaApplication.query.filter(
@@ -188,7 +239,8 @@ def approve_application(application_id):
         # Update application
         application.status = 'approved'
         application.reviewed_at = datetime.utcnow()
-        application.reviewed_by = request.user.email if hasattr(request, 'user') else 'admin'
+        reviewed_by = request.user.email if hasattr(request, 'user') else 'admin'
+        application.reviewed_by = reviewed_by
         application.api_key = hashlib.sha256(api_key.encode()).hexdigest()
         
         data = request.get_json() or {}
@@ -197,7 +249,25 @@ def approve_application(application_id):
         
         db.session.commit()
         
-        # TODO: Send invitation email with API key
+        # Log audit event
+        log_audit_event(
+            action='application_approved',
+            application_id=application.id,
+            user=reviewed_by,
+            metadata={
+                'email': application.email,
+                'admin_notes': data.get('admin_notes')
+            }
+        )
+        
+        # Send approval email with API key
+        email_service = get_email_service()
+        email_service.send_application_approved(
+            to_email=application.email,
+            name=application.name,
+            api_key=api_key,
+            application_id=application.id
+        )
         
         return jsonify({
             'success': True,
@@ -240,7 +310,8 @@ def reject_application(application_id):
         # Update application
         application.status = 'rejected'
         application.reviewed_at = datetime.utcnow()
-        application.reviewed_by = request.user.email if hasattr(request, 'user') else 'admin'
+        reviewed_by = request.user.email if hasattr(request, 'user') else 'admin'
+        application.reviewed_by = reviewed_by
         
         data = request.get_json() or {}
         if data.get('admin_notes'):
@@ -248,7 +319,24 @@ def reject_application(application_id):
         
         db.session.commit()
         
-        # TODO: Send rejection email (optional, be nice!)
+        # Log audit event
+        log_audit_event(
+            action='application_rejected',
+            application_id=application.id,
+            user=reviewed_by,
+            metadata={
+                'email': application.email,
+                'admin_notes': data.get('admin_notes')
+            }
+        )
+        
+        # Send polite rejection email
+        email_service = get_email_service()
+        email_service.send_application_rejected(
+            to_email=application.email,
+            name=application.name,
+            application_id=application.id
+        )
         
         return jsonify({
             'success': True,

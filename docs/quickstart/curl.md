@@ -18,6 +18,7 @@ curl $BRIKK_API_URL/health
 ```
 
 Response:
+
 ```json
 {
   "service": "coordination-api",
@@ -151,6 +152,7 @@ curl -H "Authorization: Bearer invalid_key" \
 ```
 
 Response:
+
 ```json
 {
   "error": "auth_required",
@@ -167,6 +169,7 @@ curl -H "Authorization: Bearer $BRIKK_API_KEY" \
 ```
 
 Response:
+
 ```json
 {
   "error": "marketplace_disabled",
@@ -187,6 +190,7 @@ curl -X POST \
 ```
 
 Response:
+
 ```json
 {
   "error": "validation_error",
@@ -272,4 +276,3 @@ echo "Exported all agents to agents.json"
 - [JavaScript Quickstart](./javascript.md)
 - [API Reference](../api/openapi.yaml)
 - [Authentication Guide](../guides/authentication.md)
-

@@ -204,3 +204,78 @@ For questions or issues:
 ## License
 
 This project is proprietary software. All rights reserved.
+
+## Beta Submit E2E
+
+This section documents the end-to-end flow for submitting a beta application and how to test it.
+
+### API Endpoint
+
+- **URL:** `https://brikk-infrastructure.onrender.com/api/v1/beta/apply`
+- **Method:** `POST`
+- **Content-Type:** `application/json`
+
+### cURL Examples
+
+#### 1. Successful Submission (New Application)
+
+```bash
+curl -i -X POST https://brikk-infrastructure.onrender.com/api/v1/beta/apply \
+-H 'Content-Type: application/json' \
+-d '{"name":"Test User","email":"test@example.com","company":"TestCo","use_case":"Trying Brikk"}'
+```
+
+**Expected Response (201 Created):**
+
+```json
+{
+  "code": "application_received",
+  "message": "Thanks! Your application is in the queue.",
+  "application_id": "<application-id>",
+  "queue_position": <integer>
+}
+```
+
+#### 2. Duplicate Submission (Idempotent)
+
+Run the same command again with the same email address.
+
+**Expected Response (200 OK):**
+
+```json
+{
+  "code": "application_exists",
+  "message": "We already have your application.",
+  "application_id": "<existing-application-id>",
+  "queue_position": <integer>
+}
+```
+
+#### 3. Validation Error
+
+```bash
+curl -i -X POST https://brikk-infrastructure.onrender.com/api/v1/beta/apply \
+-H 'Content-Type: application/json' \
+-d '{"name":"","email":"invalid-email","use_case":""}'
+```
+
+**Expected Response (422 Unprocessable Entity):**
+
+```json
+{
+  "code": "validation_error",
+  "message": "Please correct the highlighted fields.",
+  "errors": {
+    "name": "Name is required",
+    "email": "Invalid email address",
+    "use_case": "Use case is required"
+  }
+}
+```
+
+### Troubleshooting
+
+- **CORS Errors:** If you see CORS errors in the browser console, ensure that the origin you are testing from is included in the `CORS_ORIGINS` list in `src/factory.py`.
+- **503 Service Unavailable (Email Health Check):** If the `/health/email` endpoint returns a 503 error, verify that the `SENDGRID_API_KEY` and `EMAIL_FROM` environment variables are correctly set in your production environment.
+- **429 Too Many Requests:** The rate limit is set to 60 requests per minute per IP address for testing. If you exceed this, you will receive a 429 error. Wait a minute and try again.
+

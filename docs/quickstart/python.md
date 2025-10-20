@@ -242,4 +242,3 @@ client.track_usage(
 - [cURL Examples](./curl.md)
 - [API Reference](../api/openapi.yaml)
 - [Authentication Guide](../guides/authentication.md)
-

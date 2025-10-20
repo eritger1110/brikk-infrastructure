@@ -418,7 +418,6 @@ render restart
 
 For deployment issues, contact:
 
-- **Engineering:** engineering@getbrikk.com
-- **DevOps:** devops@getbrikk.com
+- **Engineering:** <engineering@getbrikk.com>
+- **DevOps:** <devops@getbrikk.com>
 - **On-call:** Use PagerDuty for critical issues
-

@@ -287,4 +287,3 @@ const brikk = new BrikkClient('your_api_key_here');
 - [cURL Examples](./curl.md)
 - [API Reference](../api/openapi.yaml)
 - [Authentication Guide](../guides/authentication.md)
-

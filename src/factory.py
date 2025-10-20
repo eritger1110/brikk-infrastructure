@@ -124,7 +124,20 @@ def create_app() -> Flask:
     JWTManager(app)
 
     # --- CORS ---
-    CORS(app, supports_credentials=True)
+    # Allow specific origins for /api/* routes
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "https://brikk-beta.manus.space",
+                "https://getbrikk.com",
+                "http://localhost:3000",  # For local development
+                "http://localhost:5000"   # For local development
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": False
+        }
+    })
 
     # --- Initialize observability ---
     init_logging(app)
@@ -198,9 +211,13 @@ def create_app() -> Flask:
         app.register_blueprint(agent_discovery.agent_discovery_bp, url_prefix="/api/v1/agent-discovery")
         app.register_blueprint(reviews.reviews_bp, url_prefix="/api/v1/reviews")
         
-        # Beta Program
-        from src.routes import beta
-        app.register_blueprint(beta.bp)
+        # Beta Program (V2 - Bulletproof)
+        from src.routes import beta_v2
+        app.register_blueprint(beta_v2.bp)
+        
+        # Initialize rate limiter for beta routes
+        if 'limiter' in app.extensions:
+            beta_v2.limiter.init_app(app)
         
         # Phase 8: Developer Experience
         app.register_blueprint(usage_stats.usage_stats_bp)
