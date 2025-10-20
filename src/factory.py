@@ -128,10 +128,12 @@ def create_app() -> Flask:
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "https://brikk-beta.manus.space",
-                "https://getbrikk.com",
+                "https://beta.getbrikk.com",  # New canonical beta URL
+                "https://brikk-beta.manus.space",  # Backup Manus URL
+                "https://getbrikk.com",  # Marketing site
                 "http://localhost:3000",  # For local development
-                "http://localhost:5000"   # For local development
+                "http://localhost:5000",  # For local development
+                "http://localhost:8000"   # For local development
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
