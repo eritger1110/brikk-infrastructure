@@ -215,10 +215,6 @@ def create_app() -> Flask:
         from src.routes import beta_v2
         app.register_blueprint(beta_v2.bp)
         
-        # Initialize rate limiter for beta routes
-        if 'limiter' in app.extensions:
-            beta_v2.limiter.init_app(app)
-        
         # Phase 8: Developer Experience
         app.register_blueprint(usage_stats.usage_stats_bp)
         

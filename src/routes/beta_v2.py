@@ -9,8 +9,7 @@ import secrets
 import hashlib
 import logging
 import re
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from flask import current_app
 from src.infra.db import db
 from src.models.beta_application import BetaApplication
 from src.models.api_key import ApiKey
@@ -22,13 +21,6 @@ def require_auth(f):
     return f
 
 bp = Blueprint('beta', __name__, url_prefix='/api/v1/beta')
-
-# Initialize rate limiter
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per hour"],
-    storage_uri="memory://"
-)
 
 # Set up structured logger
 logger = logging.getLogger('beta.apply')
@@ -100,7 +92,6 @@ def validate_application_data(data):
 
 
 @bp.route('/apply', methods=['POST', 'OPTIONS'])
-@limiter.limit("60 per minute")  # Temporarily increased for testing
 def apply_for_beta():
     """
     Submit a beta program application
