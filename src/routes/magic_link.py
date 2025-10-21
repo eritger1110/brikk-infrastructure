@@ -9,7 +9,7 @@ import jwt
 import secrets
 import logging
 from src.routes.auth_admin import require_admin_token as require_admin
-from src.infra.metrics import Counter
+from prometheus_client import Counter
 
 bp = Blueprint('magic_link', __name__, url_prefix='/api/v1/access')
 
