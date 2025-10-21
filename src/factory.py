@@ -220,6 +220,11 @@ def create_app() -> Flask:
         # Phase 8: Developer Experience
         app.register_blueprint(usage_stats.usage_stats_bp)
         
+        # Phase 8.5: Magic Link System
+        from src.routes import magic_link, usage
+        app.register_blueprint(magic_link.bp)
+        app.register_blueprint(usage.bp)
+        
         # Static files for developer dashboards
         from flask import send_from_directory
         @app.route('/static/<path:filename>')

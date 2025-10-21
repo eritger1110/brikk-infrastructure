@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Playground - Brikk AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .user-badge {
+            background: rgba(102, 126, 234, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #667eea;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+        }
+
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .agent-list {
+            list-style: none;
+        }
+
+        .agent-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .agent-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .agent-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #667eea;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .agent-desc {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .playground {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .playground h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .playground-desc {
+            color: #9ca3af;
+            margin-bottom: 24px;
+        }
+
+        .input-section {
+            margin-bottom: 24px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+
+        .input-field {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea.input-field {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .output-section {
+            margin-top: 24px;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .output-label {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .export-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .output-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #10b981;
+        }
+
+        .output-box pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            color: #ef4444;
+        }
+
+        .success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .info {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="logo">Brikk AI</div>
+                <div class="subtitle">Demo Playground</div>
+            </div>
+            <div class="user-badge" id="user-badge">Loading...</div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading playground...</p>
+        </div>
+
+        <div id="error" class="alert" style="display: none;"></div>
+
+        <div id="content" class="main-content" style="display: none;">
+            <div class="sidebar">
+                <h2>Available Agents</h2>
+                <ul class="agent-list" id="agent-list">
+                    <li class="agent-item active" data-agent="csv-analyzer">
+                        <div class="agent-name">📊 CSV Analyzer</div>
+                        <div class="agent-desc">Analyze and extract insights from CSV files</div>
+                    </li>
+                    <li class="agent-item" data-agent="email-summarizer">
+                        <div class="agent-name">📧 Email Summarizer</div>
+                        <div class="agent-desc">Summarize email threads and extract action items</div>
+                    </li>
+                    <li class="agent-item" data-agent="code-reviewer">
+                        <div class="agent-name">💻 Code Reviewer</div>
+                        <div class="agent-desc">Review code and provide improvement suggestions</div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="playground">
+                <h2 id="agent-title">CSV Analyzer</h2>
+                <p class="playground-desc" id="agent-description">Analyze CSV files and extract insights</p>
+
+                <div class="input-section">
+                    <label class="input-label" id="input-label">CSV File URL or Data:</label>
+                    <textarea class="input-field" id="input-field" placeholder='{"file_url": "https://example.com/data.csv"}'></textarea>
+                </div>
+
+                <button class="btn" id="run-btn" onclick="runAgent()">Run Agent</button>
+
+                <div class="output-section">
+                    <div class="output-header">
+                        <span class="output-label">Output:</span>
+                        <div class="export-btns">
+                            <button class="btn btn-small" onclick="exportAs('curl')">Copy as cURL</button>
+                            <button class="btn btn-small" onclick="exportAs('python')">Copy as Python</button>
+                            <button class="btn btn-small" onclick="exportAs('node')">Copy as Node.js</button>
+                        </div>
+                    </div>
+                    <div class="output-box" id="output-box">
+                        <pre>// Output will appear here after running the agent</pre>
+                    </div>
+                </div>
+
+                <div id="export-success" class="alert success" style="display: none; margin-top: 16px;">
+                    Code copied to clipboard!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://brikk-infrastructure.onrender.com';
+        let token = null;
+        let currentAgent = 'csv-analyzer';
+
+        const agentConfigs = {
+            'csv-analyzer': {
+                title: '📊 CSV Analyzer',
+                description: 'Analyze CSV files and extract insights',
+                inputLabel: 'CSV File URL or Data:',
+                placeholder: '{"file_url": "https://example.com/data.csv"}',
+                sampleInput: '{"file_url": "https://example.com/sales-data.csv", "analyze": ["trends", "outliers"]}'
+            },
+            'email-summarizer': {
+                title: '📧 Email Summarizer',
+                description: 'Summarize email threads and extract action items',
+                inputLabel: 'Email Thread:',
+                placeholder: '{"emails": [{"from": "...", "subject": "...", "body": "..."}]}',
+                sampleInput: '{"emails": [{"from": "john@example.com", "subject": "Project Update", "body": "Hi team, here\'s the latest update..."}]}'
+            },
+            'code-reviewer': {
+                title: '💻 Code Reviewer',
+                description: 'Review code and provide improvement suggestions',
+                inputLabel: 'Code to Review:',
+                placeholder: '{"language": "python", "code": "def hello():\\n    print(\'Hello\')"}',
+                sampleInput: '{"language": "python", "code": "def calculate_total(items):\\n    total = 0\\n    for item in items:\\n        total += item[\'price\']\\n    return total"}'
+            }
+        };
+
+        // Extract token from URL hash
+        function getTokenFromHash() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get('token');
+        }
+
+        // Store token in localStorage
+        function storeToken(token) {
+            localStorage.setItem('brikk_magic_token', token);
+        }
+
+        // Get token from localStorage or URL
+        function getToken() {
+            const hashToken = getTokenFromHash();
+            if (hashToken) {
+                storeToken(hashToken);
+                return hashToken;
+            }
+            return localStorage.getItem('brikk_magic_token');
+        }
+
+        // Initialize playground
+        async function initPlayground() {
+            token = getToken();
+            
+            if (!token) {
+                showError('No authentication token found. Please use the magic link from your email.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/access/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid or expired token');
+                }
+
+                const data = await response.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'grid';
+                document.getElementById('user-badge').textContent = data.user.email;
+
+                // Set up agent selection
+                setupAgentSelection();
+                
+                // Load sample input for first agent
+                loadAgentConfig('csv-analyzer');
+            } catch (error) {
+                showError(`Authentication failed: ${error.message}`);
+            }
+        }
+
+        // Setup agent selection
+        function setupAgentSelection() {
+            document.querySelectorAll('.agent-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    document.querySelectorAll('.agent-item').forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                    const agentId = this.getAttribute('data-agent');
+                    loadAgentConfig(agentId);
+                });
+            });
+        }
+
+        // Load agent configuration
+        function loadAgentConfig(agentId) {
+            currentAgent = agentId;
+            const config = agentConfigs[agentId];
+            
+            document.getElementById('agent-title').textContent = config.title;
+            document.getElementById('agent-description').textContent = config.description;
+            document.getElementById('input-label').textContent = config.inputLabel;
+            document.getElementById('input-field').placeholder = config.placeholder;
+            document.getElementById('input-field').value = config.sampleInput;
+            document.getElementById('output-box').innerHTML = '<pre>// Output will appear here after running the agent</pre>';
+        }
+
+        // Run agent
+        async function runAgent() {
+            const inputField = document.getElementById('input-field');
+            const outputBox = document.getElementById('output-box');
+            const runBtn = document.getElementById('run-btn');
+
+            let input;
+            try {
+                input = JSON.parse(inputField.value);
+            } catch (e) {
+                outputBox.innerHTML = '<pre style="color: #ef4444;">Error: Invalid JSON input</pre>';
+                return;
+            }
+
+            runBtn.disabled = true;
+            runBtn.textContent = 'Running...';
+            outputBox.innerHTML = '<pre style="color: #9ca3af;">Calling agent...</pre>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/agents/${currentAgent}/call`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ input })
+                });
+
+                const result = await response.json();
+                outputBox.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                outputBox.innerHTML = `<pre style="color: #ef4444;">Error: ${error.message}</pre>`;
+            } finally {
+                runBtn.disabled = false;
+                runBtn.textContent = 'Run Agent';
+            }
+        }
+
+        // Export as code
+        function exportAs(language) {
+            const input = document.getElementById('input-field').value;
+            let code = '';
+
+            if (language === 'curl') {
+                code = `curl -X POST ${API_BASE}/api/v1/agents/${currentAgent}/call \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '${input}'`;
+            } else if (language === 'python') {
+                code = `from brikk import Brikk
+
+client = Brikk(api_key="YOUR_API_KEY")
+
+result = client.agents.call(
+    agent_id="${currentAgent}",
+    input=${input}
+)
+
+print(result)`;
+            } else if (language === 'node') {
+                code = `import { Brikk } from '@brikk/sdk';
+
+const client = new Brikk({ apiKey: 'YOUR_API_KEY' });
+
+const result = await client.agents.call({
+  agentId: '${currentAgent}',
+  input: ${input}
+});
+
+console.log(result);`;
+            }
+
+            navigator.clipboard.writeText(code).then(() => {
+                const successDiv = document.getElementById('export-success');
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            });
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', initPlayground);
+    </script>
+</body>
+</html>
+

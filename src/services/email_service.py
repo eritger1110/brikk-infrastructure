@@ -245,7 +245,9 @@ class EmailService:
         to_email: str,
         name: str,
         api_key: str,
-        application_id: int
+        application_id: int,
+        portal_url: str = None,
+        playground_url: str = None
     ) -> bool:
         """
         Send approval email with API key
@@ -382,6 +384,15 @@ for agent in agents:
     print(f"{{agent.name}}: {{agent.description}}")
                 </div>
                 
+                <h3>🎯 Get Started Now</h3>
+                <p>Click these magic links to access your personalized developer portal and try our demo playground:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{portal_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">🚀 Open Developer Portal</a>
+                    <br><br>
+                    <a href="{playground_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">🎮 Launch Demo Playground</a>
+                </div>
+                <p style="color: #666; font-size: 13px; text-align: center;">These links are valid for 45 minutes and provide instant access without additional login.</p>
+                
                 <h3>📚 Resources</h3>
                 <a href="https://brikk-infrastructure.onrender.com/docs/quickstart" class="button">Quickstart Guide →</a>
                 <a href="https://brikk-infrastructure.onrender.com/docs" class="button">API Docs →</a>
@@ -440,6 +451,11 @@ for agent in agents:
         
         Step 3: Explore the marketplace
         agents = client.marketplace.list_agents()
+        
+        Get Started Now:
+        - Developer Portal: {portal_url or 'Check your email for the link'}
+        - Demo Playground: {playground_url or 'Check your email for the link'}
+        (These magic links are valid for 45 minutes)
         
         Resources:
         - Quickstart Guide: https://brikk-infrastructure.onrender.com/docs/quickstart

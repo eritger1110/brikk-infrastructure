@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Portal - Brikk AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .user-info {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+
+        .user-info h2 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: #667eea;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .info-value {
+            color: #e0e0e0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .api-key-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #10b981;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #10b981;
+            margin: 0;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .usage-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            color: #ef4444;
+        }
+
+        .success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Brikk AI</div>
+            <div class="subtitle">Developer Portal</div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Loading your developer portal...</p>
+        </div>
+
+        <div id="error" class="alert" style="display: none;"></div>
+
+        <div id="content" style="display: none;">
+            <div class="user-info">
+                <h2>Welcome Back!</h2>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value" id="user-email">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Organization:</span>
+                    <span class="info-value" id="user-org">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Session Expires:</span>
+                    <span class="info-value" id="session-expires">-</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Your API Key</h2>
+                <p style="color: #9ca3af; margin-bottom: 16px;">Use this key to authenticate your API requests. Keep it secure!</p>
+                <div class="api-key-box">
+                    <span id="api-key">sk_beta_••••••••••••••••••••••••••••••••</span>
+                    <button class="btn btn-secondary" onclick="copyApiKey()">Copy</button>
+                </div>
+                <div id="copy-success" class="alert success" style="display: none;">API key copied to clipboard!</div>
+            </div>
+
+            <div class="card">
+                <h2>Usage Statistics</h2>
+                <div class="usage-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-today">-</div>
+                        <div class="stat-label">Calls Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-month">-</div>
+                        <div class="stat-label">Calls This Month</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-total">-</div>
+                        <div class="stat-label">Total Calls</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-agents">-</div>
+                        <div class="stat-label">Agents Used</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Quick Start</h2>
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('python')">Python</button>
+                    <button class="tab" onclick="showTab('node')">Node.js</button>
+                    <button class="tab" onclick="showTab('curl')">cURL</button>
+                </div>
+
+                <div id="tab-python" class="tab-content active">
+                    <p style="color: #9ca3af; margin-bottom: 12px;">Install the Brikk SDK:</p>
+                    <div class="code-block">
+                        <pre>pip install brikk-sdk</pre>
+                    </div>
+                    <p style="color: #9ca3af; margin: 16px 0 12px;">Make your first API call:</p>
+                    <div class="code-block">
+                        <pre>from brikk import Brikk
+
+client = Brikk(api_key="YOUR_API_KEY")
+
+# Call an agent
+result = client.agents.call(
+    agent_id="csv-analyzer",
+    input={"file_url": "https://example.com/data.csv"}
+)
+
+print(result)</pre>
+                    </div>
+                </div>
+
+                <div id="tab-node" class="tab-content">
+                    <p style="color: #9ca3af; margin-bottom: 12px;">Install the Brikk SDK:</p>
+                    <div class="code-block">
+                        <pre>npm install @brikk/sdk</pre>
+                    </div>
+                    <p style="color: #9ca3af; margin: 16px 0 12px;">Make your first API call:</p>
+                    <div class="code-block">
+                        <pre>import { Brikk } from '@brikk/sdk';
+
+const client = new Brikk({ apiKey: 'YOUR_API_KEY' });
+
+// Call an agent
+const result = await client.agents.call({
+  agentId: 'csv-analyzer',
+  input: { fileUrl: 'https://example.com/data.csv' }
+});
+
+console.log(result);</pre>
+                    </div>
+                </div>
+
+                <div id="tab-curl" class="tab-content">
+                    <p style="color: #9ca3af; margin-bottom: 12px;">Make an API request:</p>
+                    <div class="code-block">
+                        <pre>curl -X POST https://api.getbrikk.com/api/v1/agents/csv-analyzer/call \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "file_url": "https://example.com/data.csv"
+    }
+  }'</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Resources</h2>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <a href="https://docs.getbrikk.com" class="link" target="_blank">📚 API Documentation</a>
+                    </li>
+                    <li style="padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <a href="/static/playground.html#token=" class="link" id="playground-link">🎮 Demo Playground</a>
+                    </li>
+                    <li style="padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <a href="https://discord.gg/brikk-ai" class="link" target="_blank">💬 Join Discord Community</a>
+                    </li>
+                    <li style="padding: 12px 0;">
+                        <a href="mailto:support@getbrikk.com" class="link">📧 Contact Support</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://brikk-infrastructure.onrender.com';
+        let token = null;
+        let userData = null;
+
+        // Extract token from URL hash
+        function getTokenFromHash() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get('token');
+        }
+
+        // Store token in localStorage
+        function storeToken(token) {
+            localStorage.setItem('brikk_magic_token', token);
+        }
+
+        // Get token from localStorage or URL
+        function getToken() {
+            const hashToken = getTokenFromHash();
+            if (hashToken) {
+                storeToken(hashToken);
+                return hashToken;
+            }
+            return localStorage.getItem('brikk_magic_token');
+        }
+
+        // Fetch user data
+        async function fetchUserData() {
+            token = getToken();
+            
+            if (!token) {
+                showError('No authentication token found. Please use the magic link from your email.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/access/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid or expired token');
+                }
+
+                const data = await response.json();
+                userData = data.user;
+                
+                // Fetch usage stats
+                const usageResponse = await fetch(`${API_BASE}/api/v1/usage/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (usageResponse.ok) {
+                    const usageData = await usageResponse.json();
+                    userData.usage = usageData.usage;
+                }
+
+                displayUserData();
+            } catch (error) {
+                showError(`Authentication failed: ${error.message}`);
+            }
+        }
+
+        // Display user data
+        function displayUserData() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            document.getElementById('user-email').textContent = userData.email;
+            document.getElementById('user-org').textContent = userData.org_id;
+            document.getElementById('session-expires').textContent = new Date(userData.expires_at).toLocaleString();
+
+            // Update playground link with token
+            document.getElementById('playground-link').href = `/static/playground.html#token=${token}`;
+
+            // Display usage stats if available
+            if (userData.usage) {
+                document.getElementById('stat-today').textContent = userData.usage.api_calls_today;
+                document.getElementById('stat-month').textContent = userData.usage.api_calls_this_month;
+                document.getElementById('stat-total').textContent = userData.usage.total_api_calls;
+                document.getElementById('stat-agents').textContent = userData.usage.agents_used;
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Copy API key
+        function copyApiKey() {
+            // In a real implementation, this would copy the actual API key
+            // For now, we'll show a message
+            const successDiv = document.getElementById('copy-success');
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Show tab
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', fetchUserData);
+    </script>
+</body>
+</html>
+

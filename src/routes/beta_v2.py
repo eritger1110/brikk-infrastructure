@@ -419,13 +419,30 @@ def approve_application(application_id):
             reviewed_by=reviewed_by
         )
         
-        # Send approval email with API key
+        # Generate magic links for portal and playground
+        from src.routes.magic_link import create_magic_token
+        from flask import current_app
+        
+        token_data = create_magic_token(
+            user_id=application.id,
+            email=application.email,
+            org_id=f"beta_{application.id}"
+        )
+        token = token_data['token']
+        
+        base_url = current_app.config.get('BASE_URL', 'https://brikk-infrastructure.onrender.com')
+        portal_url = f"{base_url}/static/dev-portal.html#token={token}"
+        playground_url = f"{base_url}/static/playground.html#token={token}"
+        
+        # Send approval email with API key and magic links
         email_service = get_email_service()
         email_service.send_application_approved(
             to_email=application.email,
             name=application.name,
             api_key=api_key,
-            application_id=application.id
+            application_id=application.id,
+            portal_url=portal_url,
+            playground_url=playground_url
         )
         
         return jsonify({
