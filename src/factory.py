@@ -103,12 +103,19 @@ def create_app() -> Flask:
     # --- Core config ---
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
     
-    # --- JWT config for magic links ---
-    app.config["JWT_SECRET"] = os.environ.get("JWT_SECRET")
-    app.config["JWT_ISSUER"] = os.environ.get("JWT_ISSUER", "brikk")
+    # --- JWT config (standardized) ---
+    # Use the same key for encode/decode with Flask-JWT-Extended
+    app.config["JWT_SECRET_KEY"] = (
+        os.environ.get("BRIKK_JWT_SECRET")  # preferred
+        or os.environ.get("JWT_SECRET")     # legacy fallback
+    )
+    app.config["JWT_ALGORITHM"] = "HS256"
+    app.config["JWT_ISSUER"] = os.environ.get("BRIKK_ISSUER", "brikk")
+    # Keep legacy keys for any code that still reads them
+    app.config["JWT_SECRET"] = app.config["JWT_SECRET_KEY"]
     app.config["JWT_AUDIENCE"] = os.environ.get("JWT_AUDIENCE", "brikk-beta")
-    app.config["MAGIC_TTL_MIN"] = os.environ.get("MAGIC_TTL_MIN", "45")
-    app.config["BASE_URL"] = os.environ.get("BASE_URL", "https://brikk-infrastructure.onrender.com")
+    app.config["MAGIC_TTL_MIN"] = os.environ.get("BRIKK_MAGIC_TTL_MIN", "45")
+    app.config["BASE_URL"] = os.environ.get("BRIKK_BASE_URL", "https://api.getbrikk.com")
 
     # --- DB config ---
     db_url = os.environ.get("DATABASE_URL")
@@ -227,18 +234,18 @@ def create_app() -> Flask:
         # Phase 8: Developer Experience
         app.register_blueprint(usage_stats.usage_stats_bp)
         
-        # Phase 8.5: Magic Link System
+        # Phase 8.5: Magic Link System (your existing routes)
         from src.routes import magic_link, usage
         app.register_blueprint(magic_link.bp)
         app.register_blueprint(usage.bp)
         
         # Static files for developer dashboards
+        # IMPORTANT: serve from src/static (where your PR added files)
         from flask import send_from_directory
         @app.route('/static/<path:filename>')
         def serve_static(filename):
             """Serve static files (developer dashboards, etc.)"""
-            import os
-            static_dir = os.path.join(app.root_path, '..', 'static')
+            static_dir = os.path.join(app.root_path, 'static')  # <— changed from .. to src/static
             return send_from_directory(static_dir, filename)
 
         # Dev routes (not in prod)
@@ -276,4 +283,3 @@ def create_app() -> Flask:
         _seed_system_accounts()
 
     return app
-
