@@ -23,11 +23,11 @@ def seed_agents():
     app = create_app()
     
     with app.app_context():
-        print("🚀 Seeding demo agents to marketplace...")
+        print("Seeding demo agents to marketplace...")
         print("")
         
         # Agent 1: CSV Analyzer
-        print("📊 Creating CSV Analyzer...")
+        print("Creating CSV Analyzer...")
         agent1_id = str(uuid.uuid4())
         agent1 = Agent(
             id=agent1_id,
@@ -62,11 +62,11 @@ def seed_agents():
         
         db.session.add(agent1)
         db.session.add(listing1)
-        print("✅ CSV Analyzer created")
+        print("[OK] CSV Analyzer created")
         print("")
         
         # Agent 2: Email Summarizer
-        print("📧 Creating Email Summarizer...")
+        print("Creating Email Summarizer...")
         agent2_id = str(uuid.uuid4())
         agent2 = Agent(
             id=agent2_id,
@@ -101,11 +101,11 @@ def seed_agents():
         
         db.session.add(agent2)
         db.session.add(listing2)
-        print("✅ Email Summarizer created")
+        print("[OK] Email Summarizer created")
         print("")
         
         # Agent 3: Code Reviewer
-        print("💻 Creating Code Reviewer...")
+        print("Creating Code Reviewer...")
         agent3_id = str(uuid.uuid4())
         agent3 = Agent(
             id=agent3_id,
@@ -140,13 +140,13 @@ def seed_agents():
         
         db.session.add(agent3)
         db.session.add(listing3)
-        print("✅ Code Reviewer created")
+        print("[OK] Code Reviewer created")
         print("")
         
         # Commit all changes
         db.session.commit()
         
-        print("✅ All seed agents created successfully!")
+        print("[OK] All seed agents created successfully!")
         print("")
         print("Verify with:")
         print("  curl https://api.getbrikk.com/api/v1/marketplace/featured")
