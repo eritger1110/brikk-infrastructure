@@ -62,7 +62,7 @@ def create_magic_token(user_id, email, org_id=None, scopes=None):
         'org_id': org_id or f'beta_{user_id}',
         'scopes': scopes,
         'iss': config['issuer'],
-        'aud': config['audience'],
+        'aud': [config['audience']],  # JWT library expects audience as a list
         'iat': now,
         'exp': exp
     }
@@ -94,7 +94,7 @@ def verify_magic_token(token):
             config['secret'],
             algorithms=['HS256'],
             issuer=config['issuer'],
-            audience=config['audience']
+            audience=[config['audience']]  # JWT library expects audience as a list
         )
         return payload
     except jwt.ExpiredSignatureError:
