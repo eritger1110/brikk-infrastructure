@@ -1,0 +1,153 @@
+diff --git a/src/static/dev-portal.html b/src/static/dev-portal.html
+index 6b3e7ab..c4f2e21 100644
+--- a/src/static/dev-portal.html
++++ b/src/static/dev-portal.html
+@@ -1,6 +1,7 @@
+ <!doctype html>
+ <html lang="en">
+ <head>
++  <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <title>Brikk AI — Developer Portal</title>
+   <style>
+@@ -320,12 +321,31 @@
+         </div>
+ 
+         <div class="card">
+-          <h3>Resources</h3>
++          <h3>Resources</h3>
+           <ul class="links">
+-            <li><a id="docsLink" href="https://docs.getbrikk.com" target="_blank" rel="noopener noreferrer">API Documentation</a></li>
++            <!-- Point to the API's built-in Swagger UI (works today). If you later stand up docs.getbrikk.com,
++                 just change this back. -->
++            <li><a id="docsLink" href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a></li>
+             <li><a id="playgroundLink" href="#" target="_blank" rel="noopener noreferrer">Demo Playground</a></li>
+             <li><a href="mailto:support@getbrikk.com">Contact Support</a></li>
+           </ul>
+         </div>
+       </section>
+     </main>
++
++    <!-- Keep base settings in one place -->
++    <script>
++      // If these exist above, leave them; otherwise set safe defaults.
++      window.API_BASE  = window.API_BASE  || 'https://api.getbrikk.com';
++      window.SWAGGER_UI = window.SWAGGER_UI || '/docs';
++      (function ensureDocsLink() {
++        const a = document.getElementById('docsLink');
++        if (a && !/^https?:\/\//.test(a.getAttribute('href'))) {
++          // Make /docs absolute on this origin so it also works on api.getbrikk.com
++          a.href = new URL(window.SWAGGER_UI, window.location.origin).toString();
++        }
++      })();
++    </script>
+   </body>
+ </html>
+diff --git a/src/static/playground.html b/src/static/playground.html
+index 2f4f0da..e79d3ab 100644
+--- a/src/static/playground.html
++++ b/src/static/playground.html
+@@ -1,6 +1,7 @@
+ <!doctype html>
+ <html lang="en">
+ <head>
++  <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1" />
+   <title>Brikk AI — Demo Playground</title>
+   <style>
+@@ -320,6 +321,88 @@
+   </main>
+ 
+   <script>
++    // ---------- Diagnostics layer (non-intrusive) ----------
++    // Purpose: when the API responds with HTML or an error, surface a clear message
++    // in the Output area instead of "Unexpected token '<'".
++    //
++    // How it works:
++    // - We don't change your agent logic. We add helpers you can call,
++    //   and we also attach a global fetch listener for console breadcrumbs.
++    //
++    // Notes:
++    // - Uses response.clone() so we never consume the original body.
++    // - If your code already handles JSON OK, nothing changes.
++    //
++    (function setupPlaygroundDiagnostics() {
++      window.API_BASE = window.API_BASE || 'https://api.getbrikk.com';
++
++      // Find a best-effort "Output" element on the page
++      function findOutputEl() {
++        // Your layout shows a single "Output" panel with a <pre> or <code> region.
++        // Try common IDs/classes; fall back to the first <pre>.
++        const candidates = [
++          '#output', '.output', '#agent-output', '.agent-output'
++        ];
++        for (const sel of candidates) {
++          const el = document.querySelector(sel);
++          if (el) return el;
++        }
++        return document.querySelector('pre') || document.body;
++      }
++      const OUT = findOutputEl();
++      function printToOutput(text) {
++        if (!OUT) return console.warn('[Brikk playground] Output element not found');
++        OUT.textContent = text;
++      }
++
++      // Pretty printer
++      function pretty(v) {
++        try { return JSON.stringify(v, null, 2); } catch { return String(v); }
++      }
++
++      // Helper you can use anywhere after a fetch:
++      //   const info = await BrikkDiag.inspectResponse(resp)
++      //   if (info.problem) { printToOutput(info.message); return; }
++      //   else { printToOutput(pretty(info.json)); }
++      const BrikkDiag = {
++        async inspectResponse(resp) {
++          const url = resp.url;
++          const status = resp.status;
++          const ct = resp.headers.get('content-type') || '';
++          let raw = '';
++          try { raw = await resp.clone().text(); } catch {}
++          let json = null, problem = false, message = '';
++          if (/json/i.test(ct)) {
++            try { json = JSON.parse(raw); }
++            catch (err) {
++              problem = true;
++              message = `JSON parse error (HTTP ${status}) from ${url}\n\n${raw}`;
++            }
++          } else {
++            // HTML, text, or something else: show it
++            problem = !resp.ok || /html/i.test(ct) || raw.startsWith('<');
++            if (problem) {
++              message = `HTTP ${status} from ${url}\n\n${raw}`;
++            }
++          }
++          return { url, status, contentType: ct, json, raw, problem, message };
++        }
++      };
++      window.BrikkDiag = BrikkDiag; // expose globally for your existing handlers
++
++      // Console breadcrumbs for every fetch (does not modify responses)
++      const _fetch = window.fetch.bind(window);
++      window.fetch = async function(url, opts) {
++        const started = Date.now();
++        try {
++          const res = await _fetch(url, opts);
++          const ms = Date.now() - started;
++          console.debug('[Brikk fetch]', res.status, url, `${ms}ms`);
++          // If a handler wants a clear error message:
++          //   const info = await BrikkDiag.inspectResponse(res);
++          //   if (info.problem) printToOutput(info.message);
++          return res;
++        } catch (err) {
++          console.error('[Brikk fetch error]', url, err);
++          printToOutput(`Network error calling ${url}\n\n${err}`);
++          throw err;
++        }
++      };
++    })();
++
+     // Existing script continues below (agent selection, run handlers, etc.)
+     // Ensure your existing code reads the JWT token from the URL hash and
+     // sends it as Authorization: Bearer <token> for every API call.
