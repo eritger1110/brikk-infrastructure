@@ -22,6 +22,7 @@ echo ""
 echo "📊 Creating CSV Analyzer..."
 curl -X POST "$API_BASE/api/v1/marketplace/agents" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "X-User-ID: admin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "CSV Analyzer",
@@ -46,6 +47,7 @@ echo ""
 echo "📧 Creating Email Summarizer..."
 curl -X POST "$API_BASE/api/v1/marketplace/agents" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "X-User-ID: admin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Email Summarizer",
@@ -70,6 +72,7 @@ echo ""
 echo "💻 Creating Code Reviewer..."
 curl -X POST "$API_BASE/api/v1/marketplace/agents" \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "X-User-ID: admin" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Code Reviewer",

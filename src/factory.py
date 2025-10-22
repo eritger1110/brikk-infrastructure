@@ -102,6 +102,13 @@ def create_app() -> Flask:
 
     # --- Core config ---
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-key")
+    
+    # --- JWT config for magic links ---
+    app.config["JWT_SECRET"] = os.environ.get("JWT_SECRET")
+    app.config["JWT_ISSUER"] = os.environ.get("JWT_ISSUER", "brikk")
+    app.config["JWT_AUDIENCE"] = os.environ.get("JWT_AUDIENCE", "brikk-beta")
+    app.config["MAGIC_TTL_MIN"] = os.environ.get("MAGIC_TTL_MIN", "45")
+    app.config["BASE_URL"] = os.environ.get("BASE_URL", "https://brikk-infrastructure.onrender.com")
 
     # --- DB config ---
     db_url = os.environ.get("DATABASE_URL")
