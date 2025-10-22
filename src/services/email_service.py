@@ -391,6 +391,9 @@ for agent in agents:
                     <br><br>
                     <a href="{playground_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">🎮 Launch Demo Playground</a>
                 </div>
+                <div class="warning" style="margin-top: 20px;">
+                    <strong>ℹ️ About Magic Links:</strong> Your magic links open a 45-minute session to the Developer Portal and Demo Playground. For agent calls in the playground, you'll use the API key shown in the portal (or you can paste it when prompted in the playground).
+                </div>
                 <p style="color: #666; font-size: 13px; text-align: center;">These links are valid for 45 minutes and provide instant access without additional login.</p>
                 
                 <h3>📚 Resources</h3>
@@ -455,7 +458,11 @@ for agent in agents:
         Get Started Now:
         - Developer Portal: {portal_url or 'Check your email for the link'}
         - Demo Playground: {playground_url or 'Check your email for the link'}
-        (These magic links are valid for 45 minutes)
+        
+        About Magic Links:
+        Your magic links open a 45-minute session to the Developer Portal and Demo Playground.
+        For agent calls in the playground, you'll use the API key shown in the portal
+        (or you can paste it when prompted in the playground).
         
         Resources:
         - Quickstart Guide: https://brikk-infrastructure.onrender.com/docs/quickstart

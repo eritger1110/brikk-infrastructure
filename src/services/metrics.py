@@ -101,6 +101,24 @@ class MetricsService:
                 ["flag", "enabled"],
                 registry=self.registry
             )
+            # Phase 8.5 metrics
+            self.playground_agent_runs_total = Counter(
+                "brikk_playground_agent_runs_total",
+                "Total number of playground agent runs.",
+                ["agent_id", "status"],
+                registry=self.registry
+            )
+            self.magic_link_issued_total = Counter(
+                "brikk_magic_link_issued_total",
+                "Total number of magic links issued.",
+                registry=self.registry
+            )
+            self.access_me_requests_total = Counter(
+                "brikk_access_me_requests_total",
+                "Total number of /access/me requests.",
+                ["status"],
+                registry=self.registry
+            )
 
     def record_http_request(
             self,
@@ -123,6 +141,24 @@ class MetricsService:
         if self.enabled:
             return generate_latest(self.registry).decode('utf-8')
         return ""
+
+    def record_playground_agent_run(self, agent_id: str, status: str):
+        """Record a playground agent run."""
+        if self.enabled:
+            self.playground_agent_runs_total.labels(
+                agent_id=agent_id,
+                status=status
+            ).inc()
+    
+    def record_magic_link_issued(self):
+        """Record a magic link issuance."""
+        if self.enabled:
+            self.magic_link_issued_total.inc()
+    
+    def record_access_me_request(self, status: str):
+        """Record an /access/me request."""
+        if self.enabled:
+            self.access_me_requests_total.labels(status=status).inc()
 
     def _normalize_route(self, route: str) -> str:
         parts = route.split('/')
