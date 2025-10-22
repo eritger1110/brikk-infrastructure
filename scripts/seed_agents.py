@@ -149,7 +149,7 @@ def seed_agents():
         print("✅ All seed agents created successfully!")
         print("")
         print("Verify with:")
-        print("  curl https://brikk-infrastructure.onrender.com/api/v1/marketplace/featured")
+        print("  curl https://api.getbrikk.com/api/v1/marketplace/featured")
 
 if __name__ == "__main__":
     seed_agents()

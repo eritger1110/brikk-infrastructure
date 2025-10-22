@@ -31,7 +31,7 @@ def get_jwt_config():
         'issuer': current_app.config.get('JWT_ISSUER', 'brikk'),
         'audience': current_app.config.get('JWT_AUDIENCE', 'brikk-beta'),
         'ttl_minutes': int(current_app.config.get('MAGIC_TTL_MIN', 45)),
-        'base_url': current_app.config.get('BASE_URL', 'https://brikk-infrastructure.onrender.com')
+        'base_url': current_app.config.get('BASE_URL', 'https://api.getbrikk.com')
     }
 
 

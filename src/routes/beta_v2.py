@@ -430,7 +430,7 @@ def approve_application(application_id):
         )
         token = token_data['token']
         
-        base_url = current_app.config.get('BASE_URL', 'https://brikk-infrastructure.onrender.com')
+        base_url = current_app.config.get('BASE_URL', 'https://api.getbrikk.com')
         portal_url = f"{base_url}/static/dev-portal.html#token={token}"
         playground_url = f"{base_url}/static/playground.html#token={token}"
         
