@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 import jwt
 import secrets
 import logging
+import uuid
 from src.routes.auth_admin import require_admin_token as require_admin
-from prometheus_client import Counter
+from src.services.metrics import get_metrics_service
 
 bp = Blueprint('magic_link', __name__, url_prefix='/api/v1/access')
 
@@ -17,12 +18,7 @@ bp = Blueprint('magic_link', __name__, url_prefix='/api/v1/access')
 logger = logging.getLogger('magic_link')
 logger.setLevel(logging.INFO)
 
-# Metrics
-magic_link_issued_total = Counter(
-    'magic_link_issued_total',
-    'Total number of magic links issued',
-    ['scope']
-)
+
 
 def get_jwt_config():
     """Get JWT configuration from environment"""
@@ -162,20 +158,30 @@ def create_magic_link():
         portal_url = f"{base_url}/static/dev-portal.html#token={token}"
         playground_url = f"{base_url}/static/playground.html#token={token}"
         
+        # Generate request ID
+        request_id = f"req_{uuid.uuid4().hex[:16]}"
+        
         # Increment metrics
-        magic_link_issued_total.labels(scope='portal').inc()
-        magic_link_issued_total.labels(scope='playground').inc()
+        metrics_service = get_metrics_service()
+        if metrics_service:
+            metrics_service.record_magic_link_issued()
         
         # Log event
-        logger.info(f"Magic link issued for user {user_id} ({email})")
+        logger.info(f"Magic link issued for user {user_id} ({email}), request_id={request_id}")
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'portal_url': portal_url,
             'playground_url': playground_url,
             'expires_at': token_data['expires_at'],
-            'ttl_minutes': token_data['ttl_minutes']
+            'ttl_minutes': token_data['ttl_minutes'],
+            'request_id': request_id
         })
+        
+        # Add request ID to response headers
+        response.headers['X-Request-ID'] = request_id
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error creating magic link: {str(e)}", exc_info=True)
@@ -205,13 +211,22 @@ def get_user_info():
     }
     """
     try:
+        # Generate request ID
+        request_id = f"req_{uuid.uuid4().hex[:16]}"
+        
         # Get token from Authorization header
         auth_header = request.headers.get('Authorization', '')
         
         if not auth_header.startswith('Bearer '):
+            # Record failed metrics
+            metrics_service = get_metrics_service()
+            if metrics_service:
+                metrics_service.record_access_me_request('unauthorized')
+            
             return jsonify({
                 'success': False,
-                'error': 'Bearer token required'
+                'error': 'Bearer token required',
+                'request_id': request_id
             }), 401
         
         token = auth_header[7:]  # Remove 'Bearer ' prefix
@@ -220,12 +235,25 @@ def get_user_info():
         payload = verify_magic_token(token)
         
         if not payload:
+            # Record failed metrics
+            metrics_service = get_metrics_service()
+            if metrics_service:
+                metrics_service.record_access_me_request('invalid_token')
+            
             return jsonify({
                 'success': False,
-                'error': 'Invalid or expired token'
+                'error': 'Invalid or expired token',
+                'request_id': request_id
             }), 401
         
-        return jsonify({
+        # Record successful metrics
+        metrics_service = get_metrics_service()
+        if metrics_service:
+            metrics_service.record_access_me_request('success')
+        
+        logger.info(f"User info retrieved for {payload['email']}, request_id={request_id}")
+        
+        response = jsonify({
             'success': True,
             'user': {
                 'id': payload['sub'],
@@ -233,8 +261,14 @@ def get_user_info():
                 'org_id': payload['org_id'],
                 'scopes': payload['scopes'],
                 'expires_at': datetime.fromtimestamp(payload['exp']).isoformat()
-            }
+            },
+            'request_id': request_id
         })
+        
+        # Add request ID to response headers
+        response.headers['X-Request-ID'] = request_id
+        
+        return response
         
     except Exception as e:
         logger.error(f"Error getting user info: {str(e)}", exc_info=True)

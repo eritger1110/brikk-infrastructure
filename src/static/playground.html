@@ -56,6 +56,50 @@
             color: #667eea;
         }
 
+        .api-key-banner {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-key-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .api-key-label {
+            color: #10b981;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .api-key-value {
+            font-family: 'Courier New', monospace;
+            color: #10b981;
+            font-size: 12px;
+        }
+
+        .api-key-change {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #10b981;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .api-key-change:hover {
+            background: rgba(16, 185, 129, 0.3);
+        }
+
         .main-content {
             display: grid;
             grid-template-columns: 300px 1fr;
@@ -272,6 +316,109 @@
             border-color: rgba(59, 130, 246, 0.3);
             color: #3b82f6;
         }
+
+        .debug-panel {
+            background: rgba(255, 165, 0, 0.1);
+            border: 1px solid rgba(255, 165, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: #ffa500;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .error-details {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .error-details-title {
+            color: #ef4444;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .error-details-content {
+            color: #fca5a5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .modal-text {
+            color: #9ca3af;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 20px;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
     </style>
 </head>
 <body>
@@ -291,68 +438,100 @@
 
         <div id="error" class="alert" style="display: none;"></div>
 
-        <div id="content" class="main-content" style="display: none;">
-            <div class="sidebar">
-                <h2>Available Agents</h2>
-                <ul class="agent-list" id="agent-list">
-                    <li class="agent-item active" data-agent="csv-analyzer">
-                        <div class="agent-name">📊 CSV Analyzer</div>
-                        <div class="agent-desc">Analyze and extract insights from CSV files</div>
-                    </li>
-                    <li class="agent-item" data-agent="email-summarizer">
-                        <div class="agent-name">📧 Email Summarizer</div>
-                        <div class="agent-desc">Summarize email threads and extract action items</div>
-                    </li>
-                    <li class="agent-item" data-agent="code-reviewer">
-                        <div class="agent-name">💻 Code Reviewer</div>
-                        <div class="agent-desc">Review code and provide improvement suggestions</div>
-                    </li>
-                </ul>
+        <div id="content" style="display: none;">
+            <!-- API Key Banner -->
+            <div class="api-key-banner" id="api-key-banner">
+                <div class="api-key-info">
+                    <span class="api-key-label">🔑 API Key:</span>
+                    <span class="api-key-value" id="api-key-display">Not set</span>
+                </div>
+                <button class="api-key-change" onclick="promptForApiKey()">Change Key</button>
             </div>
 
-            <div class="playground">
-                <h2 id="agent-title">CSV Analyzer</h2>
-                <p class="playground-desc" id="agent-description">Analyze CSV files and extract insights</p>
-
-                <div class="input-section">
-                    <label class="input-label" id="input-label">CSV File URL or Data:</label>
-                    <textarea class="input-field" id="input-field" placeholder='{"file_url": "https://example.com/data.csv"}'></textarea>
+            <div class="main-content">
+                <div class="sidebar">
+                    <h2>Available Agents</h2>
+                    <ul class="agent-list" id="agent-list">
+                        <li class="agent-item active" data-agent="csv-analyzer">
+                            <div class="agent-name">📊 CSV Analyzer</div>
+                            <div class="agent-desc">Analyze and extract insights from CSV files</div>
+                        </li>
+                        <li class="agent-item" data-agent="email-summarizer">
+                            <div class="agent-name">📧 Email Summarizer</div>
+                            <div class="agent-desc">Summarize email threads and extract action items</div>
+                        </li>
+                        <li class="agent-item" data-agent="code-reviewer">
+                            <div class="agent-name">💻 Code Reviewer</div>
+                            <div class="agent-desc">Review code and provide improvement suggestions</div>
+                        </li>
+                    </ul>
                 </div>
 
-                <button class="btn" id="run-btn" onclick="runAgent()">Run Agent</button>
+                <div class="playground">
+                    <h2 id="agent-title">CSV Analyzer</h2>
+                    <p class="playground-desc" id="agent-description">Analyze CSV files and extract insights</p>
 
-                <div class="output-section">
-                    <div class="output-header">
-                        <span class="output-label">Output:</span>
-                        <div class="export-btns">
-                            <button class="btn btn-small" onclick="exportAs('curl')">Copy as cURL</button>
-                            <button class="btn btn-small" onclick="exportAs('python')">Copy as Python</button>
-                            <button class="btn btn-small" onclick="exportAs('node')">Copy as Node.js</button>
+                    <div class="input-section">
+                        <label class="input-label" id="input-label">CSV File URL or Data:</label>
+                        <textarea class="input-field" id="input-field" placeholder='{"file_url": "https://example.com/data.csv"}'></textarea>
+                    </div>
+
+                    <button class="btn" id="run-btn" onclick="runAgent()">Run Agent</button>
+
+                    <div class="output-section">
+                        <div class="output-header">
+                            <span class="output-label">Output:</span>
+                            <div class="export-btns">
+                                <button class="btn btn-small" onclick="exportAs('curl')">Copy as cURL</button>
+                                <button class="btn btn-small" onclick="exportAs('python')">Copy as Python</button>
+                                <button class="btn btn-small" onclick="exportAs('node')">Copy as Node.js</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="output-box" id="output-box">
-                        <pre>// Output will appear here after running the agent</pre>
+                        <div class="output-box" id="output-box">
+                            <pre>// Output will appear here after running the agent</pre>
+                        </div>
+                        <div id="debug-panel" class="debug-panel" style="display: none;"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <div id="export-success" class="alert success" style="display: none; margin-top: 16px;">
-                    Code copied to clipboard!
-                </div>
+    <!-- API Key Modal -->
+    <div id="api-key-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">Enter API Key</div>
+            <p class="modal-text">
+                Please enter your Brikk API key (starts with <code>sk_beta_</code>). 
+                You can find this in your Developer Portal.
+            </p>
+            <input 
+                type="text" 
+                id="api-key-input" 
+                class="modal-input" 
+                placeholder="sk_beta_..."
+                autocomplete="off"
+            />
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeApiKeyModal()">Cancel</button>
+                <button class="btn" onclick="saveApiKey()">Save Key</button>
             </div>
         </div>
     </div>
 
     <script>
         const API_BASE = 'https://api.getbrikk.com';
-        let token = null;
+        let jwtToken = null;
+        let apiKey = null;
         let currentAgent = 'csv-analyzer';
+        let debugMode = false;
 
         const agentConfigs = {
             'csv-analyzer': {
                 title: '📊 CSV Analyzer',
                 description: 'Analyze CSV files and extract insights',
                 inputLabel: 'CSV File URL or Data:',
-                placeholder: '{"file_url": "https://example.com/data.csv"}',
+                placeholder: '{"file_url": "https://example.com/data.csv", "analyze": ["trends", "outliers"]}',
                 sampleInput: '{"file_url": "https://example.com/sales-data.csv", "analyze": ["trends", "outliers"]}'
             },
             'email-summarizer': {
@@ -360,7 +539,7 @@
                 description: 'Summarize email threads and extract action items',
                 inputLabel: 'Email Thread:',
                 placeholder: '{"emails": [{"from": "...", "subject": "...", "body": "..."}]}',
-                sampleInput: '{"emails": [{"from": "john@example.com", "subject": "Project Update", "body": "Hi team, here\'s the latest update..."}]}'
+                sampleInput: '{"emails": [{"from": "john@example.com", "subject": "Project Update", "body": "Hi team, here is the latest update on our Q4 project..."}]}'
             },
             'code-reviewer': {
                 title: '💻 Code Reviewer',
@@ -371,53 +550,163 @@
             }
         };
 
-        // Extract token from URL hash
+        // Check for debug mode
+        function checkDebugMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            debugMode = urlParams.get('debug') === '1';
+            if (debugMode) {
+                console.log('[DEBUG MODE ENABLED]');
+                document.getElementById('debug-panel').style.display = 'block';
+            }
+        }
+
+        // Debug log
+        function debugLog(message, data = null) {
+            if (!debugMode) return;
+            
+            const timestamp = new Date().toISOString();
+            const logMessage = `[${timestamp}] ${message}`;
+            console.log(logMessage, data || '');
+            
+            const debugPanel = document.getElementById('debug-panel');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = logMessage + (data ? ' ' + JSON.stringify(data).substring(0, 200) : '');
+            debugPanel.appendChild(logEntry);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+        }
+
+        // Extract JWT token from URL hash
         function getTokenFromHash() {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
             return params.get('token');
         }
 
-        // Store token in localStorage
-        function storeToken(token) {
+        // Store JWT token in localStorage
+        function storeJwtToken(token) {
             localStorage.setItem('brikk_magic_token', token);
         }
 
-        // Get token from localStorage or URL
-        function getToken() {
+        // Get JWT token from localStorage or URL
+        function getJwtToken() {
             const hashToken = getTokenFromHash();
             if (hashToken) {
-                storeToken(hashToken);
+                storeJwtToken(hashToken);
                 return hashToken;
             }
             return localStorage.getItem('brikk_magic_token');
         }
 
+        // Get API key from localStorage
+        function getApiKey() {
+            return localStorage.getItem('brikk_api_key');
+        }
+
+        // Store API key in localStorage
+        function storeApiKey(key) {
+            localStorage.setItem('brikk_api_key', key);
+            apiKey = key;
+            updateApiKeyDisplay();
+        }
+
+        // Mask API key for display
+        function maskApiKey(key) {
+            if (!key) return 'Not set';
+            if (key.length < 16) return key;
+            return key.substring(0, 10) + '••••••••' + key.substring(key.length - 4);
+        }
+
+        // Update API key display
+        function updateApiKeyDisplay() {
+            const display = document.getElementById('api-key-display');
+            if (apiKey) {
+                display.textContent = maskApiKey(apiKey);
+                display.style.color = '#10b981';
+            } else {
+                display.textContent = 'Not set - Click "Change Key" to add';
+                display.style.color = '#fbbf24';
+            }
+        }
+
+        // Show API key modal
+        function promptForApiKey() {
+            const modal = document.getElementById('api-key-modal');
+            const input = document.getElementById('api-key-input');
+            input.value = apiKey || '';
+            modal.style.display = 'flex';
+            input.focus();
+        }
+
+        // Close API key modal
+        function closeApiKeyModal() {
+            document.getElementById('api-key-modal').style.display = 'none';
+        }
+
+        // Save API key
+        function saveApiKey() {
+            const input = document.getElementById('api-key-input');
+            const key = input.value.trim();
+            
+            if (!key) {
+                alert('Please enter an API key');
+                return;
+            }
+            
+            if (!key.startsWith('sk_beta_')) {
+                alert('API key should start with sk_beta_');
+                return;
+            }
+            
+            storeApiKey(key);
+            closeApiKeyModal();
+            debugLog('API key saved', { masked: maskApiKey(key) });
+        }
+
         // Initialize playground
         async function initPlayground() {
-            token = getToken();
+            checkDebugMode();
             
-            if (!token) {
+            jwtToken = getJwtToken();
+            apiKey = getApiKey();
+            
+            debugLog('Initializing playground', { hasJwt: !!jwtToken, hasApiKey: !!apiKey });
+            
+            if (!jwtToken) {
                 showError('No authentication token found. Please use the magic link from your email.');
                 return;
             }
 
             try {
+                debugLog('Fetching user info from /api/v1/access/me');
+                
                 const response = await fetch(`${API_BASE}/api/v1/access/me`, {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${jwtToken}`
                     }
                 });
 
+                debugLog('User info response', { status: response.status, ok: response.ok });
+
                 if (!response.ok) {
-                    throw new Error('Invalid or expired token');
+                    throw new Error(`Authentication failed (HTTP ${response.status})`);
                 }
 
                 const data = await response.json();
+                debugLog('User data received', { email: data.user?.email });
                 
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('content').style.display = 'grid';
+                document.getElementById('content').style.display = 'block';
                 document.getElementById('user-badge').textContent = data.user.email;
+
+                // Update API key display
+                updateApiKeyDisplay();
+
+                // If no API key, prompt for it
+                if (!apiKey) {
+                    setTimeout(() => {
+                        promptForApiKey();
+                    }, 500);
+                }
 
                 // Set up agent selection
                 setupAgentSelection();
@@ -425,6 +714,7 @@
                 // Load sample input for first agent
                 loadAgentConfig('csv-analyzer');
             } catch (error) {
+                debugLog('Initialization error', { error: error.message });
                 showError(`Authentication failed: ${error.message}`);
             }
         }
@@ -446,6 +736,8 @@
             currentAgent = agentId;
             const config = agentConfigs[agentId];
             
+            debugLog('Loading agent config', { agentId, config: config.title });
+            
             document.getElementById('agent-title').textContent = config.title;
             document.getElementById('agent-description').textContent = config.description;
             document.getElementById('input-label').textContent = config.inputLabel;
@@ -454,42 +746,153 @@
             document.getElementById('output-box').innerHTML = '<pre>// Output will appear here after running the agent</pre>';
         }
 
-        // Run agent
+        // Run agent with robust error handling
         async function runAgent() {
             const inputField = document.getElementById('input-field');
             const outputBox = document.getElementById('output-box');
             const runBtn = document.getElementById('run-btn');
 
+            // Check for API key
+            if (!apiKey) {
+                outputBox.innerHTML = '<pre style="color: #ef4444;">❌ Error: No API key set. Please click "Change Key" to add your API key.</pre>';
+                promptForApiKey();
+                return;
+            }
+
             let input;
             try {
                 input = JSON.parse(inputField.value);
             } catch (e) {
-                outputBox.innerHTML = '<pre style="color: #ef4444;">Error: Invalid JSON input</pre>';
+                outputBox.innerHTML = '<pre style="color: #ef4444;">❌ Error: Invalid JSON input\n\n' + e.message + '</pre>';
+                debugLog('JSON parse error', { error: e.message });
                 return;
             }
 
             runBtn.disabled = true;
             runBtn.textContent = 'Running...';
-            outputBox.innerHTML = '<pre style="color: #9ca3af;">Calling agent...</pre>';
+            outputBox.innerHTML = '<pre style="color: #9ca3af;">⏳ Calling agent...</pre>';
+
+            const requestUrl = `${API_BASE}/api/v1/marketplace/agents/call`;
+            const requestBody = { 
+                agent_id: currentAgent,
+                input: input 
+            };
+            const requestHeaders = {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+            };
+
+            debugLog('Making agent call', {
+                url: requestUrl,
+                agent: currentAgent,
+                headers: { 'X-API-Key': maskApiKey(apiKey), 'Content-Type': 'application/json' },
+                bodyPreview: JSON.stringify(requestBody).substring(0, 200)
+            });
 
             try {
-                const response = await fetch(`${API_BASE}/api/v1/agents/${currentAgent}/call`, {
+                const startTime = Date.now();
+                const response = await fetch(requestUrl, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ input })
+                    headers: requestHeaders,
+                    body: JSON.stringify(requestBody)
+                });
+                const duration = Date.now() - startTime;
+
+                debugLog('Agent call response', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    duration: `${duration}ms`,
+                    headers: Object.fromEntries(response.headers.entries())
                 });
 
-                const result = await response.json();
-                outputBox.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+                // Get response text first
+                const responseText = await response.text();
+                debugLog('Response body (first 200 chars)', responseText.substring(0, 200));
+
+                // Try to parse as JSON
+                let result;
+                let requestId = response.headers.get('X-Request-ID') || response.headers.get('x-request-id') || 'N/A';
+                
+                try {
+                    result = JSON.parse(responseText);
+                    
+                    if (!response.ok) {
+                        // Error response but valid JSON
+                        const errorHtml = `<pre style="color: #ef4444;">❌ Error: HTTP ${response.status} ${response.statusText}
+
+Request ID: ${requestId}
+
+${JSON.stringify(result, null, 2)}</pre>`;
+                        
+                        outputBox.innerHTML = errorHtml;
+                        
+                        if (debugMode) {
+                            showErrorDetails(response.status, requestId, responseText);
+                        }
+                    } else {
+                        // Success
+                        outputBox.innerHTML = `<pre style="color: #10b981;">✅ Success (${duration}ms)
+
+Request ID: ${requestId}
+
+${JSON.stringify(result, null, 2)}</pre>`;
+                    }
+                } catch (parseError) {
+                    // Not valid JSON - show raw response
+                    const preview = responseText.substring(0, 2048); // First 2KB
+                    const errorHtml = `<pre style="color: #ef4444;">❌ Error: HTTP ${response.status} ${response.statusText}
+
+Request ID: ${requestId}
+
+Failed to parse JSON response. First 2KB of response:
+
+${preview}${responseText.length > 2048 ? '\n\n... (truncated)' : ''}</pre>`;
+                    
+                    outputBox.innerHTML = errorHtml;
+                    
+                    debugLog('JSON parse error', {
+                        error: parseError.message,
+                        responsePreview: preview
+                    });
+                    
+                    if (debugMode) {
+                        showErrorDetails(response.status, requestId, preview);
+                    }
+                }
             } catch (error) {
-                outputBox.innerHTML = `<pre style="color: #ef4444;">Error: ${error.message}</pre>`;
+                const errorHtml = `<pre style="color: #ef4444;">❌ Network Error: ${error.message}
+
+This usually means:
+- The API endpoint is unreachable
+- CORS is blocking the request
+- Network connectivity issue
+
+Check the browser console for more details.</pre>`;
+                
+                outputBox.innerHTML = errorHtml;
+                debugLog('Network error', { error: error.message, stack: error.stack });
+                
+                if (debugMode) {
+                    showErrorDetails(0, 'N/A', error.message);
+                }
             } finally {
                 runBtn.disabled = false;
                 runBtn.textContent = 'Run Agent';
             }
+        }
+
+        // Show error details in debug mode
+        function showErrorDetails(status, requestId, body) {
+            const debugPanel = document.getElementById('debug-panel');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-details';
+            errorDiv.innerHTML = `
+                <div class="error-details-title">🔍 Error Details</div>
+                <div class="error-details-content">Status: ${status}
+Request ID: ${requestId}
+Body Preview: ${body.substring(0, 500)}</div>
+            `;
+            debugPanel.appendChild(errorDiv);
         }
 
         // Export as code
@@ -498,16 +901,16 @@
             let code = '';
 
             if (language === 'curl') {
-                code = `curl -X POST ${API_BASE}/api/v1/agents/${currentAgent}/call \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+                code = `curl -X POST ${API_BASE}/api/v1/marketplace/agents/call \\
+  -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '${input}'`;
+  -d '{"agent_id": "${currentAgent}", "input": ${input}}'`;
             } else if (language === 'python') {
                 code = `from brikk import Brikk
 
 client = Brikk(api_key="YOUR_API_KEY")
 
-result = client.agents.call(
+result = client.marketplace.agents.call(
     agent_id="${currentAgent}",
     input=${input}
 )
@@ -518,7 +921,7 @@ print(result)`;
 
 const client = new Brikk({ apiKey: 'YOUR_API_KEY' });
 
-const result = await client.agents.call({
+const result = await client.marketplace.agents.call({
   agentId: '${currentAgent}',
   input: ${input}
 });
@@ -527,11 +930,11 @@ console.log(result);`;
             }
 
             navigator.clipboard.writeText(code).then(() => {
-                const successDiv = document.getElementById('export-success');
-                successDiv.style.display = 'block';
-                setTimeout(() => {
-                    successDiv.style.display = 'none';
-                }, 3000);
+                alert('Code copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy code. Please copy manually from the console.');
+                console.log(code);
             });
         }
 
@@ -541,7 +944,20 @@ console.log(result);`;
             const errorDiv = document.getElementById('error');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
+            debugLog('Error shown', { message });
         }
+
+        // Handle Enter key in API key modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiKeyInput = document.getElementById('api-key-input');
+            if (apiKeyInput) {
+                apiKeyInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        saveApiKey();
+                    }
+                });
+            }
+        });
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', initPlayground);

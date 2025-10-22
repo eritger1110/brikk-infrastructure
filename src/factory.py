@@ -245,7 +245,7 @@ def create_app() -> Flask:
         @app.route('/static/<path:filename>')
         def serve_static(filename):
             """Serve static files (developer dashboards, etc.)"""
-            static_dir = os.path.join(app.root_path, 'static')  # <— changed from .. to src/static
+            static_dir = os.path.join(app.root_path, 'static')  # Changed from .. to src/static
             return send_from_directory(static_dir, filename)
 
         # Dev routes (not in prod)

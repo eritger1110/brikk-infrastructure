@@ -57,7 +57,7 @@ def main():
         missing_tables = [t for t in phase_7_8_tables if t not in existing_tables]
         
         if not missing_tables:
-            print("✓ All Phase 7 & 8 tables already exist!")
+            print("[OK] All Phase 7 & 8 tables already exist!")
             return 0
         
         print(f"Creating {len(missing_tables)} missing tables:")
@@ -68,7 +68,7 @@ def main():
         # We use create_all() with checkfirst=True to avoid errors
         db.create_all()
         
-        print("✓ Phase 7 & 8 tables created successfully!")
+        print("[OK] Phase 7 & 8 tables created successfully!")
         
         # Verify tables were created
         inspector = inspect(db.engine)
@@ -78,7 +78,7 @@ def main():
         if newly_created:
             print(f"\nNewly created tables ({len(newly_created)}):")
             for table in sorted(newly_created):
-                print(f"  ✓ {table}")
+                print(f"  [OK] {table}")
         
         return 0
 

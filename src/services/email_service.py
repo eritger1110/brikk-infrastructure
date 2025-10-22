@@ -162,7 +162,7 @@ class EmailService:
         </head>
         <body>
             <div class="header">
-                <h1>🎉 Application Received!</h1>
+                <h1>Application Received!</h1>
             </div>
             <div class="content">
                 <p>Hi {name},</p>
@@ -186,7 +186,7 @@ class EmailService:
                 
                 <h3>Join Our Community</h3>
                 <p>While you wait, join our Discord community to connect with other developers and the Brikk team:</p>
-                <a href="https://discord.gg/brikk-ai" class="button">Join Discord →</a>
+                <a href="https://discord.gg/brikk-ai" class="button">Join Discord</a>
                 
                 <h3>Learn More</h3>
                 <p>Check out our documentation to get a head start:</p>
@@ -261,7 +261,7 @@ class EmailService:
         Returns:
             True if email sent successfully
         """
-        subject = "🎉 Welcome to Brikk Beta - Your API Key Inside!"
+        subject = "Welcome to Brikk Beta - Your API Key Inside!"
         
         html_content = f"""
         <!DOCTYPE html>
@@ -334,7 +334,7 @@ class EmailService:
         </head>
         <body>
             <div class="header">
-                <h1>🎉 Welcome to Brikk Beta!</h1>
+                <h1>Welcome to Brikk Beta!</h1>
                 <p>You're approved! Let's build the future of AI agents together.</p>
             </div>
             <div class="content">
@@ -343,7 +343,7 @@ class EmailService:
                 <p>Congratulations! Your application has been approved. You now have full access to the Brikk AI platform during our private beta.</p>
                 
                 <div class="warning">
-                    <strong>⚠️ Important:</strong> This is your API key. Save it securely - you won't be able to see it again!
+                    <strong>Important:</strong> This is your API key. Save it securely - you won't be able to see it again!
                 </div>
                 
                 <div class="api-key">
@@ -351,7 +351,7 @@ class EmailService:
                     {api_key}
                 </div>
                 
-                <h3>🚀 Quick Start (10 Minutes to First Call)</h3>
+                <h3>Quick Start (10 Minutes to First Call)</h3>
                 
                 <p><strong>Step 1:</strong> Install the Brikk SDK</p>
                 <div class="code-block">
@@ -384,36 +384,39 @@ for agent in agents:
     print(f"{{agent.name}}: {{agent.description}}")
                 </div>
                 
-                <h3>🎯 Get Started Now</h3>
+                <h3>Get Started Now</h3>
                 <p>Click these magic links to access your personalized developer portal and try our demo playground:</p>
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="{portal_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">🚀 Open Developer Portal</a>
+                    <a href="{portal_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">Open Developer Portal</a>
                     <br><br>
-                    <a href="{playground_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">🎮 Launch Demo Playground</a>
+                    <a href="{playground_url or '#'}" class="button" style="font-size: 16px; padding: 15px 40px;">Launch Demo Playground</a>
+                </div>
+                <div class="warning" style="margin-top: 20px;">
+                    <strong>About Magic Links:</strong> Your magic links open a 45-minute session to the Developer Portal and Demo Playground. For agent calls in the playground, you'll use the API key shown in the portal (or you can paste it when prompted in the playground).
                 </div>
                 <p style="color: #666; font-size: 13px; text-align: center;">These links are valid for 45 minutes and provide instant access without additional login.</p>
                 
-                <h3>📚 Resources</h3>
-                <a href="https://brikk-infrastructure.onrender.com/docs/quickstart" class="button">Quickstart Guide →</a>
-                <a href="https://brikk-infrastructure.onrender.com/docs" class="button">API Docs →</a>
-                <a href="https://brikk-infrastructure.onrender.com/marketplace" class="button">Marketplace →</a>
+                <h3>Resources</h3>
+                <a href="https://brikk-infrastructure.onrender.com/docs/quickstart" class="button">Quickstart Guide</a>
+                <a href="https://brikk-infrastructure.onrender.com/docs" class="button">API Docs</a>
+                <a href="https://brikk-infrastructure.onrender.com/marketplace" class="button">Marketplace</a>
                 
-                <h3>💬 Join Office Hours</h3>
+                <h3>Join Office Hours</h3>
                 <p>We host weekly office hours where you can ask questions, get help, and connect with other beta users:</p>
                 <ul>
                     <li><strong>When:</strong> Every Wednesday at 2 PM PT</li>
                     <li><strong>Where:</strong> Discord #office-hours channel</li>
                     <li><strong>What:</strong> Live Q&A, demos, and community building</li>
                 </ul>
-                <a href="https://discord.gg/brikk-ai" class="button">Join Discord →</a>
+                <a href="https://discord.gg/brikk-ai" class="button">Join Discord</a>
                 
-                <h3>🎁 Beta Benefits</h3>
+                <h3>Beta Benefits</h3>
                 <ul>
-                    <li>✅ Free, unlimited API access during beta</li>
-                    <li>✅ Direct access to the founding team</li>
-                    <li>✅ Early access to new features</li>
-                    <li>✅ Recognition as a founding developer</li>
-                    <li>✅ Shape our roadmap with your feedback</li>
+                    <li>Free, unlimited API access during beta</li>
+                    <li>Direct access to the founding team</li>
+                    <li>Early access to new features</li>
+                    <li>Recognition as a founding developer</li>
+                    <li>Shape our roadmap with your feedback</li>
                 </ul>
                 
                 <p>We can't wait to see what you build!</p>
@@ -455,7 +458,11 @@ for agent in agents:
         Get Started Now:
         - Developer Portal: {portal_url or 'Check your email for the link'}
         - Demo Playground: {playground_url or 'Check your email for the link'}
-        (These magic links are valid for 45 minutes)
+        
+        About Magic Links:
+        Your magic links open a 45-minute session to the Developer Portal and Demo Playground.
+        For agent calls in the playground, you'll use the API key shown in the portal
+        (or you can paste it when prompted in the playground).
         
         Resources:
         - Quickstart Guide: https://brikk-infrastructure.onrender.com/docs/quickstart
@@ -563,8 +570,8 @@ for agent in agents:
                     <li><strong>Apply again later:</strong> We'll be opening more beta slots in the coming months</li>
                 </ul>
                 
-                <a href="https://discord.gg/brikk-ai" class="button">Join Discord →</a>
-                <a href="https://brikk-infrastructure.onrender.com/docs" class="button">View Docs →</a>
+                <a href="https://discord.gg/brikk-ai" class="button">Join Discord</a>
+                <a href="https://brikk-infrastructure.onrender.com/docs" class="button">View Docs</a>
                 
                 <h3>Public Launch Coming Soon</h3>
                 <p>We're planning a public launch in the near future. When we do, you'll be among the first to know!</p>

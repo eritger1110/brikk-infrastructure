@@ -61,7 +61,7 @@ SEED_AGENTS = [
 def deploy_seed_agents():
     """Deploy seed agents to the marketplace"""
     
-    print("🚀 Deploying Seed Agents to Marketplace\n")
+    print("Deploying Seed Agents to Marketplace\n")
     print("=" * 60)
     
     app = create_app()
@@ -71,13 +71,13 @@ def deploy_seed_agents():
         
         for agent_config in SEED_AGENTS:
             agent_id = agent_config["agent_id"]
-            print(f"\n📦 Processing: {agent_config['name']} ({agent_id})")
+            print(f"\nProcessing: {agent_config['name']} ({agent_id})")
             
             # Check if agent already exists
             existing_agent = Agent.query.filter_by(agent_id=agent_id).first()
             
             if existing_agent:
-                print(f"   ✓ Agent already exists (ID: {existing_agent.id})")
+                print(f"   [OK] Agent already exists (ID: {existing_agent.id})")
                 agent = existing_agent
             else:
                 # Create new agent
@@ -92,20 +92,20 @@ def deploy_seed_agents():
                 )
                 db.session.add(agent)
                 db.session.flush()
-                print(f"   ✓ Agent created (ID: {agent.id})")
+                print(f"   [OK] Agent created (ID: {agent.id})")
             
             # Check if marketplace listing exists
             existing_listing = MarketplaceListing.query.filter_by(agent_id=agent.id).first()
             
             if existing_listing:
-                print(f"   ✓ Marketplace listing already exists")
+                print(f"   [OK] Marketplace listing already exists")
                 # Update listing
                 existing_listing.category = agent_config["category"]
                 existing_listing.tags = agent_config["tags"]
                 existing_listing.pricing_model = agent_config["pricing_model"]
                 existing_listing.is_verified = agent_config["is_verified"]
                 existing_listing.is_featured = agent_config["is_featured"]
-                print(f"   ✓ Marketplace listing updated")
+                print(f"   [OK] Marketplace listing updated")
             else:
                 # Create marketplace listing
                 listing = MarketplaceListing(
@@ -119,7 +119,7 @@ def deploy_seed_agents():
                     average_rating=5.0
                 )
                 db.session.add(listing)
-                print(f"   ✓ Marketplace listing created")
+                print(f"   [OK] Marketplace listing created")
             
             deployed_count += 1
         
@@ -127,14 +127,14 @@ def deploy_seed_agents():
         db.session.commit()
         
         print("\n" + "=" * 60)
-        print(f"\n✅ Successfully deployed {deployed_count} seed agents!")
-        print("\n📊 Marketplace Status:")
+        print(f"\n[OK] Successfully deployed {deployed_count} seed agents!")
+        print("\nMarketplace Status:")
         print(f"   Total Agents: {Agent.query.count()}")
         print(f"   Marketplace Listings: {MarketplaceListing.query.count()}")
         print(f"   Featured Agents: {MarketplaceListing.query.filter_by(is_featured=True).count()}")
         print(f"   Verified Agents: {MarketplaceListing.query.filter_by(is_verified=True).count()}")
         
-        print("\n🔗 Test Marketplace Endpoints:")
+        print("\nTest Marketplace Endpoints:")
         print("   GET /api/v1/marketplace/agents")
         print("   GET /api/v1/marketplace/categories")
         print("   GET /api/v1/marketplace/trending")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     try:
         deploy_seed_agents()
     except Exception as e:
-        print(f"\n❌ Error deploying seed agents: {str(e)}")
+        print(f"\n[ERROR] Error deploying seed agents: {str(e)}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

@@ -17,6 +17,7 @@ from src.models.agent import Agent
 from src.models.reviews import AgentRatingSummary
 from src.utils.feature_flags import FeatureFlagManager, FeatureFlag
 from src.infra.log import get_logger
+from src.services.metrics import get_metrics_service
 
 logger = get_logger(__name__)
 marketplace_bp = Blueprint('marketplace', __name__, url_prefix='/api/v1/marketplace')
@@ -586,4 +587,367 @@ def get_featured_agents():
     except Exception as e:
         logger.error(f"Error getting featured agents: {str(e)}")
         return jsonify({'error': 'internal_error', 'message': str(e)}), 500
+
+
+
+# =============================================================================
+# AGENT EXECUTION ENDPOINT
+# =============================================================================
+
+def require_api_key():
+    """Require API key authentication"""
+    api_key = request.headers.get('X-API-Key')
+    if not api_key:
+        return jsonify({'error': 'auth_required', 'message': 'X-API-Key header required'}), 401
+    
+    if not api_key.startswith('sk_beta_'):
+        return jsonify({'error': 'invalid_key', 'message': 'Invalid API key format'}), 401
+    
+    # TODO: Validate API key against database
+    # For now, accept any key that starts with sk_beta_
+    return None
+
+
+@marketplace_bp.route('/agents/call', methods=['POST'])
+def call_agent():
+    """
+    Execute an agent with the provided input
+    
+    Headers:
+    - X-API-Key: API key for authentication
+    
+    Request Body:
+    {
+        "agent_id": "csv-analyzer",
+        "input": {
+            "file_url": "https://example.com/data.csv",
+            "analyze": ["trends", "outliers"]
+        }
+    }
+    
+    Response:
+    {
+        "success": true,
+        "agent_id": "csv-analyzer",
+        "result": {
+            "summary": "...",
+            "insights": [...],
+            "trends": [...]
+        },
+        "execution_time_ms": 1234,
+        "request_id": "req_..."
+    }
+    """
+    # Require API key
+    auth_error = require_api_key()
+    if auth_error:
+        return auth_error
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'validation_error', 'message': 'Request body required'}), 400
+        
+        agent_id = data.get('agent_id')
+        agent_input = data.get('input')
+        
+        if not agent_id:
+            return jsonify({'error': 'validation_error', 'message': 'agent_id is required'}), 400
+        
+        if not agent_input:
+            return jsonify({'error': 'validation_error', 'message': 'input is required'}), 400
+        
+        # Generate request ID
+        import uuid
+        request_id = f"req_{uuid.uuid4().hex[:16]}"
+        
+        # Log the request
+        logger.info(f"Agent call request: agent_id={agent_id}, request_id={request_id}")
+        
+        # Execute agent based on agent_id
+        # For Phase 8.5, we'll implement mock responses for the three seed agents
+        start_time = datetime.now(timezone.utc)
+        status = 'success'
+        
+        try:
+            if agent_id == 'csv-analyzer':
+                result = execute_csv_analyzer(agent_input)
+            elif agent_id == 'email-summarizer':
+                result = execute_email_summarizer(agent_input)
+            elif agent_id == 'code-reviewer':
+                result = execute_code_reviewer(agent_input)
+            else:
+                status = 'error'
+                # Record metrics
+                metrics_service = get_metrics_service()
+                if metrics_service:
+                    metrics_service.record_playground_agent_run(agent_id, status)
+                
+                return jsonify({
+                    'error': 'not_found',
+                    'message': f'Agent "{agent_id}" not found',
+                    'request_id': request_id
+                }), 404
+            
+            end_time = datetime.now(timezone.utc)
+            execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
+            
+            # Record successful metrics
+            metrics_service = get_metrics_service()
+            if metrics_service:
+                metrics_service.record_playground_agent_run(agent_id, status)
+            
+            # Return successful response
+            response = jsonify({
+                'success': True,
+                'agent_id': agent_id,
+                'result': result,
+                'execution_time_ms': execution_time_ms,
+                'request_id': request_id
+            })
+            
+            # Add request ID to response headers
+            response.headers['X-Request-ID'] = request_id
+            
+            return response, 200
+        
+        except ValueError as ve:
+            status = 'error'
+            # Record error metrics
+            metrics_service = get_metrics_service()
+            if metrics_service:
+                metrics_service.record_playground_agent_run(agent_id, status)
+            raise ve
+        
+    except ValueError as e:
+        logger.error(f"Validation error in agent call: {str(e)}")
+        return jsonify({
+            'error': 'validation_error',
+            'message': str(e),
+            'request_id': request_id if 'request_id' in locals() else 'unknown'
+        }), 400
+    except Exception as e:
+        logger.error(f"Error executing agent: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'execution_error',
+            'message': str(e),
+            'request_id': request_id if 'request_id' in locals() else 'unknown'
+        }), 500
+
+
+# =============================================================================
+# AGENT EXECUTION IMPLEMENTATIONS (MOCK FOR DEMO)
+# =============================================================================
+
+def execute_csv_analyzer(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Execute CSV Analyzer agent
+    
+    Expected input:
+    {
+        "file_url": "https://example.com/data.csv",
+        "analyze": ["trends", "outliers"]
+    }
+    """
+    file_url = input_data.get('file_url')
+    analyze = input_data.get('analyze', ['summary'])
+    
+    if not file_url:
+        raise ValueError('file_url is required for CSV Analyzer')
+    
+    # Mock response for demo
+    return {
+        'summary': {
+            'total_rows': 1247,
+            'total_columns': 8,
+            'file_size_kb': 156,
+            'data_types': {
+                'numeric': 5,
+                'text': 2,
+                'date': 1
+            }
+        },
+        'insights': [
+            'Revenue shows strong upward trend in Q4',
+            'Customer acquisition cost decreased by 23%',
+            'Churn rate is below industry average at 4.2%'
+        ],
+        'trends': [
+            {
+                'metric': 'revenue',
+                'direction': 'increasing',
+                'change_percent': 34.5,
+                'confidence': 0.92
+            },
+            {
+                'metric': 'customer_count',
+                'direction': 'increasing',
+                'change_percent': 18.3,
+                'confidence': 0.88
+            }
+        ],
+        'outliers': [
+            {
+                'row': 342,
+                'column': 'revenue',
+                'value': 125000,
+                'expected_range': [15000, 45000],
+                'note': 'Possible large enterprise deal'
+            }
+        ],
+        'recommendations': [
+            'Focus marketing efforts on Q4 campaigns',
+            'Investigate outlier transactions for accuracy',
+            'Consider expanding to similar market segments'
+        ]
+    }
+
+
+def execute_email_summarizer(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Execute Email Summarizer agent
+    
+    Expected input:
+    {
+        "emails": [
+            {
+                "from": "john@example.com",
+                "subject": "Project Update",
+                "body": "..."
+            }
+        ]
+    }
+    """
+    emails = input_data.get('emails', [])
+    
+    if not emails:
+        raise ValueError('emails array is required for Email Summarizer')
+    
+    if not isinstance(emails, list):
+        raise ValueError('emails must be an array')
+    
+    # Mock response for demo
+    return {
+        'summary': 'Thread discusses Q4 project timeline and resource allocation. Team is on track but needs additional design resources.',
+        'key_points': [
+            'Project deadline: December 15th',
+            'Design team needs 2 additional members',
+            'Budget approved for external contractors',
+            'Weekly status meetings scheduled for Fridays'
+        ],
+        'action_items': [
+            {
+                'task': 'Hire 2 contract designers',
+                'assignee': 'Sarah (HR)',
+                'deadline': '2025-11-01',
+                'priority': 'high'
+            },
+            {
+                'task': 'Prepare Q4 budget report',
+                'assignee': 'Mike (Finance)',
+                'deadline': '2025-10-30',
+                'priority': 'medium'
+            },
+            {
+                'task': 'Schedule Friday status meetings',
+                'assignee': 'Jennifer (PM)',
+                'deadline': '2025-10-25',
+                'priority': 'low'
+            }
+        ],
+        'sentiment': {
+            'overall': 'positive',
+            'confidence': 0.85,
+            'tone': 'professional and collaborative'
+        },
+        'participants': [
+            {'email': 'john@example.com', 'role': 'sender', 'engagement': 'high'},
+            {'email': 'sarah@example.com', 'role': 'mentioned', 'engagement': 'medium'},
+            {'email': 'mike@example.com', 'role': 'mentioned', 'engagement': 'medium'}
+        ],
+        'thread_length': len(emails),
+        'estimated_read_time_minutes': 3
+    }
+
+
+def execute_code_reviewer(input_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Execute Code Reviewer agent
+    
+    Expected input:
+    {
+        "language": "python",
+        "code": "def calculate_total(items):\\n    ..."
+    }
+    """
+    language = input_data.get('language')
+    code = input_data.get('code')
+    
+    if not language:
+        raise ValueError('language is required for Code Reviewer')
+    
+    if not code:
+        raise ValueError('code is required for Code Reviewer')
+    
+    # Mock response for demo
+    return {
+        'overall_quality': {
+            'score': 7.5,
+            'grade': 'B',
+            'summary': 'Good code structure with room for optimization'
+        },
+        'issues': [
+            {
+                'severity': 'medium',
+                'type': 'performance',
+                'line': 3,
+                'message': 'Consider using list comprehension instead of loop',
+                'suggestion': "total = sum(item['price'] for item in items)"
+            },
+            {
+                'severity': 'low',
+                'type': 'style',
+                'line': 1,
+                'message': 'Add type hints for better code clarity',
+                'suggestion': 'def calculate_total(items: List[Dict[str, float]]) -> float:'
+            }
+        ],
+        'strengths': [
+            'Clear function name that describes purpose',
+            'Simple and readable logic',
+            'No obvious security vulnerabilities'
+        ],
+        'suggestions': [
+            {
+                'category': 'performance',
+                'description': 'Use built-in sum() function for better performance',
+                'impact': 'medium',
+                'effort': 'low'
+            },
+            {
+                'category': 'error_handling',
+                'description': 'Add validation for empty items list',
+                'impact': 'low',
+                'effort': 'low'
+            },
+            {
+                'category': 'documentation',
+                'description': 'Add docstring explaining parameters and return value',
+                'impact': 'low',
+                'effort': 'low'
+            }
+        ],
+        'complexity': {
+            'cyclomatic': 2,
+            'cognitive': 3,
+            'maintainability_index': 78
+        },
+        'best_practices': {
+            'follows_pep8': True,
+            'has_docstring': False,
+            'has_type_hints': False,
+            'has_tests': False
+        }
+    }
 

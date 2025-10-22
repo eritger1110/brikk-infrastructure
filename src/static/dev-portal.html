@@ -387,7 +387,8 @@ console.log(result);</pre>
                 <h2>Resources</h2>
                 <ul style="list-style: none; padding: 0;">
                     <li style="padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-                        <a href="https://docs.getbrikk.com" class="link" target="_blank">📚 API Documentation</a>
+                        <a href="/api/docs" class="link" target="_blank">📚 API Documentation</a>
+                        <!-- TODO: When docs.getbrikk.com is ready, update this link -->
                     </li>
                     <li style="padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
                         <a href="/static/playground.html#token=" class="link" id="playground-link">🎮 Demo Playground</a>
@@ -465,6 +466,18 @@ console.log(result);</pre>
                     userData.usage = usageData.usage;
                 }
 
+                // Fetch API key
+                const apiKeyResponse = await fetch(`${API_BASE}/api/v1/usage/api-key`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (apiKeyResponse.ok) {
+                    const apiKeyData = await apiKeyResponse.json();
+                    userData.apiKey = apiKeyData.api_key;
+                }
+
                 displayUserData();
             } catch (error) {
                 showError(`Authentication failed: ${error.message}`);
@@ -490,6 +503,11 @@ console.log(result);</pre>
                 document.getElementById('stat-total').textContent = userData.usage.total_api_calls;
                 document.getElementById('stat-agents').textContent = userData.usage.agents_used;
             }
+
+            // Display API key if available
+            if (userData.apiKey) {
+                document.getElementById('api-key').textContent = userData.apiKey;
+            }
         }
 
         // Show error
@@ -502,13 +520,18 @@ console.log(result);</pre>
 
         // Copy API key
         function copyApiKey() {
-            // In a real implementation, this would copy the actual API key
-            // For now, we'll show a message
-            const successDiv = document.getElementById('copy-success');
-            successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 3000);
+            const apiKey = userData.apiKey || document.getElementById('api-key').textContent;
+            
+            navigator.clipboard.writeText(apiKey).then(() => {
+                const successDiv = document.getElementById('copy-success');
+                successDiv.style.display = 'block';
+                setTimeout(() => {
+                    successDiv.style.display = 'none';
+                }, 3000);
+            }).catch(err => {
+                console.error('Failed to copy API key:', err);
+                alert('Failed to copy API key. Please copy manually.');
+            });
         }
 
         // Show tab

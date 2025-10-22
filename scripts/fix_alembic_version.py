@@ -35,9 +35,9 @@ def fix_alembic_version():
             print(f"Detected deleted migration {current_version}, fixing...")
             conn.execute(text("UPDATE alembic_version SET version_num = 'p7_comprehensive'"))
             conn.commit()
-            print("✓ Updated alembic_version to p7_comprehensive")
+            print("[OK] Updated alembic_version to p7_comprehensive")
         else:
-            print(f"✓ Version {current_version} is valid, no fix needed")
+            print(f"[OK] Version {current_version} is valid, no fix needed")
 
 if __name__ == '__main__':
     fix_alembic_version()
