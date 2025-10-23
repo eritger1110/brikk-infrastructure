@@ -137,23 +137,41 @@ def create_app() -> Flask:
     # --- JWT cookies ---
     JWTManager(app)
 
-    # --- CORS ---
-    # Allow specific origins for /api/* routes
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": [
-                "https://beta.getbrikk.com",  # New canonical beta URL
-                "https://brikk-beta.manus.space",  # Backup Manus URL
-                "https://getbrikk.com",  # Marketing site
-                "http://localhost:3000",  # For local development
-                "http://localhost:5000",  # For local development
-                "http://localhost:8000"   # For local development
-            ],
+    # --- CORS (env-driven) ---
+    def _collect_origins() -> list[str]:
+        envs = [
+            os.getenv("CORS_ORIGINS", ""),
+            os.getenv("CORS_ALLOWED_ORIGINS", ""),
+            os.getenv("CORS_ALLOW_ORIGIN", ""),
+        ]
+        pieces = [o.strip() for e in envs for o in e.split(",") if o.strip()]
+        defaults = [
+            "https://beta.getbrikk.com",
+            "https://www.getbrikk.com",
+            "https://getbrikk.com",
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:8000",
+            "https://brikk-beta.manus.space",  # temporary during transition
+        ]
+        origins = list(dict.fromkeys(defaults + pieces))  # uniq, keep order
+        return origins
+
+    CORS(
+        app,
+        resources={r"/api/*": {
+            "origins": _collect_origins(),
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
-            "supports_credentials": False
-        }
-    })
+            "supports_credentials": False,
+            "max_age": 600,
+        }}
+    )
+
+    # Universal preflight: ensures Flask-CORS attaches headers everywhere
+    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
+    def api_preflight(_sub):  # pragma: no cover
+        return ("", 204)
 
     # --- Initialize observability ---
     init_logging(app)
