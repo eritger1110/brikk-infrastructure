@@ -138,23 +138,32 @@ def create_app() -> Flask:
     JWTManager(app)
 
     # --- CORS ---
-    # Allow specific origins for /api/* routes
+    # Environment-driven CORS configuration
+    cors_origins_str = os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "https://beta.getbrikk.com,https://api.getbrikk.com,https://brikk-website.netlify.app,https://www.getbrikk.com,https://getbrikk.com,http://localhost:3000"
+    )
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+    
     CORS(app, resources={
         r"/api/*": {
-            "origins": [
-                "https://beta.getbrikk.com",  # New canonical beta URL
-                "https://brikk-beta.manus.space",  # Backup Manus URL
-                "https://getbrikk.com",  # Marketing site
-                "http://localhost:3000",  # For local development
-                "http://localhost:5000",  # For local development
-                "http://localhost:8000"   # For local development
-            ],
+            "origins": cors_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": False
         }
     })
 
+    # --- Universal OPTIONS preflight handler ---
+    @app.after_request
+    def add_cors_headers(response):
+        """Add CORS headers to all responses for preflight support"""
+        origin = os.environ.get("CORS_ALLOW_ORIGIN", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+        return response
+    
     # --- Initialize observability ---
     init_logging(app)
     init_request_context(app)
@@ -238,6 +247,10 @@ def create_app() -> Flask:
         from src.routes import magic_link, usage
         app.register_blueprint(magic_link.bp)
         app.register_blueprint(usage.bp)
+        
+        # Phase 8.5: OpenAI Relay Agent
+        from src.agents import openai_relay
+        app.register_blueprint(openai_relay.bp)
         
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
