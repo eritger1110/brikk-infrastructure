@@ -150,9 +150,15 @@ def create_app() -> Flask:
             "origins": cors_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
-            "supports_credentials": False
-        }
-    })
+            "supports_credentials": False,
+            "max_age": 600,
+        }}
+    )
+
+    # Universal preflight: ensures Flask-CORS attaches headers everywhere
+    @app.route("/api/<path:_sub>", methods=["OPTIONS"])
+    def api_preflight(_sub):  # pragma: no cover
+        return ("", 204)
 
     # --- Universal OPTIONS preflight handler ---
     @app.after_request
