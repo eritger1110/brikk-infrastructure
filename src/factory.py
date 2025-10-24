@@ -258,6 +258,10 @@ def create_app() -> Flask:
         from src.agents import openai_relay
         app.register_blueprint(openai_relay.bp)
         
+        # Phase 5-6: Agent Registry & Bridge
+        from src.routes import agents_v2
+        app.register_blueprint(agents_v2.bp)
+        
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
         from flask import send_from_directory
@@ -266,6 +270,12 @@ def create_app() -> Flask:
             """Serve static files (developer dashboards, etc.)"""
             static_dir = os.path.join(app.root_path, 'static')  # Changed from .. to src/static
             return send_from_directory(static_dir, filename)
+        
+        @app.route('/sandbox/bridge')
+        def bridge_demo():
+            """Serve the agent bridge demo page"""
+            static_dir = os.path.join(app.root_path, 'static')
+            return send_from_directory(static_dir, 'bridge.html')
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
@@ -300,5 +310,9 @@ def create_app() -> Flask:
         
         # Seed system accounts (safe if tables don't exist)
         _seed_system_accounts()
+        
+        # Initialize default agents (Phase 5-6)
+        from src.services.init_agents import init_default_agents
+        init_default_agents()
 
     return app
