@@ -137,30 +137,17 @@ def create_app() -> Flask:
     # --- JWT cookies ---
     JWTManager(app)
 
-    # --- CORS (env-driven) ---
-    def _collect_origins() -> list[str]:
-        envs = [
-            os.getenv("CORS_ORIGINS", ""),
-            os.getenv("CORS_ALLOWED_ORIGINS", ""),
-            os.getenv("CORS_ALLOW_ORIGIN", ""),
-        ]
-        pieces = [o.strip() for e in envs for o in e.split(",") if o.strip()]
-        defaults = [
-            "https://beta.getbrikk.com",
-            "https://www.getbrikk.com",
-            "https://getbrikk.com",
-            "http://localhost:3000",
-            "http://localhost:5000",
-            "http://localhost:8000",
-            "https://brikk-beta.manus.space",  # temporary during transition
-        ]
-        origins = list(dict.fromkeys(defaults + pieces))  # uniq, keep order
-        return origins
-
-    CORS(
-        app,
-        resources={r"/api/*": {
-            "origins": _collect_origins(),
+    # --- CORS ---
+    # Environment-driven CORS configuration
+    cors_origins_str = os.environ.get(
+        "CORS_ALLOWED_ORIGINS",
+        "https://beta.getbrikk.com,https://api.getbrikk.com,https://brikk-website.netlify.app,https://www.getbrikk.com,https://getbrikk.com,http://localhost:3000"
+    )
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
+    
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": cors_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": False,
@@ -173,6 +160,16 @@ def create_app() -> Flask:
     def api_preflight(_sub):  # pragma: no cover
         return ("", 204)
 
+    # --- Universal OPTIONS preflight handler ---
+    @app.after_request
+    def add_cors_headers(response):
+        """Add CORS headers to all responses for preflight support"""
+        origin = os.environ.get("CORS_ALLOW_ORIGIN", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+        return response
+    
     # --- Initialize observability ---
     init_logging(app)
     init_request_context(app)
@@ -256,6 +253,10 @@ def create_app() -> Flask:
         from src.routes import magic_link, usage
         app.register_blueprint(magic_link.bp)
         app.register_blueprint(usage.bp)
+        
+        # Phase 8.5: OpenAI Relay Agent
+        from src.agents import openai_relay
+        app.register_blueprint(openai_relay.bp)
         
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
