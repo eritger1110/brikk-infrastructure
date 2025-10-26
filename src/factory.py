@@ -262,6 +262,10 @@ def create_app() -> Flask:
         from src.routes import agents_v2
         app.register_blueprint(agents_v2.bp)
         
+        # Phase 9: Multi-Provider Orchestration
+        from src.routes import multi_provider
+        app.register_blueprint(multi_provider.bp)
+        
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
         from flask import send_from_directory
@@ -276,6 +280,12 @@ def create_app() -> Flask:
             """Serve the agent bridge demo page"""
             static_dir = os.path.join(app.root_path, 'static')
             return send_from_directory(static_dir, 'bridge.html')
+        
+        @app.route('/sandbox/multi-provider')
+        def multi_provider_playground():
+            """Serve the multi-provider playground page"""
+            static_dir = os.path.join(app.root_path, 'static')
+            return send_from_directory(static_dir, 'multi-provider.html')
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Provider Playground - Brikk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #9ca3af;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .provider-status {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .provider-badge {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .provider-badge.available {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .provider-badge.unavailable {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.green {
+            background: #10b981;
+        }
+
+        .status-dot.red {
+            background: #ef4444;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+
+        textarea, select, input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            color: #e0e0e0;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        textarea:focus, select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .result-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .result-meta {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .meta-badge.provider-openai {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .meta-badge.provider-mistral {
+            background: rgba(249, 115, 22, 0.2);
+            color: #f97316;
+        }
+
+        .meta-badge.fallback {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+        }
+
+        .result-message {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .copy-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-copy {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-copy:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="logo">Brikk Multi-Provider Playground</div>
+                <div class="subtitle">Test OpenAI, Mistral, and intelligent routing with fallback</div>
+                <div class="provider-status" id="providerStatus">
+                    <div class="provider-badge unavailable">
+                        <span class="status-dot red"></span>
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <div class="panel-title">Request Configuration</div>
+                
+                <div class="form-group">
+                    <label>Message</label>
+                    <textarea id="message" placeholder="Enter your message...">Explain how AI agents can collaborate across different platforms.</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Language</label>
+                    <select id="language">
+                        <option value="en">English (en)</option>
+                        <option value="es">Spanish (es)</option>
+                        <option value="ja">Japanese (ja)</option>
+                        <option value="ar">Arabic (ar)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Hint</label>
+                    <select id="hint">
+                        <option value="balanced">Balanced</option>
+                        <option value="cheap">Cheap</option>
+                        <option value="quality">Quality</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Force Provider (optional)</label>
+                    <select id="forceProvider">
+                        <option value="">Auto (use router)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="mistral">Mistral</option>
+                    </select>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="runRouter()">Run via Router</button>
+                    <button class="btn-secondary" onclick="runOpenAI()">Run OpenAI</button>
+                    <button class="btn-secondary" onclick="runMistral()">Run Mistral</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Response</div>
+                <div id="resultContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentResult = null;
+
+        // Load provider status on page load
+        async function loadProviderStatus() {
+            try {
+                const response = await fetch('/health/providers');
+                const data = await response.json();
+                
+                const statusHtml = Object.entries(data).map(([provider, info]) => {
+                    const available = info.configured;
+                    const statusClass = available ? 'available' : 'unavailable';
+                    const dotClass = available ? 'green' : 'red';
+                    const model = info.model || 'not configured';
+                    
+                    return `
+                        <div class="provider-badge ${statusClass}">
+                            <span class="status-dot ${dotClass}"></span>
+                            ${provider.toUpperCase()}: ${model}
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('providerStatus').innerHTML = statusHtml;
+            } catch (error) {
+                document.getElementById('providerStatus').innerHTML = `
+                    <div class="provider-badge unavailable">
+                        <span class="status-dot red"></span>
+                        Error loading status
+                    </div>
+                `;
+            }
+        }
+
+        async function runRouter() {
+            const message = document.getElementById('message').value;
+            const language = document.getElementById('language').value;
+            const hint = document.getElementById('hint').value;
+            const forceProvider = document.getElementById('forceProvider').value;
+
+            showLoading();
+
+            try {
+                const body = {
+                    message,
+                    language,
+                    hint
+                };
+
+                if (forceProvider) {
+                    body.policy = forceProvider;
+                }
+
+                const response = await fetch('/agents/route/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                currentResult = { endpoint: '/agents/route/chat', body, response: data };
+                displayResult(data);
+            } catch (error) {
+                displayError(error.message);
+            }
+        }
+
+        async function runOpenAI() {
+            const message = document.getElementById('message').value;
+            showLoading();
+
+            try {
+                const body = { message };
+                const response = await fetch('/agents/openai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                
+                // Normalize response format
+                const normalized = {
+                    provider: 'openai',
+                    message: data.output || data.message,
+                    request_id: data.request_id,
+                    fallback: false
+                };
+
+                currentResult = { endpoint: '/agents/openai/chat', body, response: normalized };
+                displayResult(normalized);
+            } catch (error) {
+                displayError(error.message);
+            }
+        }
+
+        async function runMistral() {
+            const message = document.getElementById('message').value;
+            showLoading();
+
+            try {
+                const body = { message };
+                const response = await fetch('/agents/mistral/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                currentResult = { endpoint: '/agents/mistral/chat', body, response: data };
+                displayResult(data);
+            } catch (error) {
+                displayError(error.message);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('resultContainer').innerHTML = `
+                <div class="result-panel">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="loading"></span>
+                        <span>Processing request...</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayResult(data) {
+            const providerClass = `provider-${data.provider}`;
+            const fallbackBadge = data.fallback ? '<span class="meta-badge fallback">FALLBACK</span>' : '';
+            
+            const html = `
+                <div class="result-panel">
+                    <div class="result-header">
+                        <div class="result-meta">
+                            <span class="meta-badge ${providerClass}">${data.provider.toUpperCase()}</span>
+                            ${data.model ? `<span class="meta-badge">${data.model}</span>` : ''}
+                            ${fallbackBadge}
+                            ${data.latency_ms ? `<span class="meta-badge">${data.latency_ms}ms</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="result-message">${data.message || data.error || 'No response'}</div>
+                    ${data.usage ? `
+                        <div style="margin-top: 12px; font-size: 12px; color: #9ca3af;">
+                            Tokens: ${data.usage.total_tokens || 0} (prompt: ${data.usage.prompt_tokens || 0}, completion: ${data.usage.completion_tokens || 0})
+                        </div>
+                    ` : ''}
+                    ${data.request_id ? `
+                        <div style="margin-top: 8px; font-size: 11px; color: #6b7280; font-family: monospace;">
+                            Request ID: ${data.request_id}
+                        </div>
+                    ` : ''}
+                    <div class="copy-buttons">
+                        <button class="btn-copy" onclick="copyCurl()">Copy as cURL</button>
+                        <button class="btn-copy" onclick="copyJS()">Copy as JS</button>
+                        <button class="btn-copy" onclick="copyPython()">Copy as Python</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('resultContainer').innerHTML = html;
+        }
+
+        function displayError(message) {
+            document.getElementById('resultContainer').innerHTML = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+        }
+
+        function copyCurl() {
+            if (!currentResult) return;
+            const { endpoint, body } = currentResult;
+            const curl = `curl -X POST https://api.getbrikk.com${endpoint} \\
+  -H "Content-Type: application/json" \\
+  -d '${JSON.stringify(body)}'`;
+            navigator.clipboard.writeText(curl);
+            alert('cURL command copied to clipboard!');
+        }
+
+        function copyJS() {
+            if (!currentResult) return;
+            const { endpoint, body } = currentResult;
+            const js = `const response = await fetch('https://api.getbrikk.com${endpoint}', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(${JSON.stringify(body, null, 2)})
+});
+const data = await response.json();`;
+            navigator.clipboard.writeText(js);
+            alert('JavaScript code copied to clipboard!');
+        }
+
+        function copyPython() {
+            if (!currentResult) return;
+            const { endpoint, body } = currentResult;
+            const python = `import requests
+
+response = requests.post(
+    'https://api.getbrikk.com${endpoint}',
+    headers={'Content-Type': 'application/json'},
+    json=${JSON.stringify(body, null, 4)}
+)
+data = response.json()`;
+            navigator.clipboard.writeText(python);
+            alert('Python code copied to clipboard!');
+        }
+
+        // Load provider status on page load
+        loadProviderStatus();
+    </script>
+</body>
+</html>
+
