@@ -280,6 +280,12 @@ def create_app() -> Flask:
             """Serve the agent bridge demo page"""
             static_dir = os.path.join(app.root_path, 'static')
             return send_from_directory(static_dir, 'bridge.html')
+        
+        @app.route('/sandbox/multi-provider')
+        def multi_provider_playground():
+            """Serve the multi-provider playground page"""
+            static_dir = os.path.join(app.root_path, 'static')
+            return send_from_directory(static_dir, 'multi-provider.html')
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
