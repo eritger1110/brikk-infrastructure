@@ -262,6 +262,10 @@ def create_app() -> Flask:
         from src.routes import agents_v2
         app.register_blueprint(agents_v2.bp)
         
+        # Phase 9: Multi-Provider Orchestration
+        from src.routes import multi_provider
+        app.register_blueprint(multi_provider.bp)
+        
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
         from flask import send_from_directory
