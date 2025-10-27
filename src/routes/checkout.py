@@ -18,7 +18,7 @@ def _json():
     return (request.get_json(silent=True) or {}) if request.data else {}
 
 
-@checkout_bp.route("/api/checkout/create-session", methods=["POST", "OPTIONS"])
+@checkout_bp.route("/checkout/create-session", methods=["POST", "OPTIONS"])
 def create_checkout_session():
     """Creates a Stripe Checkout session for subscription signup."""
     if request.method == "OPTIONS":

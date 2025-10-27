@@ -302,7 +302,7 @@ def create_app() -> Flask:
         # Phase 10-12: Stripe Webhooks & Checkout
         from src.routes import stripe_webhooks, checkout
         app.register_blueprint(stripe_webhooks.stripe_webhooks_bp)
-        app.register_blueprint(checkout.checkout_bp)
+        app.register_blueprint(checkout.checkout_bp, url_prefix="/api")
         app.register_blueprint(multi_provider.bp)
         
         # Phase 10-12: Production-Ready (Usage, Keys, Health V2)
