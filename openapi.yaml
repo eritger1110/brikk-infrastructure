@@ -1,0 +1,491 @@
+openapi: 3.0.3
+info:
+  title: Brikk API
+  description: |
+    The Brikk API enables AI agents to transact, communicate, and coordinate across the web through a secure, standardized platform.
+    
+    ## Authentication
+    
+    All endpoints require an API key passed in the `X-Brikk-API-Key` header:
+    
+    ```
+    X-Brikk-API-Key: brikk_your_api_key_here
+    ```
+    
+    ## Rate Limiting
+    
+    API requests are rate-limited per API key. Rate limit information is returned in response headers:
+    
+    - `X-RateLimit-Limit`: Maximum requests allowed per minute
+    - `X-RateLimit-Remaining`: Requests remaining in current window
+    - `X-RateLimit-Reset`: Unix timestamp when the rate limit resets
+    
+    ## Budget Enforcement
+    
+    Each API key has soft and hard budget caps. Budget information is returned in response headers:
+    
+    - `X-Brikk-Usage-Today`: Total cost (USD) for today
+    - `X-Brikk-Soft-Cap-Exceeded`: Boolean indicating if soft cap exceeded
+    
+    When the hard cap is exceeded, requests will return `429 Too Many Requests`.
+    
+  version: 2.0.0
+  contact:
+    name: Brikk Support
+    url: https://getbrikk.com
+    email: support@getbrikk.com
+  license:
+    name: Proprietary
+    
+servers:
+  - url: https://api.getbrikk.com
+    description: Production server
+  - url: http://localhost:5000
+    description: Local development server
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Agents
+    description: AI agent relay endpoints
+  - name: Usage
+    description: Usage tracking and billing
+  - name: Keys
+    description: API key management
+  - name: Health
+    description: System health and monitoring
+
+paths:
+  /agents/openai/chat:
+    post:
+      tags:
+        - Agents
+      summary: Chat with OpenAI
+      description: Send a message to OpenAI's GPT models
+      operationId: chatOpenAI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              simple:
+                summary: Simple chat
+                value:
+                  message: "Explain quantum computing"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /agents/mistral/chat:
+    post:
+      tags:
+        - Agents
+      summary: Chat with Mistral AI
+      description: Send a message to Mistral AI models
+      operationId: chatMistral
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+  /agents/route/chat:
+    post:
+      tags:
+        - Agents
+      summary: Route chat to best provider
+      description: Intelligently route chat request to the best provider based on language and hint
+      operationId: chatRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouterChatRequest'
+            examples:
+              spanish:
+                summary: Spanish request
+                value:
+                  message: "Explica la inteligencia artificial"
+                  language: "es"
+                  hint: "balanced"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouterChatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v2/usage/me:
+    get:
+      tags:
+        - Usage
+      summary: Get my usage
+      description: Get usage summary for the current API key (today, week, month)
+      operationId: getMyUsage
+      responses:
+        '200':
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /keys/me:
+    get:
+      tags:
+        - Keys
+      summary: Get my API key info
+      description: Get information about the current API key (never returns the actual key)
+      operationId: getMyKey
+      responses:
+        '200':
+          description: API key information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /keys/rotate:
+    post:
+      tags:
+        - Keys
+      summary: Rotate API key
+      description: Rotate the current API key and receive a new one (only time the new key is visible)
+      operationId: rotateKey
+      responses:
+        '200':
+          description: Key rotated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyRotateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v2/health/status:
+    get:
+      tags:
+        - Health
+      summary: Get system status
+      description: Get comprehensive system health status
+      operationId: getHealthStatus
+      security: []
+      responses:
+        '200':
+          description: System status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /v2/health/providers:
+    get:
+      tags:
+        - Health
+      summary: Get provider status
+      description: Get availability status of all AI providers
+      operationId: getProviderStatus
+      security: []
+      responses:
+        '200':
+          description: Provider status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderStatus'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Brikk-API-Key
+      description: API key for authentication
+
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The message to send to the AI
+          example: "Explain quantum computing in simple terms"
+        max_tokens:
+          type: integer
+          description: Maximum tokens in response
+          default: 500
+          example: 1000
+
+    RouterChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The message to send
+        language:
+          type: string
+          enum: [en, es, ja, ar]
+          description: Language hint for routing
+          default: en
+        hint:
+          type: string
+          enum: [cheap, balanced, quality]
+          description: Routing hint
+          default: balanced
+        force_provider:
+          type: string
+          enum: [openai, mistral]
+          description: Force a specific provider
+        max_tokens:
+          type: integer
+          default: 500
+
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: AI response
+        provider:
+          type: string
+          description: Provider used
+          example: "openai"
+        model:
+          type: string
+          description: Model used
+          example: "gpt-4o-mini"
+        latency_ms:
+          type: integer
+          description: Response latency in milliseconds
+        tokens:
+          type: object
+          properties:
+            prompt:
+              type: integer
+            completion:
+              type: integer
+            total:
+              type: integer
+
+    RouterChatResponse:
+      allOf:
+        - $ref: '#/components/schemas/ChatResponse'
+        - type: object
+          properties:
+            fallback:
+              type: boolean
+              description: Whether fallback was used
+
+    UsageSummary:
+      type: object
+      properties:
+        api_key_id:
+          type: integer
+        api_key_prefix:
+          type: string
+        plan:
+          type: string
+        today:
+          type: object
+          properties:
+            cost_usd:
+              type: number
+              format: float
+            requests:
+              type: integer
+            tokens:
+              type: integer
+            avg_latency_ms:
+              type: number
+            by_provider:
+              type: object
+        this_week:
+          type: object
+          properties:
+            cost_usd:
+              type: number
+        this_month:
+          type: object
+          properties:
+            cost_usd:
+              type: number
+        limits:
+          type: object
+          properties:
+            soft_cap_usd:
+              type: number
+            hard_cap_usd:
+              type: number
+            rate_limit_per_min:
+              type: integer
+        status:
+          type: object
+          properties:
+            soft_cap_exceeded:
+              type: boolean
+            hard_cap_exceeded:
+              type: boolean
+
+    ApiKeyInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        key_id:
+          type: string
+        key_prefix:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+        total_requests:
+          type: integer
+        success_rate:
+          type: number
+        rate_limits:
+          type: object
+        budget_caps:
+          type: object
+
+    KeyRotateResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        old_key_prefix:
+          type: string
+        new_api_key:
+          type: string
+          description: The new API key (only shown once)
+        rotated_at:
+          type: string
+          format: date-time
+        warning:
+          type: string
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        environment:
+          type: string
+        database:
+          type: string
+        circuit_breakers:
+          type: object
+
+    ProviderStatus:
+      type: object
+      properties:
+        providers:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              configured:
+                type: boolean
+              model:
+                type: string
+              circuit_breaker:
+                type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Invalid API key"
+            code: "UNAUTHORIZED"
+
+    RateLimitExceeded:
+      description: Rate limit or budget cap exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Rate limit exceeded"
+            code: "RATE_LIMIT_EXCEEDED"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+

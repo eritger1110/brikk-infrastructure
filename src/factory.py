@@ -5,11 +5,14 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from src.database import db
 
-# Observability imports
-from src.services.metrics import init_metrics
-from src.services.request_context import init_request_context
-from src.services.structured_logging import init_logging
-from src.services.size_limit_middleware import SizeLimitMiddleware
+    # Observability imports
+    from src.services.metrics import init_metrics
+    from src.services.request_context import init_request_context
+    from src.services.structured_logging import init_logging
+    from src.services.size_limit_middleware import SizeLimitMiddleware
+    
+    # Security imports
+    from src.middleware.security_middleware import init_security_middleware
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_ROUTES = os.getenv("BRIKK_ENABLE_DEV_ROUTES", "").lower() in ("1", "true", "yes")
@@ -175,6 +178,9 @@ def create_app() -> Flask:
     init_request_context(app)
     init_metrics(app)
     
+    # --- Initialize security middleware (Phase 10-12) ---
+    init_security_middleware(app)
+    
     # --- Initialize size limit middleware (PR-L) ---
     size_limit = SizeLimitMiddleware()
     size_limit.init_app(app)
@@ -292,6 +298,23 @@ def create_app() -> Flask:
             """Serve the multi-provider playground page"""
             static_dir = os.path.join(app.root_path, 'static')
             return send_from_directory(static_dir, 'multi-provider.html')
+        
+        @app.route('/docs')
+        def api_docs():
+            """Serve the Swagger UI documentation page"""
+            static_dir = os.path.join(app.root_path, 'static')
+            return send_from_directory(static_dir, 'swagger.html')
+        
+        @app.route('/openapi.json')
+        def openapi_spec():
+            """Serve the OpenAPI specification"""
+            import yaml
+            from flask import jsonify
+            base_dir = os.path.dirname(os.path.dirname(app.root_path))
+            spec_path = os.path.join(base_dir, 'openapi.yaml')
+            with open(spec_path, 'r') as f:
+                spec = yaml.safe_load(f)
+            return jsonify(spec)
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
