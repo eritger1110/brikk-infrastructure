@@ -266,6 +266,12 @@ def create_app() -> Flask:
         from src.routes import multi_provider
         app.register_blueprint(multi_provider.bp)
         
+        # Phase 10-12: Production-Ready (Usage, Keys, Health V2)
+        from src.routes import usage_v2, keys, health_v2
+        app.register_blueprint(usage_v2.usage_v2_bp)
+        app.register_blueprint(keys.keys_bp)
+        app.register_blueprint(health_v2.health_v2_bp)
+        
         # Static files for developer dashboards
         # IMPORTANT: serve from src/static (where your PR added files)
         from flask import send_from_directory
