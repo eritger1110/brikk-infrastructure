@@ -310,11 +310,17 @@ def create_app() -> Flask:
             """Serve the OpenAPI specification"""
             import yaml
             from flask import jsonify
-            base_dir = os.path.dirname(os.path.dirname(app.root_path))
-            spec_path = os.path.join(base_dir, 'openapi.yaml')
-            with open(spec_path, 'r') as f:
-                spec = yaml.safe_load(f)
-            return jsonify(spec)
+            # Find openapi.yaml in project root
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            spec_path = os.path.join(project_root, 'openapi.yaml')
+            try:
+                with open(spec_path, 'r') as f:
+                    spec = yaml.safe_load(f)
+                return jsonify(spec)
+            except FileNotFoundError:
+                app.logger.error(f"OpenAPI spec not found at {spec_path}")
+                return jsonify({"error": "OpenAPI specification not found"}), 404
 
         # Dev routes (not in prod)
         if ENABLE_DEV_ROUTES:
