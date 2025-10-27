@@ -5,14 +5,14 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from src.database import db
 
-    # Observability imports
-    from src.services.metrics import init_metrics
-    from src.services.request_context import init_request_context
-    from src.services.structured_logging import init_logging
-    from src.services.size_limit_middleware import SizeLimitMiddleware
-    
-    # Security imports
-    from src.middleware.security_middleware import init_security_middleware
+# Observability imports
+from src.services.metrics import init_metrics
+from src.services.request_context import init_request_context
+from src.services.structured_logging import init_logging
+from src.services.size_limit_middleware import SizeLimitMiddleware
+
+# Security imports
+from src.middleware.security_middleware import init_security_middleware
 
 ENABLE_SECURITY_ROUTES = os.getenv("ENABLE_SECURITY_ROUTES") == "1"
 ENABLE_DEV_ROUTES = os.getenv("BRIKK_ENABLE_DEV_ROUTES", "").lower() in ("1", "true", "yes")
