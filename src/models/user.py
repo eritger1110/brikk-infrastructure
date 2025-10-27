@@ -32,6 +32,9 @@ class User(db.Model):
 
     # Optional: organization/tenant id
     org_id = db.Column(db.String(64), nullable=True, index=True)
+    
+    # Relationships
+    api_keys = db.relationship('ApiKey', back_populates='user', lazy='dynamic')
 
     created_at = db.Column(
         db.DateTime,

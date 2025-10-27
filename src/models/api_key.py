@@ -37,9 +37,17 @@ class ApiKey(db.Model):
     organization_id = Column(
         Integer,
         ForeignKey("organizations.id"),
-        nullable=False,
+        nullable=True,
         index=True)
     organization = relationship("Organization", back_populates="api_keys")
+    
+    # User ownership (for individual subscriptions)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True)
+    user = relationship("User", back_populates="api_keys")
 
     agent_id = Column(
         String(36),
@@ -79,6 +87,10 @@ class ApiKey(db.Model):
     # Budget caps (Phase 10-12)
     soft_cap_usd = Column(Numeric(10, 4), default=5.00)
     hard_cap_usd = Column(Numeric(10, 4), default=10.00)
+    
+    # Stripe integration (Phase 10-12)
+    stripe_subscription_id = Column(String(64), nullable=True, index=True)
+    tier = Column(String(32), default='free', nullable=False)  # free, starter, pro, hacker
 
     # Relationships
     usage_events = relationship("UsageEvent", back_populates="api_key", cascade="all, delete-orphan")
