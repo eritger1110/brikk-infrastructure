@@ -7,9 +7,10 @@ Handles Stripe webhook events for subscription lifecycle management.
 import os
 import stripe
 from flask import Blueprint, request, jsonify, current_app
-from src.models.api_key import APIKey, db
+from src.models.api_key import ApiKey
+from src.infra.db import db
 from src.models.user import User
-from src.services.api_key_service import APIKeyService
+from src.services.api_key_service import ApiKeyService
 
 stripe_webhooks_bp = Blueprint('stripe_webhooks', __name__)
 
@@ -110,9 +111,9 @@ def handle_subscription_created(subscription):
         db.session.commit()
     
     # Create API key if user doesn't have one
-    existing_key = APIKey.query.filter_by(user_id=user.id, is_active=True).first()
+    existing_key = ApiKey.query.filter_by(user_id=user.id, is_active=True).first()
     if not existing_key:
-        api_key_service = APIKeyService()
+        api_key_service = ApiKeyService()
         result = api_key_service.create_key(
             user_id=user.id,
             name=f"{tier.capitalize()} API Key",
@@ -144,7 +145,7 @@ def handle_subscription_updated(subscription):
     tier = get_tier_from_subscription(subscription)
     
     # Find API key by subscription ID
-    api_key = APIKey.query.filter_by(stripe_subscription_id=subscription_id).first()
+    api_key = ApiKey.query.filter_by(stripe_subscription_id=subscription_id).first()
     if not api_key:
         current_app.logger.warning(f"No API key found for subscription {subscription_id}")
         return
@@ -170,7 +171,7 @@ def handle_subscription_deleted(subscription):
     subscription_id = subscription['id']
     
     # Find and deactivate API key
-    api_key = APIKey.query.filter_by(stripe_subscription_id=subscription_id).first()
+    api_key = ApiKey.query.filter_by(stripe_subscription_id=subscription_id).first()
     if api_key:
         api_key.is_active = False
         db.session.commit()
@@ -190,7 +191,7 @@ def handle_payment_succeeded(invoice):
         return
     
     # Find API key
-    api_key = APIKey.query.filter_by(stripe_subscription_id=subscription_id).first()
+    api_key = ApiKey.query.filter_by(stripe_subscription_id=subscription_id).first()
     if api_key:
         # Reset monthly usage counters
         api_key.requests_this_month = 0
@@ -210,7 +211,7 @@ def handle_payment_failed(invoice):
         return
     
     # Find API key
-    api_key = APIKey.query.filter_by(stripe_subscription_id=subscription_id).first()
+    api_key = ApiKey.query.filter_by(stripe_subscription_id=subscription_id).first()
     if api_key:
         # Apply soft limit (don't deactivate yet, give them a grace period)
         current_app.logger.warning(f"Payment failed for subscription {subscription_id}")
