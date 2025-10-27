@@ -18,12 +18,31 @@ def _json():
     return (request.get_json(silent=True) or {}) if request.data else {}
 
 
+@checkout_bp.route("/checkout/test", methods=["GET", "POST", "OPTIONS"])
+def test_endpoint():
+    """Simple test endpoint to verify blueprint is loaded."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    
+    return jsonify({
+        "status": "success",
+        "message": "Checkout blueprint is loaded!",
+        "method": request.method,
+        "stripe_available": HAVE_STRIPE
+    }), 200
+
+
 @checkout_bp.route("/checkout/create-session", methods=["POST", "OPTIONS"])
 def create_checkout_session():
     """Creates a Stripe Checkout session for subscription signup."""
+    current_app.logger.info(f"[checkout] Received {request.method} request to create-session")
+    
     if request.method == "OPTIONS":
+        current_app.logger.info("[checkout] Handling OPTIONS request")
         return ("", 204)
 
+    current_app.logger.info("[checkout] Handling POST request")
+    
     if not HAVE_STRIPE:
         return jsonify({"error": "Stripe SDK not available on server"}), 501
 
@@ -60,7 +79,7 @@ def create_checkout_session():
         msg = getattr(e, "user_message", None) or str(e)
         current_app.logger.error(f"Stripe error: {msg}")
         return jsonify({"error": f"Stripe error: {msg}"}), 502
-    except Exception:
+    except Exception as e:
         current_app.logger.exception("Unexpected error creating checkout session")
-        return jsonify({"error": "Unexpected server error"}), 500
+        return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
