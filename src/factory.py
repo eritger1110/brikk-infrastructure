@@ -188,8 +188,15 @@ def create_app() -> Flask:
     @app.after_request
     def add_cors_headers(response):
         """Add CORS headers to all responses for preflight support"""
-        origin = os.environ.get("CORS_ALLOW_ORIGIN", "*")
-        response.headers["Access-Control-Allow-Origin"] = origin
+        from flask import request
+        # Get the requesting origin
+        request_origin = request.headers.get('Origin')
+        # Check if it's in our allowed list
+        if request_origin and request_origin in cors_origins:
+            response.headers["Access-Control-Allow-Origin"] = request_origin
+        else:
+            # Fallback to wildcard if no specific origin or not in list
+            response.headers["Access-Control-Allow-Origin"] = "*"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization,X-Brikk-API-Key"
         response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
         return response
