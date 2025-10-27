@@ -24,3 +24,4 @@ from .reviews import AgentReview, ReviewVote, AgentRatingSummary
 
 # Beta Program
 from .beta_application import BetaApplication
+from .usage_event import UsageEvent
