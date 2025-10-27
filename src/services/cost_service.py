@@ -121,7 +121,7 @@ def estimate_max_cost(provider: str, model: str, prompt_length: int, max_tokens:
     Returns:
         Estimated maximum cost in USD
     """
-    # Rough estimation: 1 token ≈ 4 characters
+    # Rough estimation: 1 token ~ 4 characters
     estimated_prompt_tokens = prompt_length // 4
     
     return calc_cost(provider, model, estimated_prompt_tokens, max_tokens)
