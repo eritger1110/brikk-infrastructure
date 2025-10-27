@@ -152,7 +152,28 @@ def create_app() -> Flask:
         r"/api/*": {
             "origins": cors_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Brikk-API-Key"],
+            "supports_credentials": False,
+            "max_age": 600,
+        },
+        r"/agents/*": {
+            "origins": cors_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Brikk-API-Key"],
+            "supports_credentials": False,
+            "max_age": 600,
+        },
+        r"/v2/*": {
+            "origins": cors_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Brikk-API-Key"],
+            "supports_credentials": False,
+            "max_age": 600,
+        },
+        r"/keys/*": {
+            "origins": cors_origins,
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Brikk-API-Key"],
             "supports_credentials": False,
             "max_age": 600,
         }}
@@ -169,7 +190,7 @@ def create_app() -> Flask:
         """Add CORS headers to all responses for preflight support"""
         origin = os.environ.get("CORS_ALLOW_ORIGIN", "*")
         response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization,X-Brikk-API-Key"
         response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
         return response
     
