@@ -299,9 +299,10 @@ def create_app() -> Flask:
         # Phase 9: Multi-Provider Orchestration
         from src.routes import multi_provider
         
-        # Phase 10-12: Stripe Webhooks
-        from src.routes import stripe_webhooks
+        # Phase 10-12: Stripe Webhooks & Checkout
+        from src.routes import stripe_webhooks, checkout
         app.register_blueprint(stripe_webhooks.stripe_webhooks_bp)
+        app.register_blueprint(checkout.checkout_bp)
         app.register_blueprint(multi_provider.bp)
         
         # Phase 10-12: Production-Ready (Usage, Keys, Health V2)
