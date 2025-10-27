@@ -10,7 +10,7 @@ from flask import Blueprint, request, jsonify, current_app
 from src.models.api_key import ApiKey
 from src.infra.db import db
 from src.models.user import User
-from src.services.api_key_service import ApiKeyService
+from src.services.api_key_service import APIKeyService
 
 stripe_webhooks_bp = Blueprint('stripe_webhooks', __name__)
 
@@ -113,7 +113,7 @@ def handle_subscription_created(subscription):
     # Create API key if user doesn't have one
     existing_key = ApiKey.query.filter_by(user_id=user.id, is_active=True).first()
     if not existing_key:
-        api_key_service = ApiKeyService()
+        api_key_service = APIKeyService()
         result = api_key_service.create_key(
             user_id=user.id,
             name=f"{tier.capitalize()} API Key",
