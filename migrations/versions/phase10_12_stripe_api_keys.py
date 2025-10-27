@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'phase10_12_stripe_api_keys'
-down_revision = 'p7_comprehensive'
+down_revision = 'beta_applications'
 branch_labels = None
 depends_on = None
 
