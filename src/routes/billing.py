@@ -144,3 +144,4 @@ def create_checkout_session():
         current_app.logger.exception("Unexpected error creating checkout session")
         return jsonify({"error": "Unexpected server error"}), 500
 
+# Force redeploy Mon Oct 27 14:22:19 EDT 2025
