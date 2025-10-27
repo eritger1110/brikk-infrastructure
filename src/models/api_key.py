@@ -9,7 +9,7 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Numeric
 from sqlalchemy.orm import relationship
 from cryptography.fernet import Fernet
 
@@ -75,6 +75,13 @@ class ApiKey(db.Model):
     # Basic per-key rate hints
     requests_per_minute = Column(Integer, default=100, nullable=False)
     requests_per_hour = Column(Integer, default=1000, nullable=False)
+
+    # Budget caps (Phase 10-12)
+    soft_cap_usd = Column(Numeric(10, 4), default=5.00)
+    hard_cap_usd = Column(Numeric(10, 4), default=10.00)
+
+    # Relationships
+    usage_events = relationship("UsageEvent", back_populates="api_key", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<ApiKey {self.key_prefix}*** ({self.name})>"
