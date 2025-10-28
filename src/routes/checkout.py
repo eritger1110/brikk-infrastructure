@@ -79,11 +79,13 @@ def create_checkout_session():
             "url": session.url
         }), 200
 
-    except stripe.error.StripeError as e:
-        msg = getattr(e, "user_message", None) or str(e)
-        current_app.logger.error(f"Stripe error: {msg}")
-        return jsonify({"error": f"Stripe error: {msg}"}), 502
     except Exception as e:
-        current_app.logger.exception("Unexpected error creating checkout session")
-        return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
+        # Handle both old (stripe.error.StripeError) and new (stripe.StripeError) SDK versions
+        if "stripe" in str(type(e)).lower():
+            msg = getattr(e, "user_message", None) or str(e)
+            current_app.logger.error(f"Stripe error: {msg}")
+            return jsonify({"error": f"Stripe error: {msg}"}), 502
+        else:
+            current_app.logger.exception("Unexpected error creating checkout session")
+            return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
