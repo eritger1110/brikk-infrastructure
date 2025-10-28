@@ -12,6 +12,9 @@ from src.infra.db import db
 from src.models.user import User
 from src.services.api_key_service import APIKeyService
 
+# Initialize Stripe API key
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
 stripe_webhooks_bp = Blueprint('stripe_webhooks', __name__)
 
 
