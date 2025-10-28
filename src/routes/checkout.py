@@ -73,7 +73,11 @@ def create_checkout_session():
         )
         
         current_app.logger.info(f"[checkout] Created checkout session: {session.id}")
-        return jsonify({"session_id": session.id}), 200
+        return jsonify({
+            "session_id": session.id,
+            "id": session.id,
+            "url": session.url
+        }), 200
 
     except stripe.error.StripeError as e:
         msg = getattr(e, "user_message", None) or str(e)
