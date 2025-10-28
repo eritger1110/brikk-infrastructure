@@ -10,7 +10,12 @@ health_bp = Blueprint('health', __name__)
 @health_bp.route('/health', methods=['GET', 'HEAD'])
 @health_bp.route('/healthz', methods=['GET', 'HEAD'])
 def healthz():
-    """Health check endpoint (available at both /health and /healthz)."""
+    """Health check endpoint (available at both /health and /healthz).
+    
+    Note: This endpoint is automatically exempt from rate limiting
+    because it doesn't require authentication and is needed for
+    infrastructure health checks (Render, load balancers, etc.).
+    """
     return jsonify({
         'status': 'healthy',
         'service': 'coordination-api',
@@ -31,3 +36,4 @@ def readyz():
             'redis': True
         }
     }), 200
+

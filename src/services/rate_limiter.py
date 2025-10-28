@@ -158,7 +158,9 @@ def init_rate_limiter(app):
         storage_options={"socket_connect_timeout": 2},
         strategy="fixed-window",
         headers_enabled=True,  # Add X-RateLimit-* headers
-        on_breach=rate_limit_exceeded_handler
+        on_breach=rate_limit_exceeded_handler,
+        # Exempt health check endpoints from rate limiting
+        default_limits_exempt_when=lambda: request.path in ['/health', '/healthz', '/readyz']
     )
     
     # Add rate limit headers to all responses
