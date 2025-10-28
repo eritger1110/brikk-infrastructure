@@ -4,6 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && pip install -r requirements.txt
+    preDeployCommand: ./run_migrations.sh
     startCommand: gunicorn --bind 0.0.0.0:$PORT src.main:app
     envVars:
       - key: FLASK_ENV
