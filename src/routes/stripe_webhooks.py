@@ -228,6 +228,9 @@ def get_tier_from_subscription(subscription):
     """
     Determine subscription tier from price ID.
     
+    Automatically detects test vs production mode based on STRIPE_SECRET_KEY.
+    Supports both _TEST and _PROD environment variable suffixes.
+    
     Returns: 'free', 'starter', 'pro', or 'hacker'
     """
     items = subscription.get('items', {}).get('data', [])
@@ -236,11 +239,18 @@ def get_tier_from_subscription(subscription):
     
     price_id = items[0]['price']['id']
     
-    # Map price IDs to tiers
-    price_free = os.getenv('PRICE_FREE', '')
-    price_starter = os.getenv('PRICE_STARTER', '')
-    price_pro = os.getenv('PRICE_PRO', '')
-    price_hacker = os.getenv('PRICE_HACKER', '')
+    # Auto-detect test vs production mode
+    stripe_key = os.getenv('STRIPE_SECRET_KEY', '')
+    is_test_mode = stripe_key.startswith('sk_test_')
+    suffix = '_TEST' if is_test_mode else '_PROD'
+    
+    current_app.logger.info(f"Stripe mode: {'TEST' if is_test_mode else 'PRODUCTION'}")
+    
+    # Map price IDs to tiers with automatic mode detection
+    price_free = os.getenv(f'PRICE_FREE{suffix}', os.getenv('PRICE_FREE', ''))
+    price_starter = os.getenv(f'PRICE_STARTER{suffix}', os.getenv('PRICE_STARTER', ''))
+    price_pro = os.getenv(f'PRICE_PRO{suffix}', os.getenv('PRICE_PRO', ''))
+    price_hacker = os.getenv(f'PRICE_HACKER{suffix}', os.getenv('PRICE_HACKER', ''))
     
     if price_id == price_free:
         return 'free'
@@ -251,6 +261,6 @@ def get_tier_from_subscription(subscription):
     elif price_id == price_hacker:
         return 'hacker'
     else:
-        current_app.logger.warning(f"Unknown price ID: {price_id}, defaulting to 'free'")
+        current_app.logger.warning(f"Unknown price ID: {price_id} (mode: {'TEST' if is_test_mode else 'PROD'}), defaulting to 'free'")
         return 'free'
 
