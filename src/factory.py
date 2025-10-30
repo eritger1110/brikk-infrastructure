@@ -288,6 +288,10 @@ def create_app() -> Flask:
         app.register_blueprint(magic_link.bp)
         app.register_blueprint(usage.bp)
         
+        # Rules Dashboard (Policy Management)
+        from src.routes import policies
+        app.register_blueprint(policies.policies_bp)
+        
         # Phase 8.5: OpenAI Relay Agent
         from src.agents import openai_relay
         app.register_blueprint(openai_relay.bp)
