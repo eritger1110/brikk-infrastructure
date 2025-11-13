@@ -33,6 +33,11 @@ class User(db.Model):
     # Optional: organization/tenant id
     org_id = db.Column(db.String(64), nullable=True, index=True)
     
+    # Auth0 integration
+    auth0_user_id = db.Column(db.String(128), unique=True, nullable=True, index=True)
+    name = db.Column(db.String(255), nullable=True)
+    picture = db.Column(db.String(512), nullable=True)
+    
     # Relationships
     api_keys = db.relationship('ApiKey', back_populates='user', lazy='dynamic')
 
@@ -81,6 +86,9 @@ class User(db.Model):
             "role": (
                 self.role or "member").lower(),
             "org_id": self.org_id,
+            "auth0_user_id": self.auth0_user_id,
+            "name": self.name,
+            "picture": self.picture,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

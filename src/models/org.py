@@ -39,6 +39,13 @@ class Organization(db.Model):
     # Billing and limits
     monthly_request_limit = Column(Integer, default=10000, nullable=False)
     current_month_requests = Column(Integer, default=0, nullable=False)
+    
+    # Stripe integration
+    stripe_customer_id = Column(String(255), unique=True, nullable=True, index=True)
+    stripe_subscription_id = Column(String(255), nullable=True, index=True)
+    plan_tier = Column(String(50), default='FREE', nullable=False)
+    subscription_status = Column(String(50), default='active', nullable=False)
+    current_period_end = Column(DateTime, nullable=True)
 
     # Relationships
     agents = relationship(

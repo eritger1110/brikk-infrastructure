@@ -240,13 +240,14 @@ def create_app() -> Flask:
             monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk,
             health, inbound, api_keys, auth_test, oauth,
             telemetry, docs, agent_registry, deprecations, trust,
-            marketplace, analytics, agent_discovery, reviews, usage_stats
+            marketplace, analytics, agent_discovery, reviews, usage_stats, dashboard
         )
         from src.routes import app as app_routes
         app.register_blueprint(auth.auth_bp, url_prefix="/api")
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
         app.register_blueprint(agents.agents_bp)
         app.register_blueprint(billing.billing_bp, url_prefix="/api")
+        app.register_blueprint(dashboard.dashboard_bp)  # Dashboard API for Auth0 integration
         app.register_blueprint(coordination.coordination_bp)
         app.register_blueprint(auth_admin.auth_admin_bp)
         app.register_blueprint(workflows.workflows_bp)
