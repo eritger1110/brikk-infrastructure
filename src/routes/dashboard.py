@@ -2,6 +2,8 @@
 """
 Dashboard API endpoints for Brikk dashboard frontend
 Handles Auth0 authentication, user management, subscriptions, and API keys
+
+Last updated: 2025-11-14
 """
 from __future__ import annotations
 
