@@ -565,3 +565,18 @@ def get_current_usage():
         "current_period_start": datetime.utcnow().replace(day=1).isoformat(),
         "current_period_end": datetime.utcnow().replace(day=28).isoformat()
     }), 200
+
+
+# ============================================================================
+# Health Check Endpoint (for testing blueprint registration)
+# ============================================================================
+
+@dashboard_bp.route("/dashboard/health", methods=["GET"])
+def dashboard_health():
+    """Simple health check to verify dashboard blueprint is registered"""
+    return jsonify({
+        "status": "ok",
+        "message": "Dashboard API is running",
+        "blueprint": "dashboard",
+        "url_prefix": "/api"
+    }), 200
