@@ -240,7 +240,8 @@ def create_app() -> Flask:
             monitoring, alerting, webhooks, discovery, reputation, connectors_zendesk,
             health, inbound, api_keys, auth_test, oauth,
             telemetry, docs, agent_registry, deprecations, trust,
-            marketplace, analytics, agent_discovery, reviews, usage_stats
+            marketplace, analytics, agent_discovery, reviews, usage_stats,
+            org_management, billing_enhanced, audit_logs
         )
         
         # Import dashboard separately with error handling
@@ -255,6 +256,9 @@ def create_app() -> Flask:
         app.register_blueprint(app_routes.app_bp, url_prefix="/api")
         app.register_blueprint(agents.agents_bp)
         app.register_blueprint(billing.billing_bp, url_prefix="/api")
+        app.register_blueprint(org_management.org_mgmt_bp)
+        app.register_blueprint(billing_enhanced.billing_enhanced_bp)
+        app.register_blueprint(audit_logs.audit_logs_bp)
         
         # Register dashboard blueprint with error handling
         if dashboard:
