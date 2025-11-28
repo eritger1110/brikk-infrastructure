@@ -144,7 +144,7 @@ def create_app() -> Flask:
     # Environment-driven CORS configuration
     cors_origins_str = os.environ.get(
         "CORS_ALLOWED_ORIGINS",
-        "https://beta.getbrikk.com,https://api.getbrikk.com,https://brikk-website.netlify.app,https://www.getbrikk.com,https://getbrikk.com,http://localhost:3000"
+        "https://beta.getbrikk.com,https://api.getbrikk.com,https://brikk-website.netlify.app,https://www.getbrikk.com,https://getbrikk.com,http://localhost:3000,https://brikkdashboardfe.netlify.app"
     )
     cors_origins = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
     
